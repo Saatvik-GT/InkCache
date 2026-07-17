@@ -187,7 +187,8 @@ export function KVConsole({
           }}
           spellCheck={false}
           autoComplete="off"
-          className="w-full bg-transparent text-phos-bright caret-phos-bright outline-none placeholder:text-phos-dim"
+          disabled={busy}
+          className="w-full bg-transparent text-phos-bright caret-phos-bright outline-none placeholder:text-phos-dim disabled:opacity-50"
           placeholder="set user:1 saatvik 300"
         />
       </form>
