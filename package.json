@@ -1,0 +1,14 @@
+{
+  "name": "inkcache",
+  "version": "0.1.0",
+  "description": "InkCache — intelligent distributed caching system (CUSoC 2026)",
+  "private": true,
+  "type": "module",
+  "scripts": {},
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
