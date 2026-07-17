@@ -2,6 +2,7 @@
 
 > An adaptive, distributed key-value caching layer that goes beyond static eviction policies by learning access patterns to optimize hit rates, reduce latency, and scale horizontally across nodes.
 
+[![CI](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml/badge.svg)](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 [![Program](https://img.shields.io/badge/CUSoC-2026-orange)]()
@@ -47,9 +48,9 @@ InkCache addresses this by combining:
 **Implemented and working today (single-node demo):**
 
 - In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, LRU eviction (expired entries reclaimed before live ones)
-- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/metrics`, `/health`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput
-- CRT-terminal dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`), live metrics readout polling every second, color-coded hit/miss/evict op stream, node online/offline indicator, synthetic traffic simulator (fires real requests), boot sequence
-- Unit tests for the core cache logic (`npm test`)
+- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
+- CRT-terminal dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`), live metrics readout polling every second, live KEYS panel, color-coded hit/miss/evict op stream, node online/offline indicator, synthetic traffic simulator (fires real requests), boot sequence, `prefers-reduced-motion` support
+- Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 
 **Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, the adaptive intelligence layer, LFU policy, and the benchmarking suite. Nothing in the dashboard is mocked — every number comes from the running node.
 
@@ -102,7 +103,7 @@ InkCache addresses this by combining:
 | Consistent Hashing  | Custom implementation                |
 | Adaptive Layer      | Python microservice (pattern modeling)|
 | Metrics Dashboard   | React + Vite + Tailwind (CRT terminal UI) |
-| Testing             | Jest, Supertest                      |
+| Testing             | node:test, Supertest                 |
 | Benchmarking        | autocannon / custom load-test scripts|
 | Deployment          | Docker, Docker Compose               |
 
@@ -179,15 +180,18 @@ curl -X DELETE http://localhost:8080/delete/user:1
 | POST   | `/set`           | Store a key-value pair with optional TTL |
 | GET    | `/get/:key`      | Retrieve a value by key        |
 | DELETE | `/delete/:key`   | Remove a key from the cache    |
+| GET    | `/keys`          | List active (non-expired) keys |
+| POST   | `/flush`         | Clear the entire store (dev/demo) |
 | GET    | `/metrics`       | Retrieve node/cluster metrics  |
 | GET    | `/health`        | Node health check              |
+| GET    | `/version`       | Package name + version         |
 
 > Full API documentation available in [`docs/api.md`](docs/api.md).
 
 ## Testing
 
 ```bash
-# Run unit tests (core cache logic: get/set/delete, TTL, LRU)
+# Run unit + API tests (core cache logic + REST routes via supertest)
 npm test
 ```
 
@@ -198,17 +202,21 @@ Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
 ```
 InkCache/
 ├── readme.md
-├── package.json         # node scripts: dev, dev:node, test
+├── LICENSE
+├── CONTRIBUTING.md
+├── package.json          # node scripts: dev, dev:node, test, format
+├── .github/workflows/    # CI: typecheck, test, dashboard build
 ├── src/
-│   ├── core/            # Cache engine: CacheStore (TTL + LRU), MetricsCollector
-│   ├── network/         # Express REST layer (/set /get /delete /metrics /health)
-│   └── dashboard/       # React + Vite + Tailwind CRT terminal monitor
-├── tests/               # node:test suite for the cache core
-└── docs/                # (planned) architecture, api, testing report
+│   ├── core/             # Cache engine: CacheStore (TTL + LRU), MetricsCollector
+│   ├── network/          # app.ts (Express app) + server.ts (listen/shutdown)
+│   └── dashboard/        # React + Vite + Tailwind CRT terminal monitor
+├── tests/                # node:test + supertest: core cache logic + REST routes
+└── docs/
+    └── api.md            # full endpoint reference
 ```
 
-Planned additions per roadmap: `src/intelligence/` (adaptive layer),
-benchmarking scripts, and the docs set referenced below.
+Planned additions per roadmap: `src/intelligence/` (adaptive layer) and
+benchmarking scripts.
 
 ## Documentation
 
