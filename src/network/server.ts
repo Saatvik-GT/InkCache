@@ -5,17 +5,30 @@
  *   POST   /set          { key, value, ttl? }
  *   GET    /get/:key
  *   DELETE /delete/:key
+ *   GET    /metrics
+ *   GET    /health
  */
 
 import express from "express";
 import cors from "cors";
 import { CacheStore } from "../core/cache.js";
+import { MetricsCollector } from "../core/metrics.js";
 
 const PORT = Number(process.env.INKCACHE_PORT ?? 8080);
 const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
+const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 
+export const metrics = new MetricsCollector();
 export const store = new CacheStore({ maxEntries: MAX_ENTRIES });
 store.startSweeper();
+
+/** Run a cache op and record its core-level latency in microseconds. */
+function timed<T>(fn: () => T): { result: T; latencyUs: number } {
+  const start = process.hrtime.bigint();
+  const result = fn();
+  const latencyUs = Number(process.hrtime.bigint() - start) / 1000;
+  return { result, latencyUs };
+}
 
 const app = express();
 app.use(cors());
@@ -32,13 +45,15 @@ app.post("/set", (req, res) => {
   if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
     return res.status(400).json({ error: "ttl must be a positive number of seconds" });
   }
-  store.set(key, value, { ttl });
+  const { latencyUs } = timed(() => store.set(key, value, { ttl }));
+  metrics.record("set", latencyUs);
   return res.json({ ok: true, key, ttl: ttl ?? null });
 });
 
 app.get("/get/:key", (req, res) => {
   const key = req.params.key;
-  const value = store.get(key);
+  const { result: value, latencyUs } = timed(() => store.get(key));
+  metrics.record("get", latencyUs, value !== undefined);
   if (value === undefined) {
     return res.status(404).json({ error: "miss", key });
   }
@@ -47,8 +62,29 @@ app.get("/get/:key", (req, res) => {
 
 app.delete("/delete/:key", (req, res) => {
   const key = req.params.key;
-  const deleted = store.delete(key);
+  const { result: deleted, latencyUs } = timed(() => store.delete(key));
+  metrics.record("delete", latencyUs);
   return res.json({ ok: true, key, deleted });
+});
+
+app.get("/metrics", (_req, res) => {
+  res.json({
+    node: NODE_ID,
+    keys: store.size,
+    maxEntries: MAX_ENTRIES,
+    evictions: store.evictions,
+    ...metrics.snapshot(),
+  });
+});
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    node: NODE_ID,
+    uptimeSec: metrics.uptimeSec,
+    keys: store.size,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.listen(PORT, () => {
