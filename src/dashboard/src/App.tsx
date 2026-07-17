@@ -1,4 +1,5 @@
 import { CRTScreen } from "./components/CRTScreen";
+import { KVConsole } from "./components/KVConsole";
 import { Panel } from "./components/Panel";
 
 function App() {
@@ -14,10 +15,10 @@ function App() {
           </span>
         </header>
 
+        <KVConsole />
+
         <Panel title="SYS" right="stand by">
-          <p className="text-phos-mid">
-            awaiting subsystems — kv console, metrics, log stream
-          </p>
+          <p className="text-phos-mid">awaiting subsystems — metrics, log stream</p>
         </Panel>
       </div>
     </CRTScreen>
