@@ -61,12 +61,14 @@ app.use((_req, res, next) => {
 app.use(express.json({ limit: "64kb" }));
 // Malformed JSON bodies throw inside express.json(); without this handler
 // Express falls through to its default HTML error page.
-app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (err instanceof SyntaxError && "body" in err) {
-    return res.status(400).json({ error: "malformed JSON body" });
-  }
-  next(err);
-});
+app.use(
+  (err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof SyntaxError && "body" in err) {
+      return res.status(400).json({ error: "malformed JSON body" });
+    }
+    next(err);
+  },
+);
 
 app.post("/set", (req, res) => {
   const { key, value, ttl } = req.body ?? {};

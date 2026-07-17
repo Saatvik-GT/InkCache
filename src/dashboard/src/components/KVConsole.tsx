@@ -111,7 +111,10 @@ export function KVConsole({
           const [key] = args;
           if (!key) return print("usage: del <key>", "err");
           const res = await deleteKey(key);
-          print(res.deleted ? `OK  deleted "${key}"` : `NOOP "${key}" not present`, res.deleted ? "ok" : "plain");
+          print(
+            res.deleted ? `OK  deleted "${key}"` : `NOOP "${key}" not present`,
+            res.deleted ? "ok" : "plain",
+          );
           if (res.deleted) logEvent("del", key);
           onOp?.({ op: "del", key, outcome: res.deleted ? "deleted" : "absent" });
           break;

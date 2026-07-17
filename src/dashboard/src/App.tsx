@@ -62,7 +62,10 @@ function App() {
               onClick={() => {
                 flush()
                   .then((res) => {
-                    logEvent("del", `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`);
+                    logEvent(
+                      "del",
+                      `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+                    );
                     refreshNow();
                   })
                   .catch(() => logEvent("err", "flush failed"));
@@ -104,7 +107,9 @@ function App() {
           )}
         </div>
 
-        <KeysPanel refreshToken={metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0} />
+        <KeysPanel
+          refreshToken={metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0}
+        />
 
         <LogStream />
       </div>

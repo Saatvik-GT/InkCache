@@ -60,10 +60,11 @@ export class MetricsCollector {
   } {
     const reads = this.hits + this.misses;
     const sorted = [...this.latenciesUs].sort((a, b) => a - b);
-    const avg =
-      sorted.length > 0 ? sorted.reduce((s, v) => s + v, 0) / sorted.length : null;
+    const avg = sorted.length > 0 ? sorted.reduce((s, v) => s + v, 0) / sorted.length : null;
     const p95 =
-      sorted.length > 0 ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]! : null;
+      sorted.length > 0
+        ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]!
+        : null;
 
     const now = Date.now();
     const recent = this.opTimestamps.filter((t) => t >= now - THROUGHPUT_WINDOW_MS);
