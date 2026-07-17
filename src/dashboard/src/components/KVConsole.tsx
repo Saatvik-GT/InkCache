@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteKey, getKey, setKey } from "../lib/api";
+import { deleteKey, flush, getKey, setKey } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { Panel } from "./Panel";
 
@@ -22,6 +22,7 @@ const HELP: string[] = [
   "set <key> <value> [ttlSec]   store a value (quote values with spaces)",
   "get <key>                    read a value",
   "del <key>                    remove a key",
+  "flush                        clear every key in the store",
   "clear                        clear this console",
 ];
 
@@ -35,7 +36,7 @@ export function KVConsole({
   onOp,
 }: {
   /** Fired after every completed cache operation so siblings can refresh/log. */
-  onOp?: (event: { op: "set" | "get" | "del"; key: string; outcome: string }) => void;
+  onOp?: (event: { op: "set" | "get" | "del" | "flush"; key: string; outcome: string }) => void;
 }) {
   const [lines, setLines] = useState<Line[]>([
     { text: "inkcache kv console — type `help` or press / to focus", tone: "plain" },
@@ -104,6 +105,19 @@ export function KVConsole({
             logEvent("miss", key);
             onOp?.({ op: "get", key, outcome: "miss" });
           }
+          break;
+        }
+        case "flush": {
+          const res = await flush();
+          print(
+            `OK  flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+            "ok",
+          );
+          logEvent(
+            "del",
+            `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+          );
+          onOp?.({ op: "flush", key: "*", outcome: "flushed" });
           break;
         }
         case "del":
