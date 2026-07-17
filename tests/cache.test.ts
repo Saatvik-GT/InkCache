@@ -105,3 +105,36 @@ describe("LRU eviction", () => {
     mock.timers.reset();
   });
 });
+
+describe("has() and keys()", () => {
+  it("has() reports false for an expired key without throwing", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore();
+    store.set("a", "1", { ttl: 5 });
+    assert.equal(store.has("a"), true);
+    mock.timers.tick(5_001);
+    assert.equal(store.has("a"), false);
+    mock.timers.reset();
+  });
+
+  it("keys() excludes expired entries even before a sweep runs", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore();
+    store.set("live", "y");
+    store.set("dead", "x", { ttl: 1 });
+    mock.timers.tick(1_001);
+    assert.deepEqual(store.keys(), ["live"]);
+    mock.timers.reset();
+  });
+});
+
+describe("clear()", () => {
+  it("empties the store and resets size to zero", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    store.set("b", "2");
+    store.clear();
+    assert.equal(store.size, 0);
+    assert.equal(store.get("a"), undefined);
+  });
+});
