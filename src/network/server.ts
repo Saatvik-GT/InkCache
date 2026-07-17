@@ -11,10 +11,14 @@
  *   POST   /flush
  */
 
+import { createRequire } from "node:module";
 import express from "express";
 import cors from "cors";
 import { CacheStore } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json") as { version: string };
 
 const PORT = Number(process.env.INKCACHE_PORT ?? 8080);
 const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
@@ -98,6 +102,10 @@ app.get("/metrics", (_req, res) => {
     evictions: store.evictions,
     ...metrics.snapshot(),
   });
+});
+
+app.get("/version", (_req, res) => {
+  res.json({ name: "inkcache", version: pkg.version, node: NODE_ID });
 });
 
 app.get("/health", (_req, res) => {
