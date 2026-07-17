@@ -138,6 +138,14 @@ app.use((req, res) => {
   res.status(404).json({ error: "not found", path: req.path });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[inkcache] node listening on http://localhost:${PORT} (maxEntries=${MAX_ENTRIES})`);
 });
+
+function shutdown(signal: string): void {
+  console.log(`[inkcache] received ${signal}, shutting down`);
+  store.stopSweeper();
+  server.close(() => process.exit(0));
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
