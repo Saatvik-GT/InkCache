@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchMetrics, type NodeMetrics } from "./lib/api";
 import { CRTScreen } from "./components/CRTScreen";
 import { KVConsole } from "./components/KVConsole";
+import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
 
@@ -36,6 +37,8 @@ function App() {
             </Panel>
           )}
         </div>
+
+        <LogStream />
       </div>
     </CRTScreen>
   );

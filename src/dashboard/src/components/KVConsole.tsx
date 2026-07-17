@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteKey, getKey, setKey } from "../lib/api";
+import { logEvent } from "../lib/log";
 import { Panel } from "./Panel";
 
 type Tone = "plain" | "ok" | "hit" | "miss" | "err";
@@ -84,6 +85,7 @@ export function KVConsole({
             return print("ttl must be a positive number of seconds", "err");
           await setKey(key, value, ttl);
           print(`OK  stored "${key}"${ttl ? ` (ttl ${ttl}s)` : ""}`, "ok");
+          logEvent("set", `${key}${ttl ? ` ttl=${ttl}s` : ""}`);
           onOp?.({ op: "set", key, outcome: "stored" });
           break;
         }
@@ -94,9 +96,11 @@ export function KVConsole({
           if (res.hit) {
             const ttlNote = res.ttl != null ? `  (ttl ${res.ttl.toFixed(1)}s)` : "";
             print(`HIT  "${key}" = ${JSON.stringify(res.value)}${ttlNote}`, "hit");
+            logEvent("hit", key);
             onOp?.({ op: "get", key, outcome: "hit" });
           } else {
             print(`MISS "${key}"`, "miss");
+            logEvent("miss", key);
             onOp?.({ op: "get", key, outcome: "miss" });
           }
           break;
@@ -107,6 +111,7 @@ export function KVConsole({
           if (!key) return print("usage: del <key>", "err");
           const res = await deleteKey(key);
           print(res.deleted ? `OK  deleted "${key}"` : `NOOP "${key}" not present`, res.deleted ? "ok" : "plain");
+          if (res.deleted) logEvent("del", key);
           onOp?.({ op: "del", key, outcome: res.deleted ? "deleted" : "absent" });
           break;
         }
@@ -114,7 +119,9 @@ export function KVConsole({
           print(`unknown command: ${cmd} — try \`help\``, "err");
       }
     } catch (err) {
-      print(`ERR  ${err instanceof Error ? err.message : String(err)}`, "err");
+      const msg = err instanceof Error ? err.message : String(err);
+      print(`ERR  ${msg}`, "err");
+      logEvent("err", msg);
     }
   }
 
