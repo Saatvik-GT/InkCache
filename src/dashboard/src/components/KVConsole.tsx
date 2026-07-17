@@ -183,6 +183,9 @@ export function KVConsole({
                 setHistIdx(idx);
                 setInput(history[idx] ?? "");
               }
+            } else if (e.key === "Escape") {
+              setInput("");
+              setHistIdx(-1);
             }
           }}
           spellCheck={false}
