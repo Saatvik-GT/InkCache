@@ -4,11 +4,20 @@
   "description": "InkCache — intelligent distributed caching system (CUSoC 2026)",
   "private": true,
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "dev:node": "tsx watch src/network/server.ts",
+    "start:node": "tsx src/network/server.ts"
+  },
   "license": "MIT",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^24.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   }
 }
