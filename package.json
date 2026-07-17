@@ -4,6 +4,13 @@
   "description": "InkCache — intelligent distributed caching system (CUSoC 2026)",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saatvik-GT/InkCache.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev:node": "tsx watch src/network/server.ts",
     "start:node": "tsx src/network/server.ts",
