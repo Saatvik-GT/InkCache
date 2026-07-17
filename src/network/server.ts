@@ -7,6 +7,7 @@
  *   DELETE /delete/:key
  *   GET    /metrics
  *   GET    /health
+ *   GET    /keys
  */
 
 import express from "express";
@@ -76,6 +77,10 @@ app.delete("/delete/:key", (req, res) => {
   const { result: deleted, latencyUs } = timed(() => store.delete(key));
   metrics.record("delete", latencyUs);
   return res.json({ ok: true, key, deleted });
+});
+
+app.get("/keys", (_req, res) => {
+  res.json({ keys: store.keys(), count: store.size });
 });
 
 app.get("/metrics", (_req, res) => {
