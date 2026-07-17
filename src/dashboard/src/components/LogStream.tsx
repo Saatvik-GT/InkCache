@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useLogEvents, type LogKind } from "../lib/log";
+import { clearLog, useLogEvents, type LogKind } from "../lib/log";
 import { Panel } from "./Panel";
 
 /**
@@ -29,7 +29,19 @@ export function LogStream() {
   }, [events]);
 
   return (
-    <Panel title="OP STREAM" right={`${events.length} events`}>
+    <Panel
+      title="OP STREAM"
+      right={
+        <button
+          type="button"
+          onClick={clearLog}
+          className="cursor-pointer text-phos-mid hover:text-phos hover:glow"
+          title="clear this log"
+        >
+          {events.length} events · clear
+        </button>
+      }
+    >
       <div ref={scrollRef} className="h-44 overflow-y-auto leading-5">
         {events.length === 0 ? (
           <p className="text-phos-dim">-- no operations yet; try the kv console --</p>

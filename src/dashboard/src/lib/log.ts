@@ -26,6 +26,11 @@ export function logEvent(kind: LogKind, text: string): void {
   listeners.forEach((fn) => fn());
 }
 
+export function clearLog(): void {
+  events = [];
+  listeners.forEach((fn) => fn());
+}
+
 export function useLogEvents(): LogEvent[] {
   return useSyncExternalStore(
     (fn) => {
