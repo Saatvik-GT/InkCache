@@ -81,7 +81,13 @@ export class CacheStore {
   /** Remaining TTL in seconds, or undefined if the key has no expiry / is gone. */
   ttl(key: string): number | undefined {
     const entry = this.entries.get(key);
-    if (!entry || this.isExpired(entry) || entry.expiresAt === undefined) return undefined;
+    if (!entry) return undefined;
+    if (this.isExpired(entry)) {
+      // Match get()/has(): a read past the deadline cleans up eagerly.
+      this.entries.delete(key);
+      return undefined;
+    }
+    if (entry.expiresAt === undefined) return undefined;
     return Math.max(0, (entry.expiresAt - Date.now()) / 1000);
   }
 
