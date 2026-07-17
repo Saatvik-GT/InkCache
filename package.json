@@ -7,7 +7,7 @@
   "scripts": {
     "dev:node": "tsx watch src/network/server.ts",
     "start:node": "tsx src/network/server.ts",
-    "test": "node --import tsx --test tests/cache.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
     "dev:dashboard": "npm --prefix src/dashboard run dev",
     "dev": "concurrently -n node,dash -c yellow,green \"npm run dev:node\" \"npm run dev:dashboard\""
   },
@@ -16,7 +16,9 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^24.0.0",
+    "@types/supertest": "^7.2.1",
     "concurrently": "^10.0.3",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   },
