@@ -44,6 +44,14 @@ app.use(
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
   }),
 );
+// A handful of the safer headers from the `helmet` playbook, applied by hand
+// so a small local demo doesn't need the extra dependency.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
 app.use(express.json({ limit: "64kb" }));
 // Malformed JSON bodies throw inside express.json(); without this handler
 // Express falls through to its default HTML error page.
