@@ -18,12 +18,12 @@ export function Panel({
 }) {
   return (
     <section className={`relative border border-phos-dim ${className}`}>
-      <header className="absolute -top-[0.7em] left-2 right-2 flex items-center justify-between text-xs leading-none">
-        <span className="bg-crt px-1 text-phos-bright tracking-widest">
+      <header className="absolute -top-[0.7em] left-2 right-2 flex items-center justify-between gap-2 text-xs leading-none">
+        <span className="shrink-0 bg-crt px-1 text-phos-bright tracking-widest">
           [ {title} ]
         </span>
         {right !== undefined && (
-          <span className="bg-crt px-1 text-phos-mid">{right}</span>
+          <span className="truncate bg-crt px-1 text-phos-mid">{right}</span>
         )}
       </header>
       <div className="p-3 pt-4 text-sm">{children}</div>
