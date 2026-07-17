@@ -40,10 +40,15 @@ app.use(
 );
 app.use(express.json());
 
+const MAX_KEY_LENGTH = 256;
+
 app.post("/set", (req, res) => {
   const { key, value, ttl } = req.body ?? {};
-  if (typeof key !== "string" || key.length === 0) {
+  if (typeof key !== "string" || key.trim().length === 0) {
     return res.status(400).json({ error: "key must be a non-empty string" });
+  }
+  if (key.length > MAX_KEY_LENGTH) {
+    return res.status(400).json({ error: `key must be at most ${MAX_KEY_LENGTH} characters` });
   }
   if (typeof value !== "string") {
     return res.status(400).json({ error: "value must be a string" });
