@@ -42,6 +42,17 @@ InkCache addresses this by combining:
 1. A **correct, performant distributed cache core** (replication, consistent hashing, failure handling)
 2. An **adaptive intelligence layer** that learns access patterns and adjusts eviction/prefetching decisions accordingly
 
+## Current Status
+
+**Implemented and working today (single-node demo):**
+
+- In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, LRU eviction (expired entries reclaimed before live ones)
+- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/metrics`, `/health`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput
+- CRT-terminal dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`), live metrics readout polling every second, color-coded hit/miss/evict op stream, node online/offline indicator, synthetic traffic simulator (fires real requests), boot sequence
+- Unit tests for the core cache logic (`npm test`)
+
+**Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, the adaptive intelligence layer, LFU policy, and the benchmarking suite. Nothing in the dashboard is mocked — every number comes from the running node.
+
 ## Key Features
 
 -  **Core Cache Engine** — configurable LRU/LFU eviction, TTL support, thread-safe operations
@@ -90,7 +101,7 @@ InkCache addresses this by combining:
 | Networking          | TCP sockets / gRPC (TBD)             |
 | Consistent Hashing  | Custom implementation                |
 | Adaptive Layer      | Python microservice (pattern modeling)|
-| Metrics Dashboard   | React + Recharts                     |
+| Metrics Dashboard   | React + Vite + Tailwind (CRT terminal UI) |
 | Testing             | Jest, Supertest                      |
 | Benchmarking        | autocannon / custom load-test scripts|
 | Deployment          | Docker, Docker Compose               |
@@ -100,7 +111,7 @@ InkCache addresses this by combining:
 Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter I — Engineering Foundation
-- [ ] Sprint 1: Single-node cache core (LRU/LFU eviction, TTL, CLI + API)
+- [x] Sprint 1: Single-node cache core (LRU eviction, TTL, web console + API) — *LFU policy still pending*
 - [ ] Sprint 2: Benchmarking baseline, cache invalidation strategies, basic metrics logging
 
 ### Quarter II — Product Engineering
@@ -109,7 +120,7 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 - [ ] Sprint 5: Adaptive intelligence layer — access pattern tracking + predictive prefetching
 
 ### Quarter III — Production & Leadership
-- [ ] Sprint 6: Metrics dashboard, load testing, benchmarking vs. Redis/Memcached
+- [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early), load testing, benchmarking vs. Redis/Memcached
 - [ ] Sprint 7: Deployment, final documentation, demo preparation
 
 > Full milestone tracking is maintained via GitHub Issues and Milestones.
@@ -126,21 +137,27 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/inkcache.git
-cd inkcache
+git clone https://github.com/Saatvik-GT/InkCache.git
+cd InkCache
 
-# Install dependencies
+# Install dependencies (node + dashboard)
 npm install
+npm install --prefix src/dashboard
 
-# Run a single cache node
-npm run start:node
+# Run cache node + dashboard together
+npm run dev
 ```
+
+The cache node listens on `http://localhost:8080`; the dashboard is served
+at `http://localhost:5173` and reaches the node through the `/api` dev proxy.
+To run them separately: `npm run dev:node` and `npm run dev:dashboard`.
+
+In the dashboard: press `/` to focus the KV console, `s` to toggle the
+synthetic traffic simulator.
 
 ### Running a Local Cluster
 
-```bash
-docker-compose up --build
-```
+Not available yet — multi-node support arrives with the Quarter II sprints.
 
 ## Usage
 
@@ -170,37 +187,28 @@ curl -X DELETE http://localhost:8080/delete/user:1
 ## Testing
 
 ```bash
-# Run unit tests
+# Run unit tests (core cache logic: get/set/delete, TTL, LRU)
 npm test
-
-# Run load/benchmark tests
-npm run benchmark
 ```
 
-Test cases, results, and bug resolution logs are tracked in [`docs/testing-report.md`](docs/testing-report.md).
+Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
 
 ## Project Structure
 
 ```
 InkCache/
-├── README.md
-├── LICENSE
-├── docs/
-│   ├── architecture.md
-│   ├── api.md
-│   ├── database-schema.md
-│   └── testing-report.md
+├── readme.md
+├── package.json         # node scripts: dev, dev:node, test
 ├── src/
-│   ├── core/           # Cache engine (eviction, TTL)
-│   ├── network/        # Node communication, consistent hashing
-│   ├── intelligence/    # Adaptive prefetching & pattern tracking
-│   └── dashboard/       # Metrics visualization
-├── tests/
-├── assets/
-├── presentation/
-├── report/
-└── media/
+│   ├── core/            # Cache engine: CacheStore (TTL + LRU), MetricsCollector
+│   ├── network/         # Express REST layer (/set /get /delete /metrics /health)
+│   └── dashboard/       # React + Vite + Tailwind CRT terminal monitor
+├── tests/               # node:test suite for the cache core
+└── docs/                # (planned) architecture, api, testing report
 ```
+
+Planned additions per roadmap: `src/intelligence/` (adaptive layer),
+benchmarking scripts, and the docs set referenced below.
 
 ## Documentation
 
