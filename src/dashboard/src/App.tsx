@@ -6,6 +6,8 @@ import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
 import { useNode, type NodeStatus } from "./hooks/useNode";
+import { flush } from "./lib/api";
+import { logEvent } from "./lib/log";
 import { useSimulator } from "./lib/simulator";
 import { useCallback, useEffect, useState } from "react";
 
@@ -54,6 +56,21 @@ function App() {
               }`}
             >
               SIM {simRunning ? "ON " : "OFF"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                flush()
+                  .then((res) => {
+                    logEvent("del", `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`);
+                    refreshNow();
+                  })
+                  .catch(() => logEvent("err", "flush failed"));
+              }}
+              title="clear every key from the store"
+              className="cursor-pointer border border-sig-red-dim px-2 py-0.5 tracking-widest text-sig-red hover:glow-red"
+            >
+              FLUSH
             </button>
             <span className={badge.className}>
               {badge.glyph} {badge.label}
