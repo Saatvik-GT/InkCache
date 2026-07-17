@@ -32,13 +32,25 @@ function fmtUptime(sec: number): string {
   return h > 0 ? `${h}h${String(m).padStart(2, "0")}m` : `${m}m${String(s).padStart(2, "0")}s`;
 }
 
-export function MetricsPanel({ metrics }: { metrics: NodeMetrics }) {
+export function MetricsPanel({
+  metrics,
+  stale = false,
+}: {
+  metrics: NodeMetrics;
+  /** True when the node stopped answering: keep last-known numbers, dimmed. */
+  stale?: boolean;
+}) {
   const hitRate = metrics.hitRate;
   const fill = metrics.maxEntries > 0 ? metrics.keys / metrics.maxEntries : 0;
 
   return (
-    <Panel title="METRICS" right={`node ${metrics.node}`}>
-      <div className="flex flex-col gap-4">
+    <Panel
+      title="METRICS"
+      right={
+        stale ? <span className="text-sig-amber">stale — last known</span> : `node ${metrics.node}`
+      }
+    >
+      <div className={`flex flex-col gap-4 ${stale ? "opacity-40" : ""}`}>
         {/* headline: hit rate as the number that matters */}
         <div className="flex items-end justify-between gap-4">
           <div>

@@ -30,14 +30,27 @@ function App() {
           </div>
         </header>
 
+        {status === "offline" && (
+          <div className="border border-sig-red-dim bg-sig-red/5 px-3 py-2 text-xs text-sig-red glow-red">
+            !! LINK DOWN — cache node not responding on :8080. start it with{" "}
+            <span className="text-sig-amber">npm run dev:node</span>
+          </div>
+        )}
+
         <div className="grid gap-5 lg:grid-cols-2">
           <KVConsole onOp={refreshNow} />
           {metrics ? (
-            <MetricsPanel metrics={metrics} />
+            <MetricsPanel metrics={metrics} stale={status === "offline"} />
           ) : (
             <Panel title="METRICS" right="no signal">
               <p className="py-8 text-center text-phos-mid">
-                {status === "connecting" ? "-- acquiring signal --" : "-- node unreachable --"}
+                {status === "connecting" ? (
+                  <>
+                    -- acquiring signal<span className="cursor-blink">_</span> --
+                  </>
+                ) : (
+                  "-- node unreachable --"
+                )}
               </p>
             </Panel>
           )}

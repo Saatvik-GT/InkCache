@@ -43,6 +43,7 @@ export function KVConsole({
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState(-1);
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -119,14 +120,24 @@ export function KVConsole({
           print(`unknown command: ${cmd} — try \`help\``, "err");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      // fetch throws TypeError when the node itself is down, not just on bad input
+      const msg =
+        err instanceof TypeError
+          ? "node unreachable — is the cache node running?"
+          : err instanceof Error
+            ? err.message
+            : String(err);
       print(`ERR  ${msg}`, "err");
       logEvent("err", msg);
     }
   }
 
   return (
-    <Panel title="KV CONSOLE" right="press / to focus" className="flex flex-col">
+    <Panel
+      title="KV CONSOLE"
+      right={busy ? <span className="cursor-blink">tx…</span> : "press / to focus"}
+      className="flex flex-col"
+    >
       <div ref={scrollRef} className="h-48 overflow-y-auto whitespace-pre-wrap break-all leading-5">
         {lines.map((line, i) => (
           <div key={i} className={TONE_CLASS[line.tone]}>
@@ -143,7 +154,8 @@ export function KVConsole({
           setHistory((prev) => [...prev, cmd]);
           setHistIdx(-1);
           setInput("");
-          void run(cmd);
+          setBusy(true);
+          void run(cmd).finally(() => setBusy(false));
         }}
       >
         <span className="glow text-phos-bright">&gt;</span>
