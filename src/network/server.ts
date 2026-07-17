@@ -8,6 +8,7 @@
  *   GET    /metrics
  *   GET    /health
  *   GET    /keys
+ *   POST   /flush
  */
 
 import express from "express";
@@ -81,6 +82,12 @@ app.delete("/delete/:key", (req, res) => {
 
 app.get("/keys", (_req, res) => {
   res.json({ keys: store.keys(), count: store.size });
+});
+
+app.post("/flush", (_req, res) => {
+  const dropped = store.size;
+  store.clear();
+  res.json({ ok: true, dropped });
 });
 
 app.get("/metrics", (_req, res) => {
