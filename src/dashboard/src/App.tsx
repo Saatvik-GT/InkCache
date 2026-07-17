@@ -4,6 +4,8 @@ import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
 import { useNode, type NodeStatus } from "./hooks/useNode";
+import { useSimulator } from "./lib/simulator";
+import { useEffect } from "react";
 
 const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className: string }> = {
   connecting: { glyph: "◌", label: "CONNECTING", className: "text-phos-mid" },
@@ -13,7 +15,19 @@ const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className
 
 function App() {
   const { metrics, status, refreshNow } = useNode(1000);
+  const { running: simRunning, toggle: toggleSim } = useSimulator();
   const badge = STATUS_BADGE[status];
+
+  // 's' toggles the traffic simulator unless the user is typing somewhere
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "s" && (e.target as HTMLElement)?.tagName !== "INPUT") {
+        toggleSim();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleSim]);
 
   return (
     <CRTScreen>
@@ -23,7 +37,19 @@ function App() {
             INKCACHE<span className="cursor-blink">█</span>
           </h1>
           <div className="flex items-baseline gap-4 text-xs">
-            <span className="text-phos-mid">single-node monitor // v0.1</span>
+            <span className="hidden text-phos-mid sm:inline">single-node monitor // v0.1</span>
+            <button
+              type="button"
+              onClick={toggleSim}
+              title="press s to toggle synthetic traffic"
+              className={`cursor-pointer border px-2 py-0.5 tracking-widest ${
+                simRunning
+                  ? "border-sig-amber-dim text-sig-amber glow-amber"
+                  : "border-phos-dim text-phos-mid hover:text-phos"
+              }`}
+            >
+              SIM {simRunning ? "ON " : "OFF"}
+            </button>
             <span className={badge.className}>
               {badge.glyph} {badge.label}
             </span>
