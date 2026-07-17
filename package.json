@@ -9,7 +9,9 @@
     "start:node": "tsx src/network/server.ts",
     "test": "node --import tsx --test tests/*.test.ts",
     "dev:dashboard": "npm --prefix src/dashboard run dev",
-    "dev": "concurrently -n node,dash -c yellow,green \"npm run dev:node\" \"npm run dev:dashboard\""
+    "dev": "concurrently -n node,dash -c yellow,green \"npm run dev:node\" \"npm run dev:dashboard\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "license": "MIT",
   "devDependencies": {
@@ -18,6 +20,7 @@
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.2.1",
     "concurrently": "^10.0.3",
+    "prettier": "^3.9.5",
     "supertest": "^7.2.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
