@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
   "include": ["src/core/**/*", "src/network/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "src/dashboard"]
