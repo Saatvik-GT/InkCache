@@ -118,6 +118,10 @@ app.get("/health", (_req, res) => {
   });
 });
 
+app.use((req, res) => {
+  res.status(404).json({ error: "not found", path: req.path });
+});
+
 app.listen(PORT, () => {
   console.log(`[inkcache] node listening on http://localhost:${PORT} (maxEntries=${MAX_ENTRIES})`);
 });
