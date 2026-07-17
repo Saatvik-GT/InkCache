@@ -82,3 +82,15 @@ export async function fetchHealth(): Promise<NodeHealth> {
   if (!res.ok) throw new Error(`health failed (${res.status})`);
   return res.json();
 }
+
+export async function fetchKeys(): Promise<{ keys: string[]; count: number }> {
+  const res = await request("/keys");
+  if (!res.ok) throw new Error(`keys failed (${res.status})`);
+  return res.json();
+}
+
+export async function flush(): Promise<{ ok: boolean; dropped: number }> {
+  const res = await request("/flush", { method: "POST" });
+  if (!res.ok) throw new Error(`flush failed (${res.status})`);
+  return res.json();
+}
