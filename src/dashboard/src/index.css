@@ -1,1 +1,136 @@
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
 @import "tailwindcss";
+
+/*
+ * InkCache design system — phosphor-green CRT terminal.
+ * Everything on screen derives from these tokens; no stock Tailwind palette.
+ */
+@theme {
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --font-sans: var(--font-mono); /* there is no sans-serif on a terminal */
+
+  /* P1 phosphor ladder, brightest to faintest */
+  --color-phos-bright: #7dffa8;
+  --color-phos: #34e871;
+  --color-phos-mid: #1e9e4e;
+  --color-phos-dim: #14602f;
+  --color-phos-faint: #0a3018;
+
+  /* signal colors: miss = amber phosphor, evict/error = red phosphor */
+  --color-sig-amber: #ffb454;
+  --color-sig-amber-dim: #7a4d12;
+  --color-sig-red: #ff5f56;
+  --color-sig-red-dim: #6e211d;
+
+  --color-crt: #04120a; /* screen glass */
+  --color-crt-deep: #010805; /* behind the glass */
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-crt-deep);
+}
+
+body {
+  font-family: var(--font-mono);
+  color: var(--color-phos);
+  /* Terminal cells, not typographic niceties */
+  font-variant-ligatures: none;
+}
+
+::selection {
+  background: var(--color-phos);
+  color: var(--color-crt-deep);
+}
+
+/* ---- CRT effects ------------------------------------------------------- */
+
+/* Horizontal scanlines over the whole screen */
+.crt-scanlines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.22) 3px,
+    transparent 4px
+  );
+}
+
+/* Vignette + slight center bloom, like a lit tube behind curved glass */
+.crt-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 41;
+  background: radial-gradient(
+    ellipse 120% 100% at 50% 45%,
+    rgba(52, 232, 113, 0.045) 0%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.42) 100%
+  );
+}
+
+/* One slow-moving refresh band drifting down the screen */
+@keyframes crt-sweep {
+  from {
+    transform: translateY(-120px);
+  }
+  to {
+    transform: translateY(100vh);
+  }
+}
+.crt-sweep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+  z-index: 42;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(125, 255, 168, 0.028),
+    transparent
+  );
+  animation: crt-sweep 9s linear infinite;
+}
+
+/* Barely-there brightness instability of an aging tube */
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  97% { opacity: 1; }
+  98% { opacity: 0.96; }
+  99% { opacity: 0.99; }
+}
+.crt-flicker {
+  animation: crt-flicker 4s steps(1) infinite;
+}
+
+/* Phosphor glow for headline text and live numbers */
+.glow {
+  text-shadow: 0 0 6px rgba(52, 232, 113, 0.55), 0 0 18px rgba(52, 232, 113, 0.2);
+}
+.glow-amber {
+  text-shadow: 0 0 6px rgba(255, 180, 84, 0.5);
+}
+.glow-red {
+  text-shadow: 0 0 6px rgba(255, 95, 86, 0.5);
+}
+
+/* Blinking block cursor */
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.cursor-blink {
+  animation: cursor-blink 1.06s steps(1) infinite;
+}
