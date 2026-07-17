@@ -16,14 +16,34 @@ export interface SetOptions {
   ttl?: number;
 }
 
+export interface CacheStoreOptions {
+  /** Max number of entries before LRU eviction kicks in. Default 1000. */
+  maxEntries?: number;
+  /** Called whenever a key is evicted to make room (not on TTL expiry). */
+  onEvict?: (key: string) => void;
+}
+
 export class CacheStore {
   private entries = new Map<string, CacheEntry>();
   private sweepTimer?: NodeJS.Timeout;
+  private readonly maxEntries: number;
+  private readonly onEvict?: (key: string) => void;
+  private evictionCount = 0;
+
+  constructor(opts: CacheStoreOptions = {}) {
+    this.maxEntries = opts.maxEntries ?? 1000;
+    this.onEvict = opts.onEvict;
+  }
 
   set(key: string, value: string, opts: SetOptions = {}): void {
     const entry: CacheEntry = { value };
     if (opts.ttl !== undefined && opts.ttl > 0) {
       entry.expiresAt = Date.now() + opts.ttl * 1000;
+    }
+    // Delete-then-set so an overwrite also refreshes the key's recency.
+    this.entries.delete(key);
+    if (this.entries.size >= this.maxEntries) {
+      this.evictLRU();
     }
     this.entries.set(key, entry);
   }
@@ -37,6 +57,10 @@ export class CacheStore {
       this.entries.delete(key);
       return undefined;
     }
+    // Re-insert to move the key to the back of the Map's insertion order,
+    // which we use as the LRU recency list (front = least recently used).
+    this.entries.delete(key);
+    this.entries.set(key, entry);
     return entry.value;
   }
 
@@ -97,6 +121,25 @@ export class CacheStore {
     if (this.sweepTimer) {
       clearInterval(this.sweepTimer);
       this.sweepTimer = undefined;
+    }
+  }
+
+  /** Total number of LRU evictions since startup. */
+  get evictions(): number {
+    return this.evictionCount;
+  }
+
+  /**
+   * Drop the least-recently-used entry. Prefers reclaiming an expired entry
+   * first — evicting a live key to keep a dead one would be wasted capacity.
+   */
+  private evictLRU(): void {
+    if (this.sweep() > 0) return;
+    const oldest = this.entries.keys().next();
+    if (!oldest.done) {
+      this.entries.delete(oldest.value);
+      this.evictionCount++;
+      this.onEvict?.(oldest.value);
     }
   }
 
