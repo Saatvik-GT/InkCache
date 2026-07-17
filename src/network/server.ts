@@ -31,7 +31,13 @@ function timed<T>(fn: () => T): { result: T; latencyUs: number } {
 }
 
 const app = express();
-app.use(cors());
+// Only the Vite dev server (and its preview port) need direct access; the
+// production dashboard talks to the node through the /api proxy instead.
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+  }),
+);
 app.use(express.json());
 
 app.post("/set", (req, res) => {
