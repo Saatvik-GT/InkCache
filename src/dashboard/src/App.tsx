@@ -1,3 +1,4 @@
+import { BootSequence } from "./components/BootSequence";
 import { CRTScreen } from "./components/CRTScreen";
 import { KVConsole } from "./components/KVConsole";
 import { LogStream } from "./components/LogStream";
@@ -5,7 +6,7 @@ import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
 import { useNode, type NodeStatus } from "./hooks/useNode";
 import { useSimulator } from "./lib/simulator";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className: string }> = {
   connecting: { glyph: "◌", label: "CONNECTING", className: "text-phos-mid" },
@@ -16,6 +17,8 @@ const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className
 function App() {
   const { metrics, status, refreshNow } = useNode(1000);
   const { running: simRunning, toggle: toggleSim } = useSimulator();
+  const [booting, setBooting] = useState(true);
+  const finishBoot = useCallback(() => setBooting(false), []);
   const badge = STATUS_BADGE[status];
 
   // 's' toggles the traffic simulator unless the user is typing somewhere
@@ -31,6 +34,7 @@ function App() {
 
   return (
     <CRTScreen>
+      {booting && <BootSequence onDone={finishBoot} />}
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 p-4 sm:p-6">
         <header className="flex items-baseline justify-between border-b border-phos-dim pb-2">
           <h1 className="glow text-lg font-bold tracking-[0.3em] text-phos-bright">
