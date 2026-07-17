@@ -1,5 +1,6 @@
 import { BootSequence } from "./components/BootSequence";
 import { CRTScreen } from "./components/CRTScreen";
+import { KeysPanel } from "./components/KeysPanel";
 import { KVConsole } from "./components/KVConsole";
 import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
@@ -85,6 +86,8 @@ function App() {
             </Panel>
           )}
         </div>
+
+        <KeysPanel refreshToken={metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0} />
 
         <LogStream />
       </div>
