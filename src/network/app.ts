@@ -8,6 +8,7 @@
  *   GET    /metrics
  *   GET    /health
  *   GET    /keys
+ *   GET    /keys/stats
  *   POST   /flush
  *   GET    /version
  *
@@ -116,6 +117,10 @@ app.delete("/delete/:key", (req, res) => {
 
 app.get("/keys", (_req, res) => {
   res.json({ keys: store.keys(), count: store.size });
+});
+
+app.get("/keys/stats", (_req, res) => {
+  res.json({ keys: store.detailedKeys(), count: store.size });
 });
 
 app.post("/flush", (_req, res) => {

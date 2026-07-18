@@ -38,6 +38,17 @@ describe("REST API", () => {
     assert.equal(res.body.count, 2);
   });
 
+  it("reports per-key hit counts and ttl via /keys/stats", async () => {
+    await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
+    await request(app).get("/get/a").expect(200);
+    await request(app).get("/get/a").expect(200);
+    const res = await request(app).get("/keys/stats").expect(200);
+    assert.equal(res.body.count, 1);
+    assert.equal(res.body.keys[0].key, "a");
+    assert.equal(res.body.keys[0].hits, 2);
+    assert.equal(res.body.keys[0].ttl, null);
+  });
+
   it("clears the store via /flush", async () => {
     await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
     const res = await request(app).post("/flush").expect(200);

@@ -37,6 +37,22 @@ List every currently active (non-expired) key.
 
 **200** `{ "keys": ["user:1", "user:2"], "count": 2 }`
 
+## GET /keys/stats
+
+Same as `/keys`, but with per-key access counts and remaining TTL —
+one pass over the store, not N calls. Backs the dashboard's heat map.
+
+**200**
+```json
+{
+  "keys": [
+    { "key": "user:1", "hits": 12, "ttl": null },
+    { "key": "user:2", "hits": 0, "ttl": 284.7 }
+  ],
+  "count": 2
+}
+```
+
 ## POST /flush
 
 Clear the entire store. Intended for local dev/demo use.
