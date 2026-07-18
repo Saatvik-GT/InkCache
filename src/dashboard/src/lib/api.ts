@@ -91,6 +91,18 @@ export async function fetchKeys(): Promise<{ keys: string[]; count: number }> {
   return res.json();
 }
 
+export interface KeyStat {
+  key: string;
+  hits: number;
+  ttl: number | null;
+}
+
+export async function fetchKeyStats(): Promise<{ keys: KeyStat[]; count: number }> {
+  const res = await request("/keys/stats");
+  if (!res.ok) throw new Error(`key stats failed (${res.status})`);
+  return res.json();
+}
+
 export async function flush(): Promise<{ ok: boolean; dropped: number }> {
   const res = await request("/flush", { method: "POST" });
   if (!res.ok) throw new Error(`flush failed (${res.status})`);
