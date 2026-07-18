@@ -106,6 +106,68 @@ describe("LRU eviction", () => {
   });
 });
 
+describe("access-aware eviction", () => {
+  it("a hot key survives eviction even at the LRU edge, unlike plain LRU", () => {
+    const store = new CacheStore({ maxEntries: 3, evictionSampleSize: 3 });
+    store.set("hot", "1");
+    store.get("hot");
+    store.get("hot");
+    store.get("hot"); // 3 reads, but "hot" is still oldest by insertion order
+    store.set("b", "2");
+    store.set("c", "3");
+    // sample window is [hot(hits=3), b(hits=0), c(hits=0)] — plain LRU would
+    // evict "hot" outright since it's the least-recently-touched of the three.
+    store.set("d", "4");
+    assert.equal(store.get("hot"), "1");
+    assert.equal(store.get("b"), undefined);
+  });
+
+  it("falls back to strict LRU when policy is explicitly 'lru'", () => {
+    const store = new CacheStore({ maxEntries: 3, policy: "lru" });
+    store.set("hot", "1");
+    store.get("hot");
+    store.get("hot");
+    store.get("hot");
+    store.set("b", "2");
+    store.set("c", "3");
+    store.set("d", "4"); // strict LRU evicts "hot" regardless of hit count
+    assert.equal(store.get("hot"), undefined);
+    assert.equal(store.get("b"), "2");
+  });
+
+  it("evictionSampleSize controls how much frequency can override recency", () => {
+    const build = (evictionSampleSize: number) => {
+      const store = new CacheStore({ maxEntries: 3, evictionSampleSize });
+      store.set("hot", "1");
+      store.get("hot");
+      store.get("hot");
+      store.get("hot");
+      store.set("b", "2");
+      store.set("c", "3");
+      store.set("d", "4");
+      return store;
+    };
+    // sample size 1: only the single oldest key is ever a candidate, so
+    // "hot" gets evicted outright — hit count never gets consulted.
+    assert.equal(build(1).get("hot"), undefined);
+    // sample size 3: "hot" is in the window but isn't the least-accessed
+    // member of it, so a colder key is evicted instead.
+    assert.equal(build(3).get("hot"), "1");
+  });
+
+  it("accessCount() reports reads since last set, undefined once gone", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    assert.equal(store.accessCount("a"), 0);
+    store.get("a");
+    store.get("a");
+    assert.equal(store.accessCount("a"), 2);
+    store.set("a", "2"); // overwrite resets popularity for the new value
+    assert.equal(store.accessCount("a"), 0);
+    assert.equal(store.accessCount("nope"), undefined);
+  });
+});
+
 describe("has() and keys()", () => {
   it("has() reports false for an expired key without throwing", () => {
     mock.timers.enable({ apis: ["Date"] });
