@@ -3,9 +3,9 @@ import { fetchKeys } from "../lib/api";
 import { Panel } from "./Panel";
 
 /**
- * Live list of keys currently in the store. Polls independently on a slower
- * cadence than metrics since the list itself is cheap but rarely the thing
- * you're staring at.
+ * Live list of keys currently in the store, rendered as sunken chips.
+ * Polls independently on a slower cadence than metrics since the list
+ * itself is cheap but rarely the thing you're staring at.
  */
 export function KeysPanel({ refreshToken }: { refreshToken: number }) {
   const [keys, setKeys] = useState<string[] | null>(null);
@@ -26,16 +26,20 @@ export function KeysPanel({ refreshToken }: { refreshToken: number }) {
 
   return (
     <Panel title="KEYS" right={keys ? `${keys.length} live` : "--"}>
-      <div className="h-32 overflow-y-auto leading-5">
+      <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
         {keys === null ? (
-          <p className="text-phos-mid">-- no signal --</p>
+          <p className="text-ink-mid">-- no signal --</p>
         ) : keys.length === 0 ? (
-          <p className="text-phos-dim">-- store empty --</p>
+          <p className="text-ink-faint">-- store empty --</p>
         ) : (
           keys.map((k) => (
-            <div key={k} className="truncate text-phos">
+            <span
+              key={k}
+              className="neu-inset-sm max-w-full truncate rounded-full px-3 py-1 text-xs text-ink"
+              title={k}
+            >
               {k}
-            </div>
+            </span>
           ))
         )}
       </div>
