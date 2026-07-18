@@ -5,6 +5,7 @@ import { KVConsole } from "./components/KVConsole";
 import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
+import { TicketDivider } from "./components/TicketDivider";
 import { Toggle } from "./components/Toggle";
 import { useNode, type NodeStatus } from "./hooks/useNode";
 import { flush } from "./lib/api";
@@ -44,7 +45,7 @@ function App() {
   return (
     <div className="neu-field min-h-screen">
       {booting && <BootSequence onDone={finishBoot} />}
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 p-4 sm:p-6">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4 sm:p-6">
         <header className="neu-raised flex flex-wrap items-center justify-between gap-4 rounded-lg px-5 py-3">
           <h1 className="text-base font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
 
@@ -83,6 +84,8 @@ function App() {
           </div>
         </header>
 
+        <TicketDivider />
+
         {status === "offline" && (
           <div className="neu-inset rounded-md border-l-2 border-kind-err px-4 py-3 text-xs text-kind-err">
             !! LINK DOWN — cache node not responding on :8080. start it with{" "}
@@ -90,7 +93,7 @@ function App() {
           </div>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <KVConsole onOp={refreshNow} />
           {metrics ? (
             <MetricsPanel metrics={metrics} history={history} stale={status === "offline"} />

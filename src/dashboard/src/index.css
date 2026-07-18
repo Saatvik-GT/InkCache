@@ -73,6 +73,17 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* Ticket-stub perforation: a row of punched dots instead of a plain
+   border/hr. One CSS background instead of dozens of DOM nodes. */
+.retro-perf {
+  height: 6px;
+  background-image: radial-gradient(circle, var(--color-shadow-dark) 1.4px, transparent 1.4px);
+  background-size: 11px 100%;
+  background-repeat: repeat-x;
+  background-position: center;
+  opacity: 0.55;
+}
+
 /* ---- neumorphic + glass primitives -------------------------------------- */
 
 /* Extruded / convex, with a frosted-glass finish: translucent fill,
