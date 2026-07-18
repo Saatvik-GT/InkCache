@@ -49,7 +49,7 @@ InkCache addresses this by combining:
 
 - In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, LRU eviction (expired entries reclaimed before live ones)
 - REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
-- CRT-terminal dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`), live metrics readout polling every second, live KEYS panel, color-coded hit/miss/evict op stream, node online/offline indicator, synthetic traffic simulator (fires real requests), boot sequence, `prefers-reduced-motion` support
+- Neumorphic dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`) with a pressable send button, circular hit-rate gauge with real ops/s and hit-rate sparklines, live KEYS panel, color-coded hit/miss/evict op stream, node online/offline status pill, synthetic traffic simulator (fires real requests), power-on boot sequence, `prefers-reduced-motion` support
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 
 **Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, the adaptive intelligence layer, LFU policy, and the benchmarking suite. Nothing in the dashboard is mocked — every number comes from the running node.
@@ -102,7 +102,7 @@ InkCache addresses this by combining:
 | Networking          | TCP sockets / gRPC (TBD)             |
 | Consistent Hashing  | Custom implementation                |
 | Adaptive Layer      | Python microservice (pattern modeling)|
-| Metrics Dashboard   | React + Vite + Tailwind (CRT terminal UI) |
+| Metrics Dashboard   | React + Vite + Tailwind (neumorphic soft-UI) |
 | Testing             | node:test, Supertest                 |
 | Benchmarking        | autocannon / custom load-test scripts|
 | Deployment          | Docker, Docker Compose               |
@@ -209,7 +209,7 @@ InkCache/
 ├── src/
 │   ├── core/             # Cache engine: CacheStore (TTL + LRU), MetricsCollector
 │   ├── network/          # app.ts (Express app) + server.ts (listen/shutdown)
-│   └── dashboard/        # React + Vite + Tailwind CRT terminal monitor
+│   └── dashboard/        # React + Vite + Tailwind neumorphic monitor
 ├── tests/                # node:test + supertest: core cache logic + REST routes
 └── docs/
     └── api.md            # full endpoint reference
