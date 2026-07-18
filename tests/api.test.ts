@@ -45,6 +45,12 @@ describe("REST API", () => {
     await request(app).get("/get/a").expect(404);
   });
 
+  it("reports the eviction policy and sample size on /metrics", async () => {
+    const res = await request(app).get("/metrics").expect(200);
+    assert.equal(res.body.evictionPolicy, store.evictionPolicy);
+    assert.equal(typeof res.body.evictionSampleSize, "number");
+  });
+
   it("reports health and version", async () => {
     const health = await request(app).get("/health").expect(200);
     assert.equal(health.body.status, "ok");

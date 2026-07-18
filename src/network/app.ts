@@ -18,7 +18,7 @@
 import { createRequire } from "node:module";
 import express from "express";
 import cors from "cors";
-import { CacheStore } from "../core/cache.js";
+import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
 
 const require = createRequire(import.meta.url);
@@ -28,8 +28,16 @@ const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
 const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 const MAX_KEY_LENGTH = 256;
 
+const EVICTION_POLICY: EvictionPolicy =
+  process.env.INKCACHE_EVICTION_POLICY === "lru" ? "lru" : "access-aware";
+const EVICTION_SAMPLE_SIZE = Number(process.env.INKCACHE_EVICTION_SAMPLE ?? 5);
+
 export const metrics = new MetricsCollector();
-export const store = new CacheStore({ maxEntries: MAX_ENTRIES });
+export const store = new CacheStore({
+  maxEntries: MAX_ENTRIES,
+  policy: EVICTION_POLICY,
+  evictionSampleSize: EVICTION_SAMPLE_SIZE,
+});
 
 /** Run a cache op and record its core-level latency in microseconds. */
 function timed<T>(fn: () => T): { result: T; latencyUs: number } {
@@ -122,6 +130,8 @@ app.get("/metrics", (_req, res) => {
     keys: store.size,
     maxEntries: MAX_ENTRIES,
     evictions: store.evictions,
+    evictionPolicy: store.evictionPolicy,
+    evictionSampleSize: EVICTION_SAMPLE_SIZE,
     ...metrics.snapshot(),
   });
 });
