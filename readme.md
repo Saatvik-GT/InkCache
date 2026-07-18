@@ -201,6 +201,9 @@ curl -X DELETE http://localhost:8080/delete/user:1
 npm test
 ```
 
+CI also runs backend typecheck, `prettier --check`, the dashboard's
+`oxlint`, and the dashboard build on every push/PR — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full local pre-PR checklist.
 Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
 
 ## Project Structure

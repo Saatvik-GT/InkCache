@@ -16,8 +16,9 @@ npm run dev        # cache node on :8080 + dashboard on :5173
 ```bash
 npm test                 # core + API tests (node:test)
 npx tsc --noEmit          # backend typecheck
-npm --prefix src/dashboard run build   # dashboard typecheck + build
 npm run format:check     # prettier — repo-wide
+npm --prefix src/dashboard run lint    # oxlint
+npm --prefix src/dashboard run build   # dashboard typecheck + build
 ```
 
 ## Workflow
