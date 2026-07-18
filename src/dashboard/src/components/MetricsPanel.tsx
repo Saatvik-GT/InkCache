@@ -51,7 +51,9 @@ export function MetricsPanel({
   return (
     <Panel
       title="METRICS"
-      right={stale ? <span className="text-kind-miss">stale — last known</span> : `node ${metrics.node}`}
+      right={
+        stale ? <span className="text-kind-miss">stale — last known</span> : `node ${metrics.node}`
+      }
     >
       <div className={`flex flex-col gap-4 ${stale ? "opacity-50" : ""}`}>
         <div className="flex items-center gap-5">

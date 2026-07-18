@@ -23,9 +23,7 @@ export function Panel({
         <span className="neu-inset-sm shrink-0 rounded-full px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-ink-mid uppercase">
           {title}
         </span>
-        {right !== undefined && (
-          <span className="truncate text-xs text-ink-mid">{right}</span>
-        )}
+        {right !== undefined && <span className="truncate text-xs text-ink-mid">{right}</span>}
       </header>
       <div className="text-sm text-ink">{children}</div>
     </section>

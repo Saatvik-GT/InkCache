@@ -43,7 +43,10 @@ export function LogStream() {
         </button>
       }
     >
-      <div ref={scrollRef} className="neu-inset flex max-h-44 flex-col gap-1 overflow-y-auto rounded-2xl p-3">
+      <div
+        ref={scrollRef}
+        className="neu-inset flex max-h-44 flex-col gap-1 overflow-y-auto rounded-2xl p-3"
+      >
         {events.length === 0 ? (
           <p className="text-ink-faint">-- no operations yet; try the kv console --</p>
         ) : (

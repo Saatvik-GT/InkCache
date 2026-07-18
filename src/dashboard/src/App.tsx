@@ -51,7 +51,11 @@ function App() {
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-[11px] tracking-widest text-ink-mid uppercase">
               sim
-              <Toggle checked={simRunning} onChange={toggleSim} label="toggle synthetic traffic (s)" />
+              <Toggle
+                checked={simRunning}
+                onChange={toggleSim}
+                label="toggle synthetic traffic (s)"
+              />
             </label>
 
             <Button

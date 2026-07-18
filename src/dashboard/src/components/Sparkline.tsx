@@ -34,7 +34,12 @@ export function Sparkline({
           <span className="text-[10px] text-ink-mid">{valid[valid.length - 1]!.toFixed(1)}</span>
         )}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="h-8 w-full"
+        aria-hidden
+      >
         {points.length > 1 ? (
           <polyline
             points={points.join(" ")}
