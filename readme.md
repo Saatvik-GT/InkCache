@@ -48,8 +48,8 @@ InkCache addresses this by combining:
 **Implemented and working today (single-node demo):**
 
 - In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, configurable eviction — `access-aware` (default: samples the least-recently-used keys and evicts whichever was read the fewest times, a window-LFU-style heuristic) or strict `lru`; expired entries are always reclaimed before live ones either way
-- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
-- Neumorphic dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`) with a pressable send button, circular hit-rate gauge with real ops/s and hit-rate sparklines, live KEYS panel, color-coded hit/miss/evict op stream, node online/offline status pill, synthetic traffic simulator (fires real requests), power-on boot sequence, `prefers-reduced-motion` support
+- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
+- Neumorphic dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`) with a pressable send button, circular hit-rate gauge + hand-built analog needle gauge for ops/s + real ops/s/hit-rate/p95-latency sparklines, KEYS panel rendered as an access-frequency heat map (colored by real hit count from `/keys/stats`), color-coded hit/miss/evict op stream with a punch-card/dot-matrix restyle, optional synthesized sound cues per event kind (Web Audio, off by default), node online/offline status pill, synthetic traffic simulator (fires real requests), power-on boot sequence, `prefers-reduced-motion` support
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 
 **Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, and the benchmarking suite. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
@@ -154,7 +154,7 @@ at `http://localhost:5173` and reaches the node through the `/api` dev proxy.
 To run them separately: `npm run dev:node` and `npm run dev:dashboard`.
 
 In the dashboard: press `/` to focus the KV console, `s` to toggle the
-synthetic traffic simulator.
+synthetic traffic simulator, `m` to toggle sound cues (off by default).
 
 ### Running a Local Cluster
 
