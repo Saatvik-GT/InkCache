@@ -18,7 +18,7 @@ const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className
 };
 
 function App() {
-  const { metrics, status, refreshNow } = useNode(1000);
+  const { metrics, status, history, refreshNow } = useNode(1000);
   const { running: simRunning, toggle: toggleSim } = useSimulator();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
@@ -91,7 +91,7 @@ function App() {
         <div className="grid gap-5 lg:grid-cols-2">
           <KVConsole onOp={refreshNow} />
           {metrics ? (
-            <MetricsPanel metrics={metrics} stale={status === "offline"} />
+            <MetricsPanel metrics={metrics} history={history} stale={status === "offline"} />
           ) : (
             <Panel title="METRICS" right="no signal">
               <p className="py-8 text-center text-phos-mid">
