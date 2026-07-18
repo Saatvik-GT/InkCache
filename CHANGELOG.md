@@ -49,5 +49,6 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### Testing & CI
 
 - `node:test` + supertest covering the cache core and every API route.
-- GitHub Actions workflow running typecheck, tests, and the dashboard
-  build on every push/PR.
+- GitHub Actions workflow running backend typecheck, `prettier --check`,
+  tests, the dashboard's `oxlint`, and the dashboard build on every
+  push/PR.
