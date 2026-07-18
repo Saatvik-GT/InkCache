@@ -8,6 +8,7 @@ export interface MetricsSample {
   at: number;
   opsPerSec: number;
   hitRate: number | null;
+  p95Us: number | null;
 }
 
 const HISTORY_CAP = 60; // one point per poll tick — a rolling ~60s window at 1s polling
@@ -43,7 +44,7 @@ export function useNode(pollMs = 1000): {
       setMetrics(m);
       setHistory((prev) => [
         ...prev.slice(-(HISTORY_CAP - 1)),
-        { at: Date.now(), opsPerSec: m.opsPerSec, hitRate: m.hitRate },
+        { at: Date.now(), opsPerSec: m.opsPerSec, hitRate: m.hitRate, p95Us: m.latency.p95Us },
       ]);
       if (prevEvictions.current !== null && m.evictions > prevEvictions.current) {
         const n = m.evictions - prevEvictions.current;

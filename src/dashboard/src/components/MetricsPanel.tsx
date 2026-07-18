@@ -2,6 +2,7 @@ import type { NodeMetrics } from "../lib/api";
 import type { MetricsSample } from "../hooks/useNode";
 import { HitRateGauge } from "./HitRateGauge";
 import { Panel } from "./Panel";
+import { SevenSegment } from "./SevenSegment";
 import { Sparkline } from "./Sparkline";
 
 function StatTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
@@ -29,11 +30,13 @@ function Bar({ ratio }: { ratio: number }) {
   );
 }
 
-function fmtUptime(sec: number): string {
+/** HH:MM once the node has been up an hour, MM:SS before that. */
+function fmtUptimeDigits(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
-  return h > 0 ? `${h}h${String(m).padStart(2, "0")}m` : `${m}m${String(s).padStart(2, "0")}s`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${pad(h)}:${pad(m)}` : `${pad(m)}:${pad(s)}`;
 }
 
 export function MetricsPanel({
@@ -70,18 +73,27 @@ export function MetricsPanel({
               value={metrics.latency.p95Us === null ? "--" : metrics.latency.p95Us.toFixed(0)}
               unit="µs"
             />
-            <StatTile label="uptime" value={fmtUptime(metrics.uptimeSec)} />
             <StatTile label="sets" value={String(metrics.sets)} />
             <StatTile label="evictions" value={String(metrics.evictions)} />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] tracking-[0.18em] text-ink-mid uppercase">uptime</span>
+          <SevenSegment value={fmtUptimeDigits(metrics.uptimeSec)} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Sparkline label="ops/s" data={history.map((h) => h.opsPerSec)} />
           <Sparkline
             label="hit rate"
             data={history.map((h) => (h.hitRate === null ? null : h.hitRate * 100))}
             color="var(--color-kind-hit)"
+          />
+          <Sparkline
+            label="lat p95"
+            data={history.map((h) => h.p95Us)}
+            color="var(--color-kind-set)"
           />
         </div>
 
