@@ -47,12 +47,12 @@ InkCache addresses this by combining:
 
 **Implemented and working today (single-node demo):**
 
-- In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, LRU eviction (expired entries reclaimed before live ones)
+- In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, configurable eviction — `access-aware` (default: samples the least-recently-used keys and evicts whichever was read the fewest times, a window-LFU-style heuristic) or strict `lru`; expired entries are always reclaimed before live ones either way
 - REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
 - Neumorphic dashboard (React + Vite + Tailwind): keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`) with a pressable send button, circular hit-rate gauge with real ops/s and hit-rate sparklines, live KEYS panel, color-coded hit/miss/evict op stream, node online/offline status pill, synthetic traffic simulator (fires real requests), power-on boot sequence, `prefers-reduced-motion` support
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 
-**Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, the adaptive intelligence layer, LFU policy, and the benchmarking suite. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, and the benchmarking suite. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -112,13 +112,13 @@ InkCache addresses this by combining:
 Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter I — Engineering Foundation
-- [x] Sprint 1: Single-node cache core (LRU eviction, TTL, web console + API) — *LFU policy still pending*
+- [x] Sprint 1: Single-node cache core (TTL, web console + API) — *LFU-as-a-standalone-policy still pending, superseded in practice by the access-aware hybrid below*
 - [ ] Sprint 2: Benchmarking baseline, cache invalidation strategies, basic metrics logging
 
 ### Quarter II — Product Engineering
 - [ ] Sprint 3: Multi-node replication (primary-replica model)
 - [ ] Sprint 4: Consistent hashing, node discovery, failure handling
-- [ ] Sprint 5: Adaptive intelligence layer — access pattern tracking + predictive prefetching
+- [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
 
 ### Quarter III — Production & Leadership
 - [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early), load testing, benchmarking vs. Redis/Memcached

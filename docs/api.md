@@ -52,6 +52,8 @@ Clear the entire store. Intended for local dev/demo use.
   "keys": 12,
   "maxEntries": 512,
   "evictions": 0,
+  "evictionPolicy": "access-aware",
+  "evictionSampleSize": 5,
   "uptimeSec": 84.2,
   "hits": 40,
   "misses": 5,
@@ -62,6 +64,9 @@ Clear the entire store. Intended for local dev/demo use.
   "latency": { "avgUs": 47.7, "p95Us": 85.3, "samples": 58 }
 }
 ```
+
+`evictionPolicy` is `"access-aware"` (default) or `"lru"` — see
+[Eviction policy](#eviction-policy) below.
 
 ## GET /health
 
@@ -75,3 +80,26 @@ Clear the entire store. Intended for local dev/demo use.
 
 Unknown routes return a JSON `404`, and malformed JSON bodies return a JSON
 `400` — neither falls through to Express's default HTML error page.
+
+## Eviction policy
+
+Configured via environment variables when starting the node (`npm run
+dev:node` / `npm run start:node`):
+
+| Variable                     | Default        | Notes                                    |
+|-------------------------------|----------------|-------------------------------------------|
+| `INKCACHE_MAX_ENTRIES`        | `512`          | capacity before eviction kicks in         |
+| `INKCACHE_EVICTION_POLICY`    | `access-aware` | `access-aware` or `lru`                   |
+| `INKCACHE_EVICTION_SAMPLE`    | `5`            | candidate window size for `access-aware`  |
+
+**`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
+keys and evicts whichever of *those* was read the fewest times, instead of
+always dropping the single oldest key. A key that's genuinely hot survives a
+brief cold spell; a key nobody reads gets reclaimed first even if something
+slightly older is technically "more LRU". This is a frequency-over-a-
+recency-window heuristic (the same family of idea as W-TinyLFU's window
+admission) — not a trained or learned model — and the scan is bounded to the
+sample size, never the whole store.
+
+**`lru`** is the original strict behavior: always evict the single
+least-recently-used key, full stop.
