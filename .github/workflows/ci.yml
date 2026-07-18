@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck backend
         run: npx tsc --noEmit
 
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Run core + API tests
         run: npm test
 
