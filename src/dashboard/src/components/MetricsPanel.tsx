@@ -1,6 +1,7 @@
 import type { NodeMetrics } from "../lib/api";
 import type { MetricsSample } from "../hooks/useNode";
 import { HitRateGauge } from "./HitRateGauge";
+import { NeedleGauge } from "./NeedleGauge";
 import { Panel } from "./Panel";
 import { SevenSegment } from "./SevenSegment";
 import { Sparkline } from "./Sparkline";
@@ -50,6 +51,9 @@ export function MetricsPanel({
   stale?: boolean;
 }) {
   const fill = metrics.maxEntries > 0 ? metrics.keys / metrics.maxEntries : 0;
+  // Auto-scale the needle's range off real recent throughput, with headroom
+  // so the needle isn't permanently pinned at max the moment traffic spikes.
+  const maxOps = Math.max(1, metrics.opsPerSec, ...history.map((h) => h.opsPerSec)) * 1.15;
 
   return (
     <Panel
@@ -59,10 +63,10 @@ export function MetricsPanel({
       }
     >
       <div className={`flex flex-col gap-4 ${stale ? "opacity-50" : ""}`}>
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center gap-3">
           <HitRateGauge ratio={metrics.hitRate} />
-          <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3">
-            <StatTile label="ops/s" value={metrics.opsPerSec.toFixed(1)} />
+          <NeedleGauge value={metrics.opsPerSec} max={maxOps} label="ops/s" />
+          <div className="grid min-w-40 flex-1 grid-cols-2 gap-2">
             <StatTile
               label="lat avg"
               value={metrics.latency.avgUs === null ? "--" : metrics.latency.avgUs.toFixed(0)}
