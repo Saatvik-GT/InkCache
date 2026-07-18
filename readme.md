@@ -130,7 +130,7 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Prerequisites
 
-- Node.js ≥ 18.x
+- Node.js ≥ 20.4 (the test suite uses `node:test`'s Date-mocking timers, which need 20.4+)
 - npm or yarn
 - Docker (optional, for multi-node local testing)
 

@@ -9,7 +9,7 @@
     "url": "https://github.com/Saatvik-GT/InkCache.git"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.4.0"
   },
   "scripts": {
     "dev:node": "tsx watch src/network/server.ts",
