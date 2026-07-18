@@ -4,35 +4,38 @@
 @import "tailwindcss";
 
 /*
- * InkCache design system — soft-tech neumorphism.
- * Cool dark slate surface, extruded/pressed shapes carved from one base
- * color via twin shadows, monospace type kept throughout so it still reads
- * as an instrument panel rather than a mobile "cute app" UI.
+ * InkCache design system — light neumorphism with a glass finish.
+ * Same carved-from-one-surface shadow logic as before, ported to a white
+ * base: raised elements now also pick up translucency + backdrop-blur so
+ * they read as frosted panels sitting slightly off the surface rather than
+ * flat cards. Radii are kept tight (6-10px) on purpose — full pill/blob
+ * corners are the single fastest tell of a default AI-generated UI.
  */
 @theme {
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   --font-sans: var(--font-mono);
 
-  --color-base: #1e2530; /* the clay everything is carved from */
-  --color-base-raised: #212836;
-  --color-shadow-dark: #0d1118;
-  --color-shadow-light: #2b3446;
+  --color-base: #e8ecf1; /* the stock everything is carved from */
+  --color-base-raised: #eef1f5;
+  --color-shadow-dark: #a9b3c1;
+  --color-shadow-light: #ffffff;
 
-  --color-ink: #e7ecf3; /* primary text */
-  --color-ink-mid: #8c97a8; /* secondary text */
-  --color-ink-faint: #4b5566; /* disabled / decorative */
+  --color-ink: #1b222c; /* primary text */
+  --color-ink-mid: #5b6472; /* secondary text */
+  --color-ink-faint: #98a1ae; /* disabled / decorative */
 
-  --color-accent: #2fe6c0; /* single interactive accent — used sparingly */
-  --color-accent-dim: #1a8a74;
+  --color-accent: #0d9488; /* single interactive accent — used sparingly */
+  --color-accent-dim: #0f766e;
 
-  /* op-kind palette — validated as a set (adjacent-pair CVD/contrast),
-     never reassigned or cycled; every use also carries a text label. */
-  --color-kind-evict: #d95926;
-  --color-kind-set: #3987e5;
-  --color-kind-err: #d03b3b;
-  --color-kind-hit: #199e70;
-  --color-kind-miss: #c98500;
-  --color-kind-del: #4caf3a;
+  /* op-kind palette — validated as a set (adjacent-pair CVD + 3:1 contrast
+     against the light surface), never reassigned or cycled; every use
+     also carries a text label, never color alone. */
+  --color-kind-set: #2563eb;
+  --color-kind-evict: #ea580c;
+  --color-kind-hit: #0d9488;
+  --color-kind-err: #dc2626;
+  --color-kind-del: #7c3aed;
+  --color-kind-miss: #a16207;
 }
 
 html,
@@ -49,13 +52,13 @@ body {
 
 ::selection {
   background: var(--color-accent);
-  color: var(--color-shadow-dark);
+  color: #ffffff;
 }
 
-/* ---- neumorphic surface texture ---------------------------------------- */
+/* ---- surface texture ---------------------------------------------------- */
 
-/* A faint grain keeps the flat clay color from looking like a plastic
-   gradient-tool default; it's subtle enough to disappear at normal zoom. */
+/* A faint grain keeps the flat stock color from reading as a plain
+   gradient-tool fill; subtle enough to disappear at normal zoom. */
 .neu-field {
   position: relative;
   background: var(--color-base);
@@ -66,51 +69,59 @@ body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.025;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ---- neumorphic primitives ---------------------------------------------- */
+/* ---- neumorphic + glass primitives -------------------------------------- */
 
-/* Extruded / convex — the resting state for cards and raised buttons.
-   Deliberately no border-radius here: callers add Tailwind's rounded-*
-   so a knob can be rounded-full and a card can be rounded-3xl without
-   two radius rules fighting over specificity. */
+/* Extruded / convex, with a frosted-glass finish: translucent fill,
+   backdrop blur+saturate, and a hairline light border to sell the glass
+   edge, layered under the same soft dual shadow as the dark theme had.
+   No border-radius here on purpose — callers add Tailwind's rounded-*. */
 .neu-raised {
-  background: var(--color-base-raised);
+  background: color-mix(in oklab, var(--color-base-raised) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid color-mix(in oklab, white 70%, transparent);
   box-shadow:
-    9px 9px 18px var(--color-shadow-dark),
-    -9px -9px 18px var(--color-shadow-light);
+    7px 7px 16px var(--color-shadow-dark),
+    -7px -7px 16px var(--color-shadow-light);
 }
 
 /* Sunken / concave — consoles, inputs, anything that reads as a "display"
-   recessed into the panel rather than sitting on top of it. */
+   recessed into the panel rather than sitting on top of it. Stays flat
+   (no blur) so it reads as carved-in, not floating. */
 .neu-inset {
   background: var(--color-base);
   box-shadow:
-    inset 6px 6px 12px var(--color-shadow-dark),
-    inset -6px -6px 12px var(--color-shadow-light);
+    inset 5px 5px 10px var(--color-shadow-dark),
+    inset -5px -5px 10px var(--color-shadow-light);
 }
 
-/* Small-radius variants for compact elements (chips, toggle knobs) where
-   the 9px/6px offsets above read as too heavy. */
+/* Small-radius weights for compact elements (chips, toggle knobs) where
+   the offsets above read as too heavy. */
 .neu-raised-sm {
-  background: var(--color-base-raised);
+  background: color-mix(in oklab, var(--color-base-raised) 78%, transparent);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid color-mix(in oklab, white 65%, transparent);
   box-shadow:
-    4px 4px 8px var(--color-shadow-dark),
-    -4px -4px 8px var(--color-shadow-light);
+    3px 3px 7px var(--color-shadow-dark),
+    -3px -3px 7px var(--color-shadow-light);
 }
 .neu-inset-sm {
   background: var(--color-base);
   box-shadow:
-    inset 3px 3px 6px var(--color-shadow-dark),
-    inset -3px -3px 6px var(--color-shadow-light);
+    inset 2.5px 2.5px 5px var(--color-shadow-dark),
+    inset -2.5px -2.5px 5px var(--color-shadow-light);
 }
 
 /* Cascade-order override (not class-order dependent): applied alongside
-   neu-raised-sm to swap the flat clay fill for the accent color. */
+   neu-raised-sm to swap the frosted fill for a solid accent. */
 .neu-accent-fill {
   background: var(--color-accent);
+  border-color: var(--color-accent-dim);
 }
 
 /* Pressable: raised at rest, sinks in on press. Apply alongside neu-raised. */
@@ -121,13 +132,13 @@ body {
 }
 .neu-pressable:active {
   box-shadow:
-    inset 4px 4px 10px var(--color-shadow-dark),
-    inset -4px -4px 10px var(--color-shadow-light);
+    inset 3px 3px 8px var(--color-shadow-dark),
+    inset -3px -3px 8px var(--color-shadow-light);
   transform: translateY(1px);
 }
 
 .glow-text {
-  text-shadow: 0 0 10px color-mix(in oklab, var(--color-accent) 55%, transparent);
+  text-shadow: 0 0 10px color-mix(in oklab, var(--color-accent) 35%, transparent);
 }
 
 /* Blinking block cursor — kept for the boot sequence only */
