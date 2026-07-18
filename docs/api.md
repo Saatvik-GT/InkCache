@@ -101,11 +101,13 @@ Unknown routes return a JSON `404`, and malformed JSON bodies return a JSON
 
 ## Eviction policy
 
-Configured via environment variables when starting the node (`npm run
-dev:node` / `npm run start:node`):
+All node configuration is via environment variables, set before starting
+the node (`npm run dev:node` / `npm run start:node`):
 
 | Variable                   | Default        | Notes                                    |
 | -------------------------- | -------------- | ---------------------------------------- |
+| `INKCACHE_PORT`            | `8080`         | HTTP port the node listens on            |
+| `INKCACHE_NODE_ID`         | `node-1`       | label reported in `/health`/`/metrics`   |
 | `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
 | `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware` or `lru`                  |
 | `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
