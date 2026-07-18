@@ -3,17 +3,18 @@ import { clearLog, useLogEvents, type LogKind } from "../lib/log";
 import { Panel } from "./Panel";
 
 /**
- * Color-coded op stream. Every line carries its label glyph, so the event
- * type is readable without color (CVD/print safe).
+ * Op stream: each line gets a left accent border in its kind's color plus
+ * a text label — the validated op-kind palette (see index.css) is checked
+ * for CVD/contrast as a set, but color is still never the only signal.
  */
-const KIND_STYLE: Record<LogKind, { label: string; className: string }> = {
-  hit: { label: "HIT ", className: "text-phos-bright" },
-  miss: { label: "MISS", className: "text-sig-amber" },
-  set: { label: "SET ", className: "text-phos" },
-  del: { label: "DEL ", className: "text-phos-mid" },
-  evict: { label: "EVCT", className: "text-sig-red" },
-  expire: { label: "EXPR", className: "text-sig-amber-dim" },
-  err: { label: "ERR ", className: "text-sig-red glow-red" },
+const KIND_STYLE: Record<LogKind, { label: string; border: string; text: string }> = {
+  hit: { label: "HIT ", border: "border-kind-hit", text: "text-kind-hit" },
+  miss: { label: "MISS", border: "border-kind-miss", text: "text-kind-miss" },
+  set: { label: "SET ", border: "border-kind-set", text: "text-kind-set" },
+  del: { label: "DEL ", border: "border-kind-del", text: "text-kind-del" },
+  evict: { label: "EVCT", border: "border-kind-evict", text: "text-kind-evict" },
+  expire: { label: "EXPR", border: "border-kind-miss", text: "text-kind-miss" },
+  err: { label: "ERR ", border: "border-kind-err", text: "text-kind-err" },
 };
 
 function fmtTime(ms: number): string {
@@ -35,25 +36,28 @@ export function LogStream() {
         <button
           type="button"
           onClick={clearLog}
-          className="cursor-pointer text-phos-mid hover:text-phos hover:glow"
+          className="cursor-pointer text-ink-mid hover:text-ink"
           title="clear this log"
         >
           {events.length} events · clear
         </button>
       }
     >
-      <div ref={scrollRef} className="h-44 overflow-y-auto leading-5">
+      <div ref={scrollRef} className="neu-inset flex max-h-44 flex-col gap-1 overflow-y-auto rounded-2xl p-3">
         {events.length === 0 ? (
-          <p className="text-phos-dim">-- no operations yet; try the kv console --</p>
+          <p className="text-ink-faint">-- no operations yet; try the kv console --</p>
         ) : (
           events.map((ev) => {
             const style = KIND_STYLE[ev.kind];
             return (
-              <div key={ev.id} className="whitespace-pre-wrap break-all">
-                <span className="text-phos-dim">{fmtTime(ev.at)} </span>
-                <span className={style.className}>{style.label}</span>
-                <span className="text-phos-mid"> │ </span>
-                <span className={style.className}>{ev.text}</span>
+              <div
+                key={ev.id}
+                className={`border-l-2 py-0.5 pl-2 whitespace-pre-wrap break-all ${style.border}`}
+              >
+                <span className="text-ink-faint">{fmtTime(ev.at)} </span>
+                <span className={`font-bold ${style.text}`}>{style.label}</span>
+                <span className="text-ink-mid"> │ </span>
+                <span className="text-ink">{ev.text}</span>
               </div>
             );
           })
