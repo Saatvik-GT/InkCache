@@ -11,6 +11,7 @@ import { useNode, type NodeStatus } from "./hooks/useNode";
 import { flush } from "./lib/api";
 import { logEvent } from "./lib/log";
 import { useSimulator } from "./lib/simulator";
+import { setSoundEnabled, useSoundEnabled } from "./lib/sound";
 import { useCallback, useEffect, useState } from "react";
 
 const STATUS_DOT: Record<NodeStatus, string> = {
@@ -28,19 +29,20 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
 function App() {
   const { metrics, status, history, refreshNow } = useNode(1000);
   const { running: simRunning, toggle: toggleSim } = useSimulator();
+  const soundEnabled = useSoundEnabled();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
 
-  // 's' toggles the traffic simulator unless the user is typing somewhere
+  // 's' toggles the traffic simulator, 'm' toggles sound, unless typing
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "s" && (e.target as HTMLElement)?.tagName !== "INPUT") {
-        toggleSim();
-      }
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if (e.key === "s") toggleSim();
+      if (e.key === "m") setSoundEnabled(!soundEnabled);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleSim]);
+  }, [toggleSim, soundEnabled]);
 
   return (
     <div className="neu-field min-h-screen">
@@ -56,6 +58,15 @@ function App() {
                 checked={simRunning}
                 onChange={toggleSim}
                 label="toggle synthetic traffic (s)"
+              />
+            </label>
+
+            <label className="flex items-center gap-2 text-[11px] tracking-widest text-ink-mid uppercase">
+              sound
+              <Toggle
+                checked={soundEnabled}
+                onChange={() => setSoundEnabled(!soundEnabled)}
+                label="toggle op-stream sound cues (m)"
               />
             </label>
 

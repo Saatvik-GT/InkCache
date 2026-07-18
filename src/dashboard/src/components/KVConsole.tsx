@@ -243,6 +243,9 @@ export function KVConsole({
         <span className="flex items-center gap-1">
           <KeyCap>S</KeyCap> sim
         </span>
+        <span className="flex items-center gap-1">
+          <KeyCap>M</KeyCap> sound
+        </span>
         {lastValue !== null && (
           <button
             type="button"
