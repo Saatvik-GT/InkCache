@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteKey, flush, getKey, setKey } from "../lib/api";
 import { logEvent } from "../lib/log";
+import { Button } from "./Button";
 import { Panel } from "./Panel";
 
 type Tone = "plain" | "ok" | "hit" | "miss" | "err";
@@ -11,11 +12,11 @@ interface Line {
 }
 
 const TONE_CLASS: Record<Tone, string> = {
-  plain: "text-phos-mid",
-  ok: "text-phos",
-  hit: "text-phos-bright glow",
-  miss: "text-sig-amber glow-amber",
-  err: "text-sig-red glow-red",
+  plain: "text-ink-mid",
+  ok: "text-accent",
+  hit: "text-kind-hit",
+  miss: "text-kind-miss",
+  err: "text-kind-err",
 };
 
 const HELP: string[] = [
@@ -149,13 +150,26 @@ export function KVConsole({
     }
   }
 
+  function submit() {
+    const cmd = input.trim();
+    if (!cmd) return;
+    setHistory((prev) => [...prev, cmd]);
+    setHistIdx(-1);
+    setInput("");
+    setBusy(true);
+    void run(cmd).finally(() => setBusy(false));
+  }
+
   return (
     <Panel
       title="KV CONSOLE"
-      right={busy ? <span className="cursor-blink">tx…</span> : "press / to focus"}
+      right={busy ? <span className="cursor-blink text-accent">tx…</span> : "press / to focus"}
       className="flex flex-col"
     >
-      <div ref={scrollRef} className="h-48 overflow-y-auto whitespace-pre-wrap break-all leading-5">
+      <div
+        ref={scrollRef}
+        className="neu-inset h-48 overflow-y-auto rounded-2xl p-3 whitespace-pre-wrap break-all"
+      >
         {lines.map((line, i) => (
           <div key={i} className={TONE_CLASS[line.tone]}>
             {line.text}
@@ -163,54 +177,53 @@ export function KVConsole({
         ))}
       </div>
       <form
-        className="mt-2 flex items-center gap-2 border-t border-phos-faint pt-2"
+        className="mt-3 flex items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          const cmd = input.trim();
-          if (!cmd) return;
-          setHistory((prev) => [...prev, cmd]);
-          setHistIdx(-1);
-          setInput("");
-          setBusy(true);
-          void run(cmd).finally(() => setBusy(false));
+          submit();
         }}
       >
-        <span className="glow text-phos-bright">&gt;</span>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            // Shell-style history recall
-            if (e.key === "ArrowUp") {
-              e.preventDefault();
-              const idx = histIdx === -1 ? history.length - 1 : Math.max(0, histIdx - 1);
-              if (history[idx] !== undefined) {
-                setHistIdx(idx);
-                setInput(history[idx]);
-              }
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              if (histIdx === -1) return;
-              const idx = histIdx + 1;
-              if (idx >= history.length) {
-                setHistIdx(-1);
+        <div className="neu-inset-sm flex flex-1 items-center gap-2 rounded-xl px-3 py-2">
+          <span className="text-accent">&gt;</span>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              // Shell-style history recall
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                const idx = histIdx === -1 ? history.length - 1 : Math.max(0, histIdx - 1);
+                if (history[idx] !== undefined) {
+                  setHistIdx(idx);
+                  setInput(history[idx]);
+                }
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (histIdx === -1) return;
+                const idx = histIdx + 1;
+                if (idx >= history.length) {
+                  setHistIdx(-1);
+                  setInput("");
+                } else {
+                  setHistIdx(idx);
+                  setInput(history[idx] ?? "");
+                }
+              } else if (e.key === "Escape") {
                 setInput("");
-              } else {
-                setHistIdx(idx);
-                setInput(history[idx] ?? "");
+                setHistIdx(-1);
               }
-            } else if (e.key === "Escape") {
-              setInput("");
-              setHistIdx(-1);
-            }
-          }}
-          spellCheck={false}
-          autoComplete="off"
-          disabled={busy}
-          className="w-full bg-transparent text-phos-bright caret-phos-bright outline-none placeholder:text-phos-dim disabled:opacity-50"
-          placeholder="set user:1 saatvik 300"
-        />
+            }}
+            spellCheck={false}
+            autoComplete="off"
+            disabled={busy}
+            className="w-full bg-transparent text-ink outline-none placeholder:text-ink-faint disabled:opacity-50"
+            placeholder="set user:1 saatvik 300"
+          />
+        </div>
+        <Button type="submit" tone="accent" title="run command">
+          run
+        </Button>
       </form>
     </Panel>
   );
