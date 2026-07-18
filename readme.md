@@ -92,7 +92,9 @@ InkCache addresses this by combining:
    └─────────────┘
 ```
 
-> Detailed architecture diagrams and design decisions are maintained in [`docs/architecture.md`](docs/architecture.md).
+> Detailed architecture diagrams and design decisions will move to
+> `docs/architecture.md` once the distributed layer above is real; for now
+> the single-node core/API/dashboard are documented in [`docs/api.md`](docs/api.md) and this README.
 
 ## Tech Stack
 
@@ -220,13 +222,14 @@ benchmarking scripts.
 
 ## Documentation
 
-- [Installation Guide](docs/installation.md)
-- [User Guide](docs/user-guide.md)
+- Installation and usage — see [Getting Started](#getting-started) and [Usage](#usage) above
 - [API Documentation](docs/api.md)
-- [Architecture Diagram](docs/architecture.md)
-- [Database Schema](docs/database-schema.md)
-- [Testing Report](docs/testing-report.md)
 - [Change Log](CHANGELOG.md)
+
+Not written yet (roadmap-gated — no point documenting a schema or
+architecture that doesn't exist until the distributed layer does):
+a dedicated user guide, architecture diagram, database schema, and
+testing report.
 
 ## Contributing
 
