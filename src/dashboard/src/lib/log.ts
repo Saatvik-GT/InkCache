@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { playBlip } from "./sound";
 
 /**
  * Tiny append-only event store for the log stream. Kept outside React so any
@@ -24,6 +25,7 @@ const listeners = new Set<() => void>();
 export function logEvent(kind: LogKind, text: string): void {
   events = [...events.slice(-(CAP - 1)), { id: nextId++, at: Date.now(), kind, text }];
   listeners.forEach((fn) => fn());
+  playBlip(kind);
 }
 
 export function clearLog(): void {
