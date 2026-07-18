@@ -1,20 +1,27 @@
 import { BootSequence } from "./components/BootSequence";
-import { CRTScreen } from "./components/CRTScreen";
+import { Button } from "./components/Button";
 import { KeysPanel } from "./components/KeysPanel";
 import { KVConsole } from "./components/KVConsole";
 import { LogStream } from "./components/LogStream";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { Panel } from "./components/Panel";
+import { Toggle } from "./components/Toggle";
 import { useNode, type NodeStatus } from "./hooks/useNode";
 import { flush } from "./lib/api";
 import { logEvent } from "./lib/log";
 import { useSimulator } from "./lib/simulator";
 import { useCallback, useEffect, useState } from "react";
 
-const STATUS_BADGE: Record<NodeStatus, { glyph: string; label: string; className: string }> = {
-  connecting: { glyph: "◌", label: "CONNECTING", className: "text-phos-mid" },
-  online: { glyph: "●", label: "ONLINE", className: "text-phos-bright glow" },
-  offline: { glyph: "○", label: "OFFLINE", className: "text-sig-red glow-red" },
+const STATUS_DOT: Record<NodeStatus, string> = {
+  connecting: "bg-ink-mid",
+  online: "bg-accent",
+  offline: "bg-kind-err",
+};
+
+const STATUS_LABEL: Record<NodeStatus, string> = {
+  connecting: "CONNECTING",
+  online: "ONLINE",
+  offline: "OFFLINE",
 };
 
 function App() {
@@ -22,7 +29,6 @@ function App() {
   const { running: simRunning, toggle: toggleSim } = useSimulator();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
-  const badge = STATUS_BADGE[status];
 
   // 's' toggles the traffic simulator unless the user is typing somewhere
   useEffect(() => {
@@ -36,29 +42,21 @@ function App() {
   }, [toggleSim]);
 
   return (
-    <CRTScreen>
+    <div className="neu-field min-h-screen">
       {booting && <BootSequence onDone={finishBoot} />}
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 p-4 sm:p-6">
-        <header className="flex items-baseline justify-between border-b border-phos-dim pb-2">
-          <h1 className="glow text-lg font-bold tracking-[0.3em] text-phos-bright">
-            INKCACHE<span className="cursor-blink">█</span>
-          </h1>
-          <div className="flex items-baseline gap-4 text-xs">
-            <span className="hidden text-phos-mid sm:inline">single-node monitor // v0.1</span>
-            <button
-              type="button"
-              onClick={toggleSim}
-              title="press s to toggle synthetic traffic"
-              className={`cursor-pointer border px-2 py-0.5 tracking-widest ${
-                simRunning
-                  ? "border-sig-amber-dim text-sig-amber glow-amber"
-                  : "border-phos-dim text-phos-mid hover:text-phos"
-              }`}
-            >
-              SIM {simRunning ? "ON " : "OFF"}
-            </button>
-            <button
-              type="button"
+        <header className="neu-raised flex flex-wrap items-center justify-between gap-4 rounded-3xl px-5 py-3">
+          <h1 className="text-base font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-[11px] tracking-widest text-ink-mid uppercase">
+              sim
+              <Toggle checked={simRunning} onChange={toggleSim} label="toggle synthetic traffic (s)" />
+            </label>
+
+            <Button
+              tone="danger"
+              title="clear every key from the store"
               onClick={() => {
                 flush()
                   .then((res) => {
@@ -70,21 +68,21 @@ function App() {
                   })
                   .catch(() => logEvent("err", "flush failed"));
               }}
-              title="clear every key from the store"
-              className="cursor-pointer border border-sig-red-dim px-2 py-0.5 tracking-widest text-sig-red hover:glow-red"
             >
-              FLUSH
-            </button>
-            <span className={badge.className}>
-              {badge.glyph} {badge.label}
+              flush
+            </Button>
+
+            <span className="neu-inset-sm flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-widest text-ink-mid uppercase">
+              <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
+              {STATUS_LABEL[status]}
             </span>
           </div>
         </header>
 
         {status === "offline" && (
-          <div className="border border-sig-red-dim bg-sig-red/5 px-3 py-2 text-xs text-sig-red glow-red">
+          <div className="neu-inset rounded-2xl border-l-2 border-kind-err px-4 py-3 text-xs text-kind-err">
             !! LINK DOWN — cache node not responding on :8080. start it with{" "}
-            <span className="text-sig-amber">npm run dev:node</span>
+            <span className="text-ink">npm run dev:node</span>
           </div>
         )}
 
@@ -94,7 +92,7 @@ function App() {
             <MetricsPanel metrics={metrics} history={history} stale={status === "offline"} />
           ) : (
             <Panel title="METRICS" right="no signal">
-              <p className="py-8 text-center text-phos-mid">
+              <p className="py-8 text-center text-ink-mid">
                 {status === "connecting" ? (
                   <>
                     -- acquiring signal<span className="cursor-blink">_</span> --
@@ -113,7 +111,7 @@ function App() {
 
         <LogStream />
       </div>
-    </CRTScreen>
+    </div>
   );
 }
 
