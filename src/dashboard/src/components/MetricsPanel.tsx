@@ -75,6 +75,11 @@ export function MetricsPanel({
             />
             <StatTile label="sets" value={String(metrics.sets)} />
             <StatTile label="evictions" value={String(metrics.evictions)} />
+            <StatTile
+              label="policy"
+              value={metrics.evictionPolicy}
+              unit={metrics.evictionPolicy === "access-aware" ? `k=${metrics.evictionSampleSize}` : undefined}
+            />
           </div>
         </div>
 

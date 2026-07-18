@@ -16,6 +16,8 @@ export interface NodeMetrics {
   keys: number;
   maxEntries: number;
   evictions: number;
+  evictionPolicy: "lru" | "access-aware";
+  evictionSampleSize: number;
   uptimeSec: number;
   hits: number;
   misses: number;
