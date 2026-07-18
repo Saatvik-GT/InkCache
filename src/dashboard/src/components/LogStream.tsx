@@ -43,9 +43,10 @@ export function LogStream() {
         </button>
       }
     >
+      <div className="retro-perf rounded-t-md" />
       <div
         ref={scrollRef}
-        className="neu-inset flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md p-3"
+        className="retro-dotfield neu-inset flex max-h-44 flex-col overflow-y-auto rounded-b-md p-3"
       >
         {events.length === 0 ? (
           <p className="text-ink-faint">-- no operations yet; try the kv console --</p>
@@ -55,7 +56,7 @@ export function LogStream() {
             return (
               <div
                 key={ev.id}
-                className={`border-l-2 py-0.5 pl-2 whitespace-pre-wrap break-all ${style.border}`}
+                className={`border-b border-dotted border-ink-faint/40 py-1 pl-2 whitespace-pre-wrap break-all last:border-b-0 ${style.border} border-l-2`}
               >
                 <span className="text-ink-faint">{fmtTime(ev.at)} </span>
                 <span className={`font-bold ${style.text}`}>{style.label}</span>

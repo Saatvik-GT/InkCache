@@ -84,6 +84,18 @@ body {
   opacity: 0.55;
 }
 
+/* Dot-matrix printer paper: a 2D dot grid instead of the 1D perforation
+   strip above, layered behind the op stream so it reads like thermal
+   receipt paper instead of a plain scrollbox. */
+.retro-dotfield {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--color-shadow-dark) 45%, transparent) 0.6px,
+    transparent 0.6px
+  );
+  background-size: 6px 6px;
+}
+
 /* ---- neumorphic + glass primitives -------------------------------------- */
 
 /* Extruded / convex, with a frosted-glass finish: translucent fill,
