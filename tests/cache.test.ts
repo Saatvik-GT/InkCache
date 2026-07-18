@@ -190,6 +190,39 @@ describe("has() and keys()", () => {
   });
 });
 
+describe("detailedKeys()", () => {
+  it("reports hits and ttl per live key", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    store.get("a");
+    store.get("a");
+    store.set("b", "2", { ttl: 30 });
+    const rows = store.detailedKeys().sort((x, y) => x.key.localeCompare(y.key));
+    assert.deepEqual(
+      rows.map((r) => r.key),
+      ["a", "b"],
+    );
+    assert.equal(rows[0]!.hits, 2);
+    assert.equal(rows[0]!.ttl, null);
+    assert.ok(rows[1]!.ttl !== null && rows[1]!.ttl > 29 && rows[1]!.ttl <= 30);
+  });
+
+  it("excludes and cleans up expired entries", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore();
+    store.set("dead", "x", { ttl: 1 });
+    store.set("live", "y");
+    mock.timers.tick(1_001);
+    const rows = store.detailedKeys();
+    assert.deepEqual(
+      rows.map((r) => r.key),
+      ["live"],
+    );
+    assert.equal(store.size, 1); // expired entry swept during the pass
+    mock.timers.reset();
+  });
+});
+
 describe("clear()", () => {
   it("empties the store and resets size to zero", () => {
     const store = new CacheStore();

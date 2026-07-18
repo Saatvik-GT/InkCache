@@ -123,6 +123,26 @@ export class CacheStore {
     return [...this.entries.keys()].filter((k) => this.has(k));
   }
 
+  /** Every live key with its access count and remaining TTL — one pass,
+      not N calls to accessCount()/ttl() per key. Backs the heat-map view. */
+  detailedKeys(): Array<{ key: string; hits: number; ttl: number | null }> {
+    const now = Date.now();
+    const result: Array<{ key: string; hits: number; ttl: number | null }> = [];
+    for (const [key, entry] of this.entries) {
+      if (entry.expiresAt !== undefined && now >= entry.expiresAt) {
+        // Match get()/has()/ttl(): a pass over expired entries cleans them up.
+        this.entries.delete(key);
+        continue;
+      }
+      result.push({
+        key,
+        hits: entry.hits,
+        ttl: entry.expiresAt === undefined ? null : Math.max(0, (entry.expiresAt - now) / 1000),
+      });
+    }
+    return result;
+  }
+
   get size(): number {
     return this.entries.size;
   }
