@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { deleteKey, flush, getKey, setKey } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { Button } from "./Button";
+import { KeyCap } from "./KeyCap";
 import { Panel } from "./Panel";
 
 type Tone = "plain" | "ok" | "hit" | "miss" | "err";
@@ -46,6 +47,7 @@ export function KVConsole({
   const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState(-1);
   const [busy, setBusy] = useState(false);
+  const [lastValue, setLastValue] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +103,7 @@ export function KVConsole({
             print(`HIT  "${key}" = ${JSON.stringify(res.value)}${ttlNote}`, "hit");
             logEvent("hit", key);
             onOp?.({ op: "get", key, outcome: "hit" });
+            setLastValue(res.value ?? null);
           } else {
             print(`MISS "${key}"`, "miss");
             logEvent("miss", key);
@@ -225,6 +228,37 @@ export function KVConsole({
           run
         </Button>
       </form>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-ink-faint">
+        <span className="flex items-center gap-1">
+          <KeyCap>/</KeyCap> focus
+        </span>
+        <span className="flex items-center gap-1">
+          <KeyCap>↑</KeyCap>
+          <KeyCap>↓</KeyCap> history
+        </span>
+        <span className="flex items-center gap-1">
+          <KeyCap>Esc</KeyCap> clear
+        </span>
+        <span className="flex items-center gap-1">
+          <KeyCap>S</KeyCap> sim
+        </span>
+        {lastValue !== null && (
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard
+                .writeText(lastValue)
+                .then(() => print("copied last value to clipboard", "ok"))
+                .catch(() => print("clipboard write failed", "err"));
+            }}
+            className="ml-auto cursor-pointer text-ink-mid hover:text-ink"
+            title="copy the last GET result to the clipboard"
+          >
+            ⧉ copy last value
+          </button>
+        )}
+      </div>
     </Panel>
   );
 }
