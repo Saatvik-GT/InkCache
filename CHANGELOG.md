@@ -7,6 +7,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ## [0.1.0] — Unreleased
 
 ### Core cache engine
+
 - In-memory `CacheStore`: get/set/delete, TTL with lazy expiry and a
   background sweep.
 - Configurable eviction: `access-aware` (default) samples the
@@ -17,6 +18,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   dashboard's heat map).
 
 ### REST API
+
 - `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`,
   `/flush`, `/metrics`, `/health`, `/version`.
 - Per-op latency instrumentation (avg/p95), hit-rate, rolling
@@ -26,6 +28,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   request body size cap and basic security headers.
 
 ### Dashboard
+
 - Went through three visual directions before settling: a CRT/phosphor
   terminal theme, then dark neumorphism, then the current light
   neumorphic-glass theme with retro hardware details (corner rivets,
@@ -44,6 +47,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   sequence, `prefers-reduced-motion` support throughout.
 
 ### Testing & CI
+
 - `node:test` + supertest covering the cache core and every API route.
 - GitHub Actions workflow running typecheck, tests, and the dashboard
   build on every push/PR.

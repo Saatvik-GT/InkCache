@@ -13,11 +13,11 @@ curl -X POST http://localhost:8080/set \
   -d '{"key":"user:1","value":"Saatvik","ttl":300}'
 ```
 
-| Field | Type   | Required | Notes                              |
-|-------|--------|----------|-------------------------------------|
-| key   | string | yes      | non-empty, max 256 characters       |
-| value | string | yes      | stored as-is                        |
-| ttl   | number | no       | seconds; omit for no expiry         |
+| Field | Type   | Required | Notes                         |
+| ----- | ------ | -------- | ----------------------------- |
+| key   | string | yes      | non-empty, max 256 characters |
+| value | string | yes      | stored as-is                  |
+| ttl   | number | no       | seconds; omit for no expiry   |
 
 **200** `{ "ok": true, "key": "user:1", "ttl": 300 }`
 **400** `{ "error": "<reason>" }`
@@ -43,6 +43,7 @@ Same as `/keys`, but with per-key access counts and remaining TTL —
 one pass over the store, not N calls. Backs the dashboard's heat map.
 
 **200**
+
 ```json
 {
   "keys": [
@@ -62,6 +63,7 @@ Clear the entire store. Intended for local dev/demo use.
 ## GET /metrics
 
 **200**
+
 ```json
 {
   "node": "node-1",
@@ -102,14 +104,14 @@ Unknown routes return a JSON `404`, and malformed JSON bodies return a JSON
 Configured via environment variables when starting the node (`npm run
 dev:node` / `npm run start:node`):
 
-| Variable                     | Default        | Notes                                    |
-|-------------------------------|----------------|-------------------------------------------|
-| `INKCACHE_MAX_ENTRIES`        | `512`          | capacity before eviction kicks in         |
-| `INKCACHE_EVICTION_POLICY`    | `access-aware` | `access-aware` or `lru`                   |
-| `INKCACHE_EVICTION_SAMPLE`    | `5`            | candidate window size for `access-aware`  |
+| Variable                   | Default        | Notes                                    |
+| -------------------------- | -------------- | ---------------------------------------- |
+| `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
+| `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware` or `lru`                  |
+| `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
 
 **`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
-keys and evicts whichever of *those* was read the fewest times, instead of
+keys and evicts whichever of _those_ was read the fewest times, instead of
 always dropping the single oldest key. A key that's genuinely hot survives a
 brief cold spell; a key nobody reads gets reclaimed first even if something
 slightly older is technically "more LRU". This is a frequency-over-a-

@@ -3,9 +3,9 @@
 > An adaptive, distributed key-value caching layer that goes beyond static eviction policies by learning access patterns to optimize hit rates, reduce latency, and scale horizontally across nodes.
 
 [![CI](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml/badge.svg)](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)]()
-[![Program](https://img.shields.io/badge/CUSoC-2026-orange)]()
+[![Status](https://img.shields.io/badge/status-in%20development-yellow)](<>)
+[![License](https://img.shields.io/badge/license-MIT-blue)](<>)
+[![Program](https://img.shields.io/badge/CUSoC-2026-orange)](<>)
 
 ---
 
@@ -33,13 +33,14 @@
 
 InkCache is a distributed caching system built as part of the **Chandigarh University Season of Code (CUSoC)** program under subject code **24CSI-305 (Institute/Industrial Summer Training)**.
 
-Traditional caching layers (Redis, Memcached) rely on static eviction policies — LRU, LFU, or fixed TTLs — that don't adapt to changing access patterns. InkCache aims to layer *intelligence* on top of a solid distributed caching foundation: predicting hot keys, adapting eviction dynamically, and rebalancing load across nodes without manual tuning.
+Traditional caching layers (Redis, Memcached) rely on static eviction policies — LRU, LFU, or fixed TTLs — that don't adapt to changing access patterns. InkCache aims to layer _intelligence_ on top of a solid distributed caching foundation: predicting hot keys, adapting eviction dynamically, and rebalancing load across nodes without manual tuning.
 
 ## Problem Statement
 
 Modern applications serve highly skewed, time-varying access patterns (diurnal traffic, sudden hotspots, seasonal spikes) that static caching policies handle poorly — leading to unnecessary cache misses, wasted memory on cold keys, and uneven load across distributed nodes.
 
 InkCache addresses this by combining:
+
 1. A **correct, performant distributed cache core** (replication, consistent hashing, failure handling)
 2. An **adaptive intelligence layer** that learns access patterns and adjusts eviction/prefetching decisions accordingly
 
@@ -56,10 +57,10 @@ InkCache addresses this by combining:
 
 ## Key Features
 
--  **Core Cache Engine** — configurable LRU/LFU eviction, TTL support, thread-safe operations
--  **Distributed Architecture** — consistent hashing for key distribution across nodes
+- **Core Cache Engine** — configurable LRU/LFU eviction, TTL support, thread-safe operations
+- **Distributed Architecture** — consistent hashing for key distribution across nodes
 - **Replication & Fault Tolerance** — primary-replica model with automatic failover
--  **Adaptive Intelligence** — access-pattern-based eviction and predictive prefetching
+- **Adaptive Intelligence** — access-pattern-based eviction and predictive prefetching
 - **Metrics Dashboard** — real-time hit rate, latency, and node health visualization
 - **Benchmarking Suite** — performance comparison against baseline Redis/Memcached setups
 
@@ -98,31 +99,34 @@ InkCache addresses this by combining:
 
 ## Tech Stack
 
-| Layer               | Technology                          |
-|---------------------|--------------------------------------|
-| Core Cache Engine   | Node.js / TypeScript                 |
-| Networking          | TCP sockets / gRPC (TBD)             |
-| Consistent Hashing  | Custom implementation                |
-| Adaptive Layer      | Python microservice (pattern modeling)|
-| Metrics Dashboard   | React + Vite + Tailwind (neumorphic soft-UI) |
-| Testing             | node:test, Supertest                 |
-| Benchmarking        | autocannon / custom load-test scripts|
-| Deployment          | Docker, Docker Compose               |
+| Layer              | Technology                                   |
+| ------------------ | -------------------------------------------- |
+| Core Cache Engine  | Node.js / TypeScript                         |
+| Networking         | TCP sockets / gRPC (TBD)                     |
+| Consistent Hashing | Custom implementation                        |
+| Adaptive Layer     | Python microservice (pattern modeling)       |
+| Metrics Dashboard  | React + Vite + Tailwind (neumorphic soft-UI) |
+| Testing            | node:test, Supertest                         |
+| Benchmarking       | autocannon / custom load-test scripts        |
+| Deployment         | Docker, Docker Compose                       |
 
 ## Project Roadmap
 
 Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter I — Engineering Foundation
-- [x] Sprint 1: Single-node cache core (TTL, web console + API) — *LFU-as-a-standalone-policy still pending, superseded in practice by the access-aware hybrid below*
+
+- [x] Sprint 1: Single-node cache core (TTL, web console + API) — _LFU-as-a-standalone-policy still pending, superseded in practice by the access-aware hybrid below_
 - [ ] Sprint 2: Benchmarking baseline, cache invalidation strategies, basic metrics logging
 
 ### Quarter II — Product Engineering
+
 - [ ] Sprint 3: Multi-node replication (primary-replica model)
 - [ ] Sprint 4: Consistent hashing, node discovery, failure handling
 - [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
 
 ### Quarter III — Production & Leadership
+
 - [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early), load testing, benchmarking vs. Redis/Memcached
 - [ ] Sprint 7: Deployment, final documentation, demo preparation
 
@@ -177,16 +181,16 @@ curl -X DELETE http://localhost:8080/delete/user:1
 
 ## API Reference
 
-| Method | Endpoint         | Description                    |
-|--------|------------------|--------------------------------|
-| POST   | `/set`           | Store a key-value pair with optional TTL |
-| GET    | `/get/:key`      | Retrieve a value by key        |
-| DELETE | `/delete/:key`   | Remove a key from the cache    |
-| GET    | `/keys`          | List active (non-expired) keys |
-| POST   | `/flush`         | Clear the entire store (dev/demo) |
-| GET    | `/metrics`       | Retrieve node/cluster metrics  |
-| GET    | `/health`        | Node health check              |
-| GET    | `/version`       | Package name + version         |
+| Method | Endpoint       | Description                              |
+| ------ | -------------- | ---------------------------------------- |
+| POST   | `/set`         | Store a key-value pair with optional TTL |
+| GET    | `/get/:key`    | Retrieve a value by key                  |
+| DELETE | `/delete/:key` | Remove a key from the cache              |
+| GET    | `/keys`        | List active (non-expired) keys           |
+| POST   | `/flush`       | Clear the entire store (dev/demo)        |
+| GET    | `/metrics`     | Retrieve node/cluster metrics            |
+| GET    | `/health`      | Node health check                        |
+| GET    | `/version`     | Package name + version                   |
 
 > Full API documentation available in [`docs/api.md`](docs/api.md).
 
@@ -252,4 +256,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-*Build with purpose. Collaborate with integrity. Contribute with impact.*
+_Build with purpose. Collaborate with integrity. Contribute with impact._
