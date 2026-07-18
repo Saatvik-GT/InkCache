@@ -9,6 +9,8 @@ export interface CacheEntry {
   value: string;
   /** Absolute epoch-ms deadline; undefined = never expires. */
   expiresAt?: number;
+  /** Reads since this value was set — the frequency signal for eviction. */
+  hits: number;
 }
 
 export interface SetOptions {
@@ -16,11 +18,25 @@ export interface SetOptions {
   ttl?: number;
 }
 
+export type EvictionPolicy = "lru" | "access-aware";
+
 export interface CacheStoreOptions {
-  /** Max number of entries before LRU eviction kicks in. Default 1000. */
+  /** Max number of entries before eviction kicks in. Default 1000. */
   maxEntries?: number;
   /** Called whenever a key is evicted to make room (not on TTL expiry). */
   onEvict?: (key: string) => void;
+  /**
+   * "lru" evicts the single least-recently-used key outright. "access-aware"
+   * (default) samples the `evictionSampleSize` least-recently-used keys and
+   * evicts whichever of *those* has been read the fewest times — a key that
+   * gets hit often survives a brief cold spell instead of being evicted the
+   * instant something newer edges it out of MRU position. This is a
+   * frequency-over-a-recency-window heuristic (in the spirit of window-based
+   * LFU admission policies like W-TinyLFU), not a learned/trained model.
+   */
+  policy?: EvictionPolicy;
+  /** Candidate pool size for "access-aware" eviction. Default 5. */
+  evictionSampleSize?: number;
 }
 
 export class CacheStore {
@@ -28,22 +44,26 @@ export class CacheStore {
   private sweepTimer?: NodeJS.Timeout;
   private readonly maxEntries: number;
   private readonly onEvict?: (key: string) => void;
+  private readonly policy: EvictionPolicy;
+  private readonly evictionSampleSize: number;
   private evictionCount = 0;
 
   constructor(opts: CacheStoreOptions = {}) {
     this.maxEntries = opts.maxEntries ?? 1000;
     this.onEvict = opts.onEvict;
+    this.policy = opts.policy ?? "access-aware";
+    this.evictionSampleSize = opts.evictionSampleSize ?? 5;
   }
 
   set(key: string, value: string, opts: SetOptions = {}): void {
-    const entry: CacheEntry = { value };
+    const entry: CacheEntry = { value, hits: 0 };
     if (opts.ttl !== undefined && opts.ttl > 0) {
       entry.expiresAt = Date.now() + opts.ttl * 1000;
     }
     // Delete-then-set so an overwrite also refreshes the key's recency.
     this.entries.delete(key);
     if (this.entries.size >= this.maxEntries) {
-      this.evictLRU();
+      this.evict();
     }
     this.entries.set(key, entry);
   }
@@ -57,8 +77,9 @@ export class CacheStore {
       this.entries.delete(key);
       return undefined;
     }
+    entry.hits++;
     // Re-insert to move the key to the back of the Map's insertion order,
-    // which we use as the LRU recency list (front = least recently used).
+    // which we use as the recency list (front = least recently used).
     this.entries.delete(key);
     this.entries.set(key, entry);
     return entry.value;
@@ -89,6 +110,13 @@ export class CacheStore {
     }
     if (entry.expiresAt === undefined) return undefined;
     return Math.max(0, (entry.expiresAt - Date.now()) / 1000);
+  }
+
+  /** Reads recorded for a live key since it was last set, or undefined if absent/expired. */
+  accessCount(key: string): number | undefined {
+    const entry = this.entries.get(key);
+    if (!entry || this.isExpired(entry)) return undefined;
+    return entry.hits;
   }
 
   keys(): string[] {
@@ -130,23 +158,61 @@ export class CacheStore {
     }
   }
 
-  /** Total number of LRU evictions since startup. */
+  /** Total number of evictions since startup (either policy). */
   get evictions(): number {
     return this.evictionCount;
   }
 
+  /** Active eviction policy, for display/diagnostics. */
+  get evictionPolicy(): EvictionPolicy {
+    return this.policy;
+  }
+
   /**
-   * Drop the least-recently-used entry. Prefers reclaiming an expired entry
-   * first — evicting a live key to keep a dead one would be wasted capacity.
+   * Free one slot. Prefers reclaiming an expired entry first — evicting a
+   * live key to keep a dead one would be wasted capacity — then falls
+   * through to the configured policy.
    */
-  private evictLRU(): void {
+  private evict(): void {
     if (this.sweep() > 0) return;
-    const oldest = this.entries.keys().next();
-    if (!oldest.done) {
-      this.entries.delete(oldest.value);
-      this.evictionCount++;
-      this.onEvict?.(oldest.value);
+    if (this.policy === "lru") {
+      this.evictOldest();
+    } else {
+      this.evictLeastAccessed();
     }
+  }
+
+  /** Strict LRU: drop the single least-recently-used key. */
+  private evictOldest(): void {
+    const oldest = this.entries.keys().next();
+    if (!oldest.done) this.doEvict(oldest.value);
+  }
+
+  /**
+   * Scan only the `evictionSampleSize` least-recently-used keys (the front
+   * of the Map — see get()/set() for how recency order is maintained) and
+   * evict whichever was read the fewest times. Bounded O(sampleSize), not
+   * O(n): this never scans the whole store, just the eviction candidates.
+   */
+  private evictLeastAccessed(): void {
+    let worstKey: string | undefined;
+    let worstHits = Infinity;
+    let seen = 0;
+    for (const [key, entry] of this.entries) {
+      if (seen >= this.evictionSampleSize) break;
+      if (entry.hits < worstHits) {
+        worstHits = entry.hits;
+        worstKey = key;
+      }
+      seen++;
+    }
+    if (worstKey !== undefined) this.doEvict(worstKey);
+  }
+
+  private doEvict(key: string): void {
+    this.entries.delete(key);
+    this.evictionCount++;
+    this.onEvict?.(key);
   }
 
   private isExpired(entry: CacheEntry): boolean {
