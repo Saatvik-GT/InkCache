@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
     card as a screwed-down plate rather than a floating card. */
 function Rivet({ className }: { className: string }) {
   return (
-    <span
-      aria-hidden
-      className={`neu-inset-sm absolute h-1.25 w-1.25 rounded-full ${className}`}
-    />
+    <span aria-hidden className={`neu-inset-sm absolute h-1.25 w-1.25 rounded-full ${className}`} />
   );
 }
 
