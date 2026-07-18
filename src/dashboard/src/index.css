@@ -4,143 +4,131 @@
 @import "tailwindcss";
 
 /*
- * InkCache design system — phosphor-green CRT terminal.
- * Everything on screen derives from these tokens; no stock Tailwind palette.
+ * InkCache design system — soft-tech neumorphism.
+ * Cool dark slate surface, extruded/pressed shapes carved from one base
+ * color via twin shadows, monospace type kept throughout so it still reads
+ * as an instrument panel rather than a mobile "cute app" UI.
  */
 @theme {
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-  --font-sans: var(--font-mono); /* there is no sans-serif on a terminal */
+  --font-sans: var(--font-mono);
 
-  /* P1 phosphor ladder, brightest to faintest */
-  --color-phos-bright: #7dffa8;
-  --color-phos: #34e871;
-  --color-phos-mid: #1e9e4e;
-  --color-phos-dim: #14602f;
-  --color-phos-faint: #0a3018;
+  --color-base: #1e2530; /* the clay everything is carved from */
+  --color-base-raised: #212836;
+  --color-shadow-dark: #0d1118;
+  --color-shadow-light: #2b3446;
 
-  /* signal colors: miss = amber phosphor, evict/error = red phosphor */
-  --color-sig-amber: #ffb454;
-  --color-sig-amber-dim: #7a4d12;
-  --color-sig-red: #ff5f56;
-  --color-sig-red-dim: #6e211d;
+  --color-ink: #e7ecf3; /* primary text */
+  --color-ink-mid: #8c97a8; /* secondary text */
+  --color-ink-faint: #4b5566; /* disabled / decorative */
 
-  --color-crt: #04120a; /* screen glass */
-  --color-crt-deep: #010805; /* behind the glass */
+  --color-accent: #2fe6c0; /* single interactive accent — used sparingly */
+  --color-accent-dim: #1a8a74;
+
+  /* op-kind palette — validated as a set (adjacent-pair CVD/contrast),
+     never reassigned or cycled; every use also carries a text label. */
+  --color-kind-evict: #d95926;
+  --color-kind-set: #3987e5;
+  --color-kind-err: #d03b3b;
+  --color-kind-hit: #199e70;
+  --color-kind-miss: #c98500;
+  --color-kind-del: #4caf3a;
 }
 
 html,
 body {
   margin: 0;
-  background: var(--color-crt-deep);
+  background: var(--color-base);
 }
 
 body {
   font-family: var(--font-mono);
-  color: var(--color-phos);
-  /* Terminal cells, not typographic niceties */
+  color: var(--color-ink);
   font-variant-ligatures: none;
 }
 
 ::selection {
-  background: var(--color-phos);
-  color: var(--color-crt-deep);
+  background: var(--color-accent);
+  color: var(--color-shadow-dark);
 }
 
-/* ---- CRT effects ------------------------------------------------------- */
+/* ---- neumorphic surface texture ---------------------------------------- */
 
-/* Horizontal scanlines over the whole screen */
-.crt-scanlines::before {
+/* A faint grain keeps the flat clay color from looking like a plastic
+   gradient-tool default; it's subtle enough to disappear at normal zoom. */
+.neu-field {
+  position: relative;
+  background: var(--color-base);
+}
+.neu-field::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  z-index: 40;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 2px,
-    rgba(0, 0, 0, 0.22) 3px,
-    transparent 4px
-  );
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Vignette + slight center bloom, like a lit tube behind curved glass */
-.crt-vignette::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 41;
-  background: radial-gradient(
-    ellipse 120% 100% at 50% 45%,
-    rgba(52, 232, 113, 0.045) 0%,
-    transparent 55%,
-    rgba(0, 0, 0, 0.42) 100%
-  );
+/* ---- neumorphic primitives ---------------------------------------------- */
+
+/* Extruded / convex — the resting state for cards and raised buttons. */
+.neu-raised {
+  background: var(--color-base-raised);
+  border-radius: 22px;
+  box-shadow:
+    9px 9px 18px var(--color-shadow-dark),
+    -9px -9px 18px var(--color-shadow-light);
 }
 
-/* One slow-moving refresh band drifting down the screen */
-@keyframes crt-sweep {
-  from {
-    transform: translateY(-120px);
-  }
-  to {
-    transform: translateY(100vh);
-  }
-}
-.crt-sweep {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 120px;
-  pointer-events: none;
-  z-index: 42;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(125, 255, 168, 0.028),
-    transparent
-  );
-  animation: crt-sweep 9s linear infinite;
+/* Sunken / concave — consoles, inputs, anything that reads as a "display"
+   recessed into the panel rather than sitting on top of it. */
+.neu-inset {
+  background: var(--color-base);
+  border-radius: 18px;
+  box-shadow:
+    inset 6px 6px 12px var(--color-shadow-dark),
+    inset -6px -6px 12px var(--color-shadow-light);
 }
 
-/* Barely-there brightness instability of an aging tube */
-@keyframes crt-flicker {
-  0%, 100% { opacity: 1; }
-  97% { opacity: 1; }
-  98% { opacity: 0.96; }
-  99% { opacity: 0.99; }
+/* Pressable: raised at rest, sinks in on press. Apply alongside neu-raised. */
+.neu-pressable {
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
-.crt-flicker {
-  animation: crt-flicker 4s steps(1) infinite;
-}
-
-/* Phosphor glow for headline text and live numbers */
-.glow {
-  text-shadow: 0 0 6px rgba(52, 232, 113, 0.55), 0 0 18px rgba(52, 232, 113, 0.2);
-}
-.glow-amber {
-  text-shadow: 0 0 6px rgba(255, 180, 84, 0.5);
-}
-.glow-red {
-  text-shadow: 0 0 6px rgba(255, 95, 86, 0.5);
+.neu-pressable:active {
+  box-shadow:
+    inset 4px 4px 10px var(--color-shadow-dark),
+    inset -4px -4px 10px var(--color-shadow-light);
+  transform: translateY(1px);
 }
 
-/* Blinking block cursor */
+.glow-text {
+  text-shadow: 0 0 10px color-mix(in oklab, var(--color-accent) 55%, transparent);
+}
+
+/* Blinking block cursor — kept for the boot sequence only */
 @keyframes cursor-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 .cursor-blink {
   animation: cursor-blink 1.06s steps(1) infinite;
 }
 
-/* Respect the OS-level motion preference: keep the CRT's static look
-   (scanlines, vignette) but drop the moving/flickering parts. */
 @media (prefers-reduced-motion: reduce) {
-  .crt-sweep,
-  .crt-flicker,
   .cursor-blink {
     animation: none;
+  }
+  * {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
   }
 }
