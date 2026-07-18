@@ -72,10 +72,12 @@ body {
 
 /* ---- neumorphic primitives ---------------------------------------------- */
 
-/* Extruded / convex — the resting state for cards and raised buttons. */
+/* Extruded / convex — the resting state for cards and raised buttons.
+   Deliberately no border-radius here: callers add Tailwind's rounded-*
+   so a knob can be rounded-full and a card can be rounded-3xl without
+   two radius rules fighting over specificity. */
 .neu-raised {
   background: var(--color-base-raised);
-  border-radius: 22px;
   box-shadow:
     9px 9px 18px var(--color-shadow-dark),
     -9px -9px 18px var(--color-shadow-light);
@@ -85,10 +87,30 @@ body {
    recessed into the panel rather than sitting on top of it. */
 .neu-inset {
   background: var(--color-base);
-  border-radius: 18px;
   box-shadow:
     inset 6px 6px 12px var(--color-shadow-dark),
     inset -6px -6px 12px var(--color-shadow-light);
+}
+
+/* Small-radius variants for compact elements (chips, toggle knobs) where
+   the 9px/6px offsets above read as too heavy. */
+.neu-raised-sm {
+  background: var(--color-base-raised);
+  box-shadow:
+    4px 4px 8px var(--color-shadow-dark),
+    -4px -4px 8px var(--color-shadow-light);
+}
+.neu-inset-sm {
+  background: var(--color-base);
+  box-shadow:
+    inset 3px 3px 6px var(--color-shadow-dark),
+    inset -3px -3px 6px var(--color-shadow-light);
+}
+
+/* Cascade-order override (not class-order dependent): applied alongside
+   neu-raised-sm to swap the flat clay fill for the accent color. */
+.neu-accent-fill {
+  background: var(--color-accent);
 }
 
 /* Pressable: raised at rest, sinks in on press. Apply alongside neu-raised. */
