@@ -45,7 +45,7 @@ function App() {
     <div className="neu-field min-h-screen">
       {booting && <BootSequence onDone={finishBoot} />}
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-5 p-4 sm:p-6">
-        <header className="neu-raised flex flex-wrap items-center justify-between gap-4 rounded-3xl px-5 py-3">
+        <header className="neu-raised flex flex-wrap items-center justify-between gap-4 rounded-lg px-5 py-3">
           <h1 className="text-base font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -84,7 +84,7 @@ function App() {
         </header>
 
         {status === "offline" && (
-          <div className="neu-inset rounded-2xl border-l-2 border-kind-err px-4 py-3 text-xs text-kind-err">
+          <div className="neu-inset rounded-md border-l-2 border-kind-err px-4 py-3 text-xs text-kind-err">
             !! LINK DOWN — cache node not responding on :8080. start it with{" "}
             <span className="text-ink">npm run dev:node</span>
           </div>

@@ -6,7 +6,7 @@ import { Sparkline } from "./Sparkline";
 
 function StatTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <div className="neu-inset-sm flex flex-col gap-0.5 rounded-xl px-3 py-2">
+    <div className="neu-inset-sm flex flex-col gap-0.5 rounded-md px-3 py-2">
       <span className="text-[9px] tracking-[0.18em] text-ink-mid uppercase">{label}</span>
       <span className="text-sm font-bold text-ink">
         {value}

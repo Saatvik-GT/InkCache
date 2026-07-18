@@ -168,7 +168,7 @@ export function KVConsole({
     >
       <div
         ref={scrollRef}
-        className="neu-inset h-48 overflow-y-auto rounded-2xl p-3 whitespace-pre-wrap break-all"
+        className="neu-inset h-48 overflow-y-auto rounded-md p-3 whitespace-pre-wrap break-all"
       >
         {lines.map((line, i) => (
           <div key={i} className={TONE_CLASS[line.tone]}>
@@ -183,7 +183,7 @@ export function KVConsole({
           submit();
         }}
       >
-        <div className="neu-inset-sm flex flex-1 items-center gap-2 rounded-xl px-3 py-2">
+        <div className="neu-inset-sm flex flex-1 items-center gap-2 rounded-md px-3 py-2">
           <span className="text-accent">&gt;</span>
           <input
             ref={inputRef}

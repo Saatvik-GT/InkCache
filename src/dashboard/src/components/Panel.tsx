@@ -18,7 +18,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`neu-raised rounded-3xl p-5 ${className}`}>
+    <section className={`neu-raised rounded-lg p-5 ${className}`}>
       <header className="mb-4 flex items-center justify-between gap-3">
         <span className="neu-inset-sm shrink-0 rounded-full px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-ink-mid uppercase">
           {title}

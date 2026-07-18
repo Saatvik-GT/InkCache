@@ -27,7 +27,7 @@ export function Sparkline({
     .filter((p): p is string => p !== null);
 
   return (
-    <div className="neu-inset-sm rounded-xl p-2">
+    <div className="neu-inset-sm rounded-md p-2">
       <div className="mb-1 flex items-baseline justify-between">
         <span className="text-[9px] tracking-widest text-ink-mid uppercase">{label}</span>
         {valid.length > 0 && (
