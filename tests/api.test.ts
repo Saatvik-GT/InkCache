@@ -73,4 +73,19 @@ describe("REST API", () => {
     const res = await request(app).get("/nope").expect(404);
     assert.equal(res.body.error, "not found");
   });
+
+  it("sends the CORS header for the allowed dev origin, not for a random one", async () => {
+    const allowed = await request(app)
+      .get("/health")
+      .set("Origin", "http://localhost:5173")
+      .expect(200);
+    assert.equal(allowed.headers["access-control-allow-origin"], "http://localhost:5173");
+
+    const disallowed = await request(app)
+      .get("/health")
+      .set("Origin", "https://not-allowed.example.com")
+      .expect(200); // cors() doesn't block the response, just omits the header —
+    // the browser is what actually enforces same-origin policy client-side.
+    assert.equal(disallowed.headers["access-control-allow-origin"], undefined);
+  });
 });
