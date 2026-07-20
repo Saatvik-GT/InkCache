@@ -21,6 +21,9 @@ npm --prefix src/dashboard run lint    # oxlint
 npm --prefix src/dashboard run build   # dashboard typecheck + build
 ```
 
+Touching the `Dockerfile`? Also run `npm run docker:build` locally before
+opening the PR — CI doesn't build the image, so that's the only check.
+
 ## Workflow
 
 1. Create an issue describing the feature/bug.
