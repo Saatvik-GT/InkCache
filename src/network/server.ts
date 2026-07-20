@@ -11,7 +11,10 @@ const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
 store.startSweeper();
 
 const server = app.listen(PORT, () => {
-  console.log(`[inkcache] node listening on http://localhost:${PORT} (maxEntries=${MAX_ENTRIES})`);
+  console.log(
+    `[inkcache] node listening on http://localhost:${PORT} ` +
+      `(maxEntries=${MAX_ENTRIES}, evictionPolicy=${store.evictionPolicy})`,
+  );
 });
 
 function shutdown(signal: string): void {
