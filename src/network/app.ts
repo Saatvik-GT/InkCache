@@ -21,6 +21,7 @@ import express from "express";
 import cors from "cors";
 import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
+import { resolveCorsOrigins } from "./cors.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -36,13 +37,7 @@ const EVICTION_SAMPLE_SIZE = Number(process.env.INKCACHE_EVICTION_SAMPLE ?? 5);
 // Local dev origins are always allowed; INKCACHE_CORS_ORIGIN adds more
 // (comma-separated) for a dashboard hosted somewhere else entirely, e.g. a
 // static Vercel deploy talking to this node via VITE_API_BASE.
-const CORS_ORIGINS = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  ...(process.env.INKCACHE_CORS_ORIGIN?.split(",")
-    .map((o) => o.trim())
-    .filter(Boolean) ?? []),
-];
+const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
 
 export const metrics = new MetricsCollector();
 export const store = new CacheStore({
