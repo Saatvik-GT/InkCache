@@ -245,15 +245,20 @@ InkCache/
 ├── readme.md
 ├── LICENSE
 ├── CONTRIBUTING.md
+├── CHANGELOG.md
+├── Dockerfile            # cache node image
+├── docker-compose.yml
 ├── package.json          # node scripts: dev, dev:node, test, format
-├── .github/workflows/    # CI: typecheck, test, dashboard build
+├── .github/workflows/    # CI: typecheck, format check, test, dashboard lint+build
 ├── src/
-│   ├── core/             # Cache engine: CacheStore (TTL + LRU), MetricsCollector
+│   ├── core/             # Cache engine: CacheStore (TTL + eviction), MetricsCollector
 │   ├── network/          # app.ts (Express app) + server.ts (listen/shutdown)
-│   └── dashboard/        # React + Vite + Tailwind neumorphic monitor
+│   └── dashboard/        # React + Vite + Tailwind dashboard
+│       ├── vercel.json   # SPA rewrites for static hosting
+│       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)
 ├── tests/                # node:test + supertest: core cache logic + REST routes
 └── docs/
-    └── api.md            # full endpoint reference
+    └── api.md            # full endpoint + config reference
 ```
 
 Planned additions per roadmap: `src/intelligence/` (adaptive layer) and
