@@ -18,4 +18,11 @@ COPY src/network ./src/network
 ENV NODE_ENV=production
 EXPOSE 8080
 
+# Uses Node's own built-in fetch instead of wget/curl — those may or may
+# not be present on a given alpine variant, but Node definitely is, that's
+# the whole image. Lets an orchestrator (Compose, Render, etc.) tell
+# "process started" apart from "actually answering requests".
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+  CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 CMD ["npx", "tsx", "src/network/server.ts"]
