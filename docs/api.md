@@ -1,7 +1,9 @@
 # InkCache Node — API Reference
 
 Base URL for a locally running node: `http://localhost:8080`
-(the dashboard reaches the same node through the `/api` dev proxy).
+(the dashboard reaches the same node through the `/api` dev proxy in
+local dev, or a build-time `VITE_API_BASE` when deployed separately —
+see [Deployment](../readme.md#deployment) in the root README).
 
 ## POST /set
 
