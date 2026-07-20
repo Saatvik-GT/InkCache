@@ -46,6 +46,28 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   default, `m` to toggle), synthetic traffic simulator, power-on boot
   sequence, `prefers-reduced-motion` support throughout.
 
+### Home page & routing
+
+- Dashboard is now two routes via react-router-dom: `/` (a new home
+  page) and `/dashboard` (the console, unchanged behavior).
+- Home page hero is a real Three.js scene (`@react-three/fiber` +
+  `drei`): a ring of glass cache-slot cubes orbiting a pulsing core,
+  driven live by real hit-rate (glow) and ops/s (rotation speed) —
+  not a static render. Lazy-loaded and code-split so `/dashboard`
+  never downloads three.js; falls back to a static panel if WebGL is
+  unavailable or the scene throws at runtime; respects
+  `prefers-reduced-motion`.
+- Live stats strip, feature cards, a copyable quick-start curl
+  snippet, and an honest architecture note (what's real today vs.
+  roadmap) round out the home page.
+
+### Deployment
+
+- `Dockerfile` + `docker-compose.yml` for the cache node.
+- `VITE_API_BASE` (dashboard) and `INKCACHE_CORS_ORIGIN` (node) so the
+  dashboard can be deployed statically (e.g. Vercel, `vercel.json`
+  included) while pointed at a node running elsewhere.
+
 ### Testing & CI
 
 - `node:test` + supertest covering the cache core and every API route.
