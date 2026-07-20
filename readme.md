@@ -232,8 +232,12 @@ entire point of a cache.
 
 **Dashboard**, as a static build (`npm --prefix src/dashboard run build`)
 — this part deploys fine to Vercel (a `vercel.json` with SPA rewrites is
-already in `src/dashboard/`). Point it at a node running elsewhere by
-setting `VITE_API_BASE` at build time (see
+already in `src/dashboard/`). This repo is a monorepo — the root
+`package.json` is the backend's, not a frontend project — so **set
+Vercel's Project → Root Directory to `src/dashboard`**, otherwise Vercel
+will try to build the wrong package.json and fail before it ever reads
+`vercel.json`. Point it at a node running elsewhere by setting
+`VITE_API_BASE` at build time (see
 [`src/dashboard/.env.example`](src/dashboard/.env.example)), and add that
 dashboard's origin to `INKCACHE_CORS_ORIGIN` on the node side (see
 [docs/api.md](docs/api.md#eviction-policy) for the full env var table).
