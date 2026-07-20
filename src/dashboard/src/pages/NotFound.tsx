@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function NotFound() {
+  useDocumentTitle("InkCache — 404");
+
   return (
     <div className="neu-field flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
       <span className="text-3xl font-bold text-ink">404</span>
