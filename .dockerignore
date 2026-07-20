@@ -1,0 +1,8 @@
+node_modules
+src/dashboard
+tests
+dist
+*.log
+.git
+.env
+InkCachemain
