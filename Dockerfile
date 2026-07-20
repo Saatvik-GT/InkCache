@@ -7,9 +7,11 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Only the backend's manifest — the dashboard has its own package.json and
-# isn't part of this image at all.
+# isn't part of this image at all. --omit=dev skips concurrently/prettier/
+# typescript/supertest entirely — tsx lives in "dependencies" specifically
+# so it's still installed (it's the actual runtime, not a dev tool here).
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --omit=dev
 
 COPY tsconfig.json ./
 COPY src/core ./src/core
