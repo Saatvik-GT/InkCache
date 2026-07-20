@@ -186,7 +186,7 @@ export function KVConsole({
           submit();
         }}
       >
-        <div className="neu-inset-sm flex flex-1 items-center gap-2 rounded-md px-3 py-2">
+        <div className="neu-inset-sm focus-within:ring-accent flex flex-1 items-center gap-2 rounded-md px-3 py-2 focus-within:ring-2">
           <span className="text-accent">&gt;</span>
           <input
             ref={inputRef}
