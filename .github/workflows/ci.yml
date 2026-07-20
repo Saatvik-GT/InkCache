@@ -40,3 +40,6 @@ jobs:
       - name: Build dashboard
         run: npm run build
         working-directory: src/dashboard
+
+      - name: Build node Docker image
+        run: docker build -t inkcache-node .

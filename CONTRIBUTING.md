@@ -19,10 +19,12 @@ npx tsc --noEmit          # backend typecheck
 npm run format:check     # prettier — repo-wide
 npm --prefix src/dashboard run lint    # oxlint
 npm --prefix src/dashboard run build   # dashboard typecheck + build
+npm run docker:build                    # only strictly needed if you touched the Dockerfile
 ```
 
-Touching the `Dockerfile`? Also run `npm run docker:build` locally before
-opening the PR — CI doesn't build the image, so that's the only check.
+CI builds the Docker image too (catches a broken `Dockerfile`), but
+doesn't run it — `npm run docker:run` + `curl localhost:8080/health` is
+still on you if you actually changed backend behavior inside the image.
 
 ## Workflow
 
