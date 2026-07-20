@@ -21,6 +21,7 @@
 - [Usage](#usage)
 - [API Reference](#api-reference)
 - [Testing](#testing)
+- [Deployment](#deployment)
 - [Project Structure](#project-structure)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
@@ -102,16 +103,17 @@ InkCache addresses this by combining:
 
 ## Tech Stack
 
-| Layer              | Technology                                   |
-| ------------------ | -------------------------------------------- |
-| Core Cache Engine  | Node.js / TypeScript                         |
-| Networking         | TCP sockets / gRPC (TBD)                     |
-| Consistent Hashing | Custom implementation                        |
-| Adaptive Layer     | Python microservice (pattern modeling)       |
-| Metrics Dashboard  | React + Vite + Tailwind (neumorphic soft-UI) |
-| Testing            | node:test, Supertest                         |
-| Benchmarking       | autocannon / custom load-test scripts        |
-| Deployment         | Docker, Docker Compose                       |
+| Layer              | Technology                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Core Cache Engine  | Node.js / TypeScript                                                                                                            |
+| Networking         | TCP sockets / gRPC (TBD)                                                                                                        |
+| Consistent Hashing | Custom implementation                                                                                                           |
+| Adaptive Layer     | Python microservice (pattern modeling)                                                                                          |
+| Dashboard          | React + Vite + Tailwind (neumorphic soft-UI), react-router-dom                                                                  |
+| 3D Hero            | Three.js via @react-three/fiber + @react-three/drei                                                                             |
+| Testing            | node:test, Supertest                                                                                                            |
+| Benchmarking       | autocannon / custom load-test scripts                                                                                           |
+| Deployment         | Dockerfile + docker-compose for the node; the dashboard is a static build (deployable to Vercel, see [Deployment](#deployment)) |
 
 ## Project Roadmap
 
@@ -208,6 +210,33 @@ CI also runs backend typecheck, `prettier --check`, the dashboard's
 `oxlint`, and the dashboard build on every push/PR — see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the full local pre-PR checklist.
 Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
+
+## Deployment
+
+The cache node and the dashboard are deployed separately — the node needs
+a long-running process (in-memory store, TTL sweeper), the dashboard is a
+static build.
+
+**Node**, via the included `Dockerfile`:
+
+```bash
+docker compose up --build
+# or: docker build -t inkcache-node . && docker run -p 8080:8080 inkcache-node
+```
+
+Deploys to any host that runs a container off a Dockerfile — Render,
+Railway, Fly.io, a VPS. **Not Vercel** for this half: Vercel's functions
+are stateless/serverless, so the in-memory cache would be wiped between
+invocations and the TTL sweeper couldn't run — that would defeat the
+entire point of a cache.
+
+**Dashboard**, as a static build (`npm --prefix src/dashboard run build`)
+— this part deploys fine to Vercel (a `vercel.json` with SPA rewrites is
+already in `src/dashboard/`). Point it at a node running elsewhere by
+setting `VITE_API_BASE` at build time (see
+[`src/dashboard/.env.example`](src/dashboard/.env.example)), and add that
+dashboard's origin to `INKCACHE_CORS_ORIGIN` on the node side (see
+[docs/api.md](docs/api.md#eviction-policy) for the full env var table).
 
 ## Project Structure
 
