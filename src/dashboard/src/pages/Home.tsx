@@ -1,17 +1,32 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArchitectureNote } from "../components/ArchitectureNote";
 import { FeatureCards } from "../components/FeatureCards";
 import { HeroScene } from "../components/HeroScene";
 import { HomeFooter } from "../components/HomeFooter";
 import { HomeNav } from "../components/HomeNav";
 import { LiveStatsStrip } from "../components/LiveStatsStrip";
+import { KeyCap } from "../components/KeyCap";
 import { QuickStart } from "../components/QuickStart";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode } from "../hooks/useNode";
+import { useEffect } from "react";
 
 export function Home() {
   const { metrics, status } = useNode(1000);
+  const navigate = useNavigate();
   useDocumentTitle("InkCache — intelligent access-pattern-aware caching");
+
+  // 'd' jumps to the dashboard, same convention as the console's own
+  // single-letter shortcuts (s for sim, m for sound).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "d" && (e.target as HTMLElement)?.tagName !== "INPUT") {
+        navigate("/dashboard");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate]);
 
   return (
     <div className="neu-field min-h-screen">
@@ -41,6 +56,9 @@ export function Home() {
           >
             Open Dashboard
           </Link>
+          <span className="flex items-center gap-1 text-[10px] text-ink-faint">
+            <KeyCap>D</KeyCap> also works
+          </span>
 
           <LiveStatsStrip metrics={metrics} status={status} />
         </section>
