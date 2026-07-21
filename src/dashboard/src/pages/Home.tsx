@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CacheOrbScene } from "../components/CacheOrbScene";
+import { HeroScene } from "../components/HeroScene";
 import { useNode } from "../hooks/useNode";
 
 /**
@@ -13,10 +13,7 @@ export function Home() {
   return (
     <div className="neu-field flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="h-64 w-full max-w-sm">
-        <CacheOrbScene
-          hitRate={metrics?.hitRate ?? null}
-          opsPerSec={metrics?.opsPerSec ?? 0}
-        />
+        <HeroScene hitRate={metrics?.hitRate ?? null} opsPerSec={metrics?.opsPerSec ?? 0} />
       </div>
       <h1 className="text-2xl font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
       <p className="max-w-md text-sm text-ink-mid">
