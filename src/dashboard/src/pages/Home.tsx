@@ -19,7 +19,13 @@ export function Home() {
         <HomeNav />
 
         <section className="flex flex-col items-center gap-4 pt-6 text-center">
-          <div className="h-64 w-full max-w-sm">
+          <div
+            className="h-64 w-full max-w-sm"
+            role="img"
+            aria-label={`3D visualization of the cache node: a core that glows brighter with hit rate${
+              metrics?.hitRate != null ? ` (currently ${Math.round(metrics.hitRate * 100)}%)` : ""
+            }, orbited by a ring representing cache slots.`}
+          >
             <HeroScene hitRate={metrics?.hitRate ?? null} opsPerSec={metrics?.opsPerSec ?? 0} />
           </div>
 
