@@ -1,4 +1,5 @@
 import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
 
 /**
  * 3D hero scene — a real Three.js canvas, not a static render. Starts as a
@@ -16,6 +17,7 @@ export function CacheOrbScene() {
         <icosahedronGeometry args={[1, 0]} />
         <meshStandardMaterial color="#0d9488" roughness={0.3} metalness={0.4} />
       </mesh>
+      <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.6} />
     </Canvas>
   );
 }
