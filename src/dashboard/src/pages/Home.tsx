@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { CacheOrbScene } from "../components/CacheOrbScene";
 
 /**
  * Landing page — placeholder scaffold. Real content (3D hero, live stats,
@@ -8,6 +9,9 @@ import { Link } from "react-router-dom";
 export function Home() {
   return (
     <div className="neu-field flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="h-64 w-full max-w-sm">
+        <CacheOrbScene />
+      </div>
       <h1 className="text-2xl font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
       <p className="max-w-md text-sm text-ink-mid">
         Intelligent, access-pattern-aware caching — local demo home page under construction.
