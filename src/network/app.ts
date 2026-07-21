@@ -33,6 +33,17 @@ const EVICTION_POLICY: EvictionPolicy =
   process.env.INKCACHE_EVICTION_POLICY === "lru" ? "lru" : "access-aware";
 const EVICTION_SAMPLE_SIZE = Number(process.env.INKCACHE_EVICTION_SAMPLE ?? 5);
 
+// Local dev origins are always allowed; INKCACHE_CORS_ORIGIN adds more
+// (comma-separated) for a dashboard hosted somewhere else entirely, e.g. a
+// static Vercel deploy talking to this node via VITE_API_BASE.
+const CORS_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(process.env.INKCACHE_CORS_ORIGIN?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) ?? []),
+];
+
 export const metrics = new MetricsCollector();
 export const store = new CacheStore({
   maxEntries: MAX_ENTRIES,
@@ -50,11 +61,11 @@ function timed<T>(fn: () => T): { result: T; latencyUs: number } {
 
 export const app = express();
 
-// Only the Vite dev server (and its preview port) need direct access; the
-// production dashboard talks to the node through the /api proxy instead.
+// See CORS_ORIGINS above — local dev by default, extendable for a
+// separately-hosted dashboard via INKCACHE_CORS_ORIGIN.
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: CORS_ORIGINS,
   }),
 );
 
