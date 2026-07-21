@@ -13,9 +13,12 @@ const SLOT_COUNT = 24;
 export function CacheSlotRing({
   radius = 2.2,
   rotationSpeed = 0.15,
+  reducedMotion = false,
 }: {
   radius?: number;
   rotationSpeed?: number;
+  /** Skip the per-frame rotation entirely — a still ring, not just a slower one. */
+  reducedMotion?: boolean;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -34,7 +37,8 @@ export function CacheSlotRing({
   }, [radius, dummy]);
 
   useFrame((_, delta) => {
-    if (meshRef.current) meshRef.current.rotation.y += rotationSpeed * delta;
+    if (reducedMotion || !meshRef.current) return;
+    meshRef.current.rotation.y += rotationSpeed * delta;
   });
 
   return (
