@@ -7,6 +7,7 @@ import { MetricsPanel } from "../components/MetricsPanel";
 import { Panel } from "../components/Panel";
 import { TicketDivider } from "../components/TicketDivider";
 import { Toggle } from "../components/Toggle";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode, type NodeStatus } from "../hooks/useNode";
 import { flush } from "../lib/api";
 import { logEvent } from "../lib/log";
@@ -29,6 +30,7 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
 
 export function Dashboard() {
   const { metrics, status, history, refreshNow } = useNode(1000);
+  useDocumentTitle("InkCache // node monitor");
   const { running: simRunning, toggle: toggleSim } = useSimulator();
   const soundEnabled = useSoundEnabled();
   const [booting, setBooting] = useState(true);

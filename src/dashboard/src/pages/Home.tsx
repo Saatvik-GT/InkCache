@@ -6,10 +6,12 @@ import { HomeFooter } from "../components/HomeFooter";
 import { HomeNav } from "../components/HomeNav";
 import { LiveStatsStrip } from "../components/LiveStatsStrip";
 import { QuickStart } from "../components/QuickStart";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode } from "../hooks/useNode";
 
 export function Home() {
   const { metrics, status } = useNode(1000);
+  useDocumentTitle("InkCache — intelligent access-pattern-aware caching");
 
   return (
     <div className="neu-field min-h-screen">
