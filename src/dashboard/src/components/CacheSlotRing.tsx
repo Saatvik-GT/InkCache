@@ -44,7 +44,18 @@ export function CacheSlotRing({
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, SLOT_COUNT]}>
       <boxGeometry args={[0.28, 0.28, 0.28]} />
-      <meshStandardMaterial color="#2563eb" roughness={0.25} metalness={0.5} />
+      {/* meshPhysicalMaterial's clearcoat + transparency read as glass —
+          matches the dashboard's glassmorphism theme. Not full transmission
+          (that render pass doesn't play well with instancing at this count). */}
+      <meshPhysicalMaterial
+        color="#2563eb"
+        roughness={0.15}
+        metalness={0.3}
+        clearcoat={1}
+        clearcoatRoughness={0.1}
+        transparent
+        opacity={0.85}
+      />
     </instancedMesh>
   );
 }

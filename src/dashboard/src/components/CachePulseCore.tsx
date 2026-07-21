@@ -19,7 +19,7 @@ export function CachePulseCore({
   reducedMotion?: boolean;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const t = useRef(0);
 
   useFrame((_, delta) => {
@@ -42,13 +42,15 @@ export function CachePulseCore({
   return (
     <mesh ref={meshRef}>
       <icosahedronGeometry args={[1, 0]} />
-      <meshStandardMaterial
+      <meshPhysicalMaterial
         ref={materialRef}
         color="#0d9488"
         emissive="#0d9488"
         emissiveIntensity={0.15}
-        roughness={0.3}
-        metalness={0.4}
+        roughness={0.2}
+        metalness={0.3}
+        clearcoat={1}
+        clearcoatRoughness={0.15}
       />
     </mesh>
   );
