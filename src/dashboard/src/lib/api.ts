@@ -1,7 +1,11 @@
 /**
- * Typed client for the cache node's REST API. All calls go through the /api
- * dev proxy (see vite.config.ts), so the node's origin lives in one place.
+ * Typed client for the cache node's REST API. By default calls go through
+ * the /api dev proxy (see vite.config.ts), so the node's origin lives in
+ * one place. Set VITE_API_BASE at build time to point a statically-hosted
+ * build (e.g. on Vercel) at a backend running somewhere else entirely —
+ * see .env.example.
  */
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 export interface GetResult {
   hit: boolean;
@@ -37,7 +41,7 @@ export interface NodeHealth {
 }
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`/api${path}`, init);
+  return fetch(`${API_BASE}${path}`, init);
 }
 
 export async function setKey(
