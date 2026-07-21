@@ -22,7 +22,7 @@ export function HeroScene({ hitRate, opsPerSec }: { hitRate: number | null; opsP
 
   return (
     <Scene3DBoundary fallback={<Scene3DFallback />}>
-      <Suspense fallback={<Scene3DFallback />}>
+      <Suspense fallback={<Scene3DFallback loading />}>
         <CacheOrbScene hitRate={hitRate} opsPerSec={opsPerSec} />
       </Suspense>
     </Scene3DBoundary>
