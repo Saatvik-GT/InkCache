@@ -111,6 +111,12 @@ the node (`npm run dev:node` / `npm run start:node`):
 | `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
 | `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware` or `lru`                  |
 | `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
+| `INKCACHE_CORS_ORIGIN`     | _(none)_       | comma-separated extra allowed origins    |
+
+`INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
+separately from this node (see `VITE_API_BASE` in
+[`src/dashboard/.env.example`](../src/dashboard/.env.example)) — local dev
+origins (`localhost:5173`) are always allowed regardless.
 
 **`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
 keys and evicts whichever of _those_ was read the fewest times, instead of
