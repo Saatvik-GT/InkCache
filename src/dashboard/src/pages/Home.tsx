@@ -23,8 +23,8 @@ export function Home() {
 
           <h1 className="text-2xl font-bold tracking-[0.3em] text-ink">INKCACHE</h1>
           <p className="max-w-md text-sm text-ink-mid">
-            Intelligent, access-pattern-aware caching — a real single-node demo, not a mockup.
-            The ring above spins with real ops/s and glows with real hit rate.
+            Intelligent, access-pattern-aware caching — a real single-node demo, not a mockup. The
+            ring above spins with real ops/s and glows with real hit rate.
           </p>
 
           <Link

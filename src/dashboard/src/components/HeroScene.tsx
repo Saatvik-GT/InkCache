@@ -15,13 +15,7 @@ const CacheOrbScene = lazy(() =>
  * the three.js chunk downloads, and catch any runtime failure so a broken
  * driver degrades gracefully instead of taking the page down.
  */
-export function HeroScene({
-  hitRate,
-  opsPerSec,
-}: {
-  hitRate: number | null;
-  opsPerSec: number;
-}) {
+export function HeroScene({ hitRate, opsPerSec }: { hitRate: number | null; opsPerSec: number }) {
   const [webglOk] = useState(hasWebGL);
 
   if (!webglOk) return <Scene3DFallback />;

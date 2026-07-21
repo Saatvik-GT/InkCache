@@ -4,10 +4,10 @@ export function ArchitectureNote() {
       <span className="mb-1 block text-[10px] font-bold tracking-widest text-ink uppercase">
         where this actually is
       </span>
-      A working single-node cache core, REST API, and this dashboard are real
-      and running today — every number on this page comes from a live node,
-      nothing is mocked. Multi-node replication, consistent hashing, and a
-      trained/learned prefetching layer are roadmap items, not built yet. See{" "}
+      A working single-node cache core, REST API, and this dashboard are real and running today —
+      every number on this page comes from a live node, nothing is mocked. Multi-node replication,
+      consistent hashing, and a trained/learned prefetching layer are roadmap items, not built yet.
+      See{" "}
       <a
         href="https://github.com/Saatvik-GT/InkCache#current-status"
         target="_blank"
