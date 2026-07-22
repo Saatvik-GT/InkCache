@@ -22,9 +22,10 @@ npm --prefix src/dashboard run build   # dashboard typecheck + build
 npm run docker:build                    # only strictly needed if you touched the Dockerfile
 ```
 
-CI builds the Docker image too (catches a broken `Dockerfile`), but
-doesn't run it — `npm run docker:run` + `curl localhost:8080/health` is
-still on you if you actually changed backend behavior inside the image.
+CI builds the Docker image and runs it (`curl`s `/health` before tearing
+it down), so a broken `CMD`/`PORT`/startup crash gets caught there too —
+`npm run docker:run` locally is for iterating on the Dockerfile itself,
+not required before every PR.
 
 ## Workflow
 
