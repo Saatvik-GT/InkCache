@@ -1,0 +1,5 @@
+# Normalize line endings to LF in the repo regardless of what a given
+# contributor's git autocrlf setting does locally — this repo is developed
+# on Windows but CI runs on Ubuntu, so this avoids line-ending-only diff
+# noise and potential shell-script issues (a CRLF shebang line breaks bash).
+* text=auto eol=lf
