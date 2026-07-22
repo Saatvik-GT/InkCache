@@ -143,7 +143,7 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 - Node.js ≥ 20.4 (the test suite uses `node:test`'s Date-mocking timers, which need 20.4+)
 - npm or yarn
-- Docker (optional, for multi-node local testing)
+- Docker (optional — only needed for the [Dockerfile](#deployment)-based deploy path, not for local dev)
 
 ### Installation
 
