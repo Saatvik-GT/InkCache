@@ -195,6 +195,7 @@ curl -X DELETE http://localhost:8080/delete/user:1
 | GET    | `/get/:key`    | Retrieve a value by key                  |
 | DELETE | `/delete/:key` | Remove a key from the cache              |
 | GET    | `/keys`        | List active (non-expired) keys           |
+| GET    | `/keys/stats`  | Per-key hit counts + TTL (one pass)      |
 | POST   | `/flush`       | Clear the entire store (dev/demo)        |
 | GET    | `/metrics`     | Retrieve node/cluster metrics            |
 | GET    | `/health`      | Node health check                        |
