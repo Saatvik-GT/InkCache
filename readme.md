@@ -258,7 +258,7 @@ InkCache/
 ├── Dockerfile            # cache node image
 ├── docker-compose.yml
 ├── package.json          # node scripts: dev, dev:node, test, format
-├── .github/workflows/    # CI: typecheck, format check, test, dashboard lint+build
+├── .github/workflows/    # CI: typecheck, format check, test, dashboard lint+build, Docker smoke test
 ├── src/
 │   ├── core/             # Cache engine: CacheStore (TTL + eviction), MetricsCollector
 │   ├── network/          # app.ts (Express app) + server.ts (listen/shutdown)
