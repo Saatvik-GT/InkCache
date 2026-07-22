@@ -3,9 +3,9 @@
 > An adaptive, distributed key-value caching layer that goes beyond static eviction policies by learning access patterns to optimize hit rates, reduce latency, and scale horizontally across nodes.
 
 [![CI](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml/badge.svg)](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-in%20development-yellow)](<>)
-[![License](https://img.shields.io/badge/license-MIT-blue)](<>)
-[![Program](https://img.shields.io/badge/CUSoC-2026-orange)](<>)
+[![Status](https://img.shields.io/badge/status-in%20development-yellow)](#project-roadmap)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Program](https://img.shields.io/badge/CUSoC-2026-orange)](#overview)
 
 ---
 
