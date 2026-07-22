@@ -161,7 +161,8 @@ npm run dev
 ```
 
 The cache node listens on `http://localhost:8080`; the dashboard is served
-at `http://localhost:5173` and reaches the node through the `/api` dev proxy.
+at `http://localhost:5173` (`/` is the home page, `/dashboard` is the live
+console) and reaches the node through the `/api` dev proxy.
 To run them separately: `npm run dev:node` and `npm run dev:dashboard`.
 
 In the dashboard: press `/` to focus the KV console, `s` to toggle the
