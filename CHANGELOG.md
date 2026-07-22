@@ -63,7 +63,8 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Deployment
 
-- `Dockerfile` + `docker-compose.yml` for the cache node.
+- `Dockerfile` + `docker-compose.yml` for the cache node, runs as the
+  unprivileged `node` user rather than root.
 - `VITE_API_BASE` (dashboard) and `INKCACHE_CORS_ORIGIN` (node) so the
   dashboard can be deployed statically (e.g. Vercel, `vercel.json`
   included) while pointed at a node running elsewhere.
