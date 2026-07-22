@@ -211,7 +211,8 @@ npm test
 ```
 
 CI also runs backend typecheck, `prettier --check`, the dashboard's
-`oxlint`, and the dashboard build on every push/PR — see
+`oxlint`, the dashboard build, and a Docker build-and-run smoke test
+against `/health` on every push/PR — see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the full local pre-PR checklist.
 Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
 
