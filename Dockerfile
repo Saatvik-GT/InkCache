@@ -27,4 +27,9 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
+# node:20-alpine ships an unprivileged 'node' user (uid 1000) specifically
+# for this — no reason to run an internet-facing process as root when the
+# only thing it needs is read access to files root already copied in.
+USER node
+
 CMD ["npx", "tsx", "src/network/server.ts"]
