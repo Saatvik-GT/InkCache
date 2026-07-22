@@ -176,7 +176,9 @@ Not available yet — multi-node support arrives with the Quarter II sprints.
 
 ```bash
 # Set a key
-curl -X POST http://localhost:8080/set -d '{"key":"user:1","value":"Saatvik","ttl":300}'
+curl -X POST http://localhost:8080/set \
+  -H "Content-Type: application/json" \
+  -d '{"key":"user:1","value":"Saatvik","ttl":300}'
 
 # Get a key
 curl http://localhost:8080/get/user:1
