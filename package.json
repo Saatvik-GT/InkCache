@@ -2,6 +2,14 @@
   "name": "inkcache",
   "version": "0.1.0",
   "description": "InkCache — intelligent distributed caching system (CUSoC 2026)",
+  "keywords": [
+    "cache",
+    "lru",
+    "lfu",
+    "eviction-policy",
+    "in-memory-cache",
+    "typescript"
+  ],
   "private": true,
   "type": "module",
   "repository": {
