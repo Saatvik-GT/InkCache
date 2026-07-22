@@ -226,7 +226,7 @@ static build.
 
 ```bash
 docker compose up --build
-# or: docker build -t inkcache-node . && docker run -p 8080:8080 inkcache-node
+# or: npm run docker:build && npm run docker:run
 ```
 
 Deploys to any host that runs a container off a Dockerfile — Render,
