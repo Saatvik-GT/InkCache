@@ -278,6 +278,7 @@ benchmarking scripts.
 - Installation and usage — see [Getting Started](#getting-started) and [Usage](#usage) above
 - [API Documentation](docs/api.md)
 - [Change Log](CHANGELOG.md)
+- [Contributing Guide](CONTRIBUTING.md)
 
 Not written yet (roadmap-gated — no point documenting a schema or
 architecture that doesn't exist until the distributed layer does):
