@@ -61,7 +61,7 @@ InkCache addresses this by combining:
 
 ## Key Features
 
-- **Core Cache Engine** — configurable eviction (access-aware frequency/recency hybrid, or strict LRU), TTL support, thread-safe operations
+- **Core Cache Engine** — configurable eviction (access-aware frequency/recency hybrid, or strict LRU), TTL support, single-threaded so there's no locking to get wrong
 - **Distributed Architecture** — consistent hashing for key distribution across nodes
 - **Replication & Fault Tolerance** — primary-replica model with automatic failover
 - **Adaptive Intelligence** — access-pattern-based eviction and predictive prefetching
