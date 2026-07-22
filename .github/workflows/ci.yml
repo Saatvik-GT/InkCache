@@ -43,3 +43,13 @@ jobs:
 
       - name: Build node Docker image
         run: docker build -t inkcache-node .
+
+      - name: Smoke-test the Docker image
+        run: |
+          docker run -d --name inkcache-smoke -p 8080:8080 inkcache-node
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:8080/health; then break; fi
+            [ "$i" -eq 10 ] && { echo "node never came up"; docker logs inkcache-smoke; exit 1; }
+            sleep 1
+          done
+          docker stop inkcache-smoke
