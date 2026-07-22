@@ -52,4 +52,10 @@ jobs:
             [ "$i" -eq 10 ] && { echo "node never came up"; docker logs inkcache-smoke; exit 1; }
             sleep 1
           done
-          docker stop inkcache-smoke
+
+      # Runs even if the smoke test above failed (if: always()) — a failed
+      # health check would otherwise leave the container running for the
+      # rest of the job instead of exiting cleanly.
+      - name: Stop the smoke-test container
+        if: always()
+        run: docker rm -f inkcache-smoke
