@@ -1,5 +1,6 @@
 {
   "name": "inkcache-dashboard",
+  "description": "InkCache home page + live node console (React + Vite + Tailwind + Three.js)",
   "private": true,
   "version": "0.1.0",
   "type": "module",
