@@ -7,12 +7,13 @@ import { app, store } from "./app.js";
 
 const PORT = Number(process.env.INKCACHE_PORT ?? 8080);
 const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
+const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 
 store.startSweeper();
 
 const server = app.listen(PORT, () => {
   console.log(
-    `[inkcache] node listening on http://localhost:${PORT} ` +
+    `[inkcache] ${NODE_ID} listening on http://localhost:${PORT} ` +
       `(maxEntries=${MAX_ENTRIES}, evictionPolicy=${store.evictionPolicy})`,
   );
 });
