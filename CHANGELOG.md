@@ -24,8 +24,14 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Per-op latency instrumentation (avg/p95), hit-rate, rolling
   throughput, eviction-policy reporting.
 - JSON error responses for malformed bodies and unknown routes instead
-  of Express's default HTML pages; graceful shutdown on SIGINT/SIGTERM;
+  of Express's default HTML pages; graceful shutdown on SIGINT/SIGTERM
+  (now with a 5s force-exit safety net against a hung connection);
   request body size cap and basic security headers.
+- All numeric config env vars (`INKCACHE_PORT`, `INKCACHE_MAX_ENTRIES`,
+  `INKCACHE_EVICTION_SAMPLE`) are validated as positive integers and
+  fall back to their default with a warning on garbage input — fixes a
+  real bug where an unvalidated `Number("garbage")` (`NaN`) silently
+  disabled eviction entirely (`size >= NaN` is always `false`).
 
 ### Dashboard
 
