@@ -23,9 +23,12 @@ EXPOSE 8080
 # Uses Node's own built-in fetch instead of wget/curl — those may or may
 # not be present on a given alpine variant, but Node definitely is, that's
 # the whole image. Lets an orchestrator (Compose, Render, etc.) tell
-# "process started" apart from "actually answering requests".
+# "process started" apart from "actually answering requests". Reads
+# INKCACHE_PORT from the container's own env at check-time rather than
+# hardcoding 8080 — override the port (e.g. in docker-compose.yml) and
+# this still checks the right one instead of silently going stale.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.INKCACHE_PORT||8080)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # node:20-alpine ships an unprivileged 'node' user (uid 1000) specifically
 # for this — no reason to run an internet-facing process as root when the
