@@ -3,10 +3,14 @@
  * up the TTL sweeper and graceful shutdown.
  */
 
-import { app, store } from "./app.js";
+import { app, store, MAX_ENTRIES } from "./app.js";
+import { parsePositiveInt } from "./env.js";
 
-const PORT = Number(process.env.INKCACHE_PORT ?? 8080);
-const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
+// PORT only matters here (app.ts never binds a port), but MAX_ENTRIES is
+// imported rather than recomputed — a second, separately-unvalidated copy
+// of the same env var is exactly how this file's startup log line ended up
+// printing "maxEntries=NaN" while the store itself correctly fell back.
+const PORT = parsePositiveInt(process.env.INKCACHE_PORT, 8080, "INKCACHE_PORT");
 const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 
 store.startSweeper();

@@ -27,7 +27,11 @@ import { parsePositiveInt } from "./env.js";
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
 
-const MAX_ENTRIES = parsePositiveInt(process.env.INKCACHE_MAX_ENTRIES, 512, "INKCACHE_MAX_ENTRIES");
+export const MAX_ENTRIES = parsePositiveInt(
+  process.env.INKCACHE_MAX_ENTRIES,
+  512,
+  "INKCACHE_MAX_ENTRIES",
+);
 const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 const MAX_KEY_LENGTH = 256;
 
