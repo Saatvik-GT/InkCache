@@ -1,6 +1,7 @@
 services:
   node:
     build: .
+    restart: unless-stopped
     # If you change INKCACHE_PORT below, update the host:container mapping
     # to match — EXPOSE in the Dockerfile is just metadata, it doesn't
     # enforce anything, so the two can silently drift out of sync.
