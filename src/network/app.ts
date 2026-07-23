@@ -22,17 +22,22 @@ import cors from "cors";
 import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
 import { resolveCorsOrigins } from "./cors.js";
+import { parsePositiveInt } from "./env.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
 
-const MAX_ENTRIES = Number(process.env.INKCACHE_MAX_ENTRIES ?? 512);
+const MAX_ENTRIES = parsePositiveInt(process.env.INKCACHE_MAX_ENTRIES, 512, "INKCACHE_MAX_ENTRIES");
 const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 const MAX_KEY_LENGTH = 256;
 
 const EVICTION_POLICY: EvictionPolicy =
   process.env.INKCACHE_EVICTION_POLICY === "lru" ? "lru" : "access-aware";
-const EVICTION_SAMPLE_SIZE = Number(process.env.INKCACHE_EVICTION_SAMPLE ?? 5);
+const EVICTION_SAMPLE_SIZE = parsePositiveInt(
+  process.env.INKCACHE_EVICTION_SAMPLE,
+  5,
+  "INKCACHE_EVICTION_SAMPLE",
+);
 
 // Local dev origins are always allowed; INKCACHE_CORS_ORIGIN adds more
 // (comma-separated) for a dashboard hosted somewhere else entirely, e.g. a
