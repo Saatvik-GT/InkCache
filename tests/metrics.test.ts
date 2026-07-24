@@ -29,6 +29,11 @@ describe("MetricsCollector", () => {
     assert.equal(snap.latency.p95Us, 96);
   });
 
+  it("reports a small positive uptimeSec right after construction", () => {
+    const m = new MetricsCollector();
+    assert.ok(m.uptimeSec >= 0 && m.uptimeSec < 1);
+  });
+
   it("counts sets and deletes independently of get hit/miss", () => {
     const m = new MetricsCollector();
     m.record("set", 1);
