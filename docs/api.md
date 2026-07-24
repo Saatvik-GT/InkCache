@@ -5,6 +5,10 @@ Base URL for a locally running node: `http://localhost:8080`
 local dev, or a build-time `VITE_API_BASE` when deployed separately —
 see [Deployment](../readme.md#deployment) in the root README).
 
+Every response, success or error, is `application/json` — including the
+404/400 error cases, which don't fall through to Express's default HTML
+error page (see [Errors](#errors) below).
+
 ## POST /set
 
 Store a value, optionally with a TTL.
