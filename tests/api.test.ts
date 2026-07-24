@@ -55,6 +55,16 @@ describe("REST API", () => {
     assert.match(res.body.error, /value must be a string/);
   });
 
+  it("rejects a non-string key", async () => {
+    const res = await request(app).post("/set").send({ key: 123, value: "1" }).expect(400);
+    assert.match(res.body.error, /non-empty string/);
+  });
+
+  it("rejects a whitespace-only key", async () => {
+    const res = await request(app).post("/set").send({ key: "   ", value: "1" }).expect(400);
+    assert.match(res.body.error, /non-empty string/);
+  });
+
   it("returns malformed-JSON as a 400 with a JSON body", async () => {
     const res = await request(app)
       .post("/set")
