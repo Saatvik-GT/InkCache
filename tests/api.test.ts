@@ -50,6 +50,11 @@ describe("REST API", () => {
     assert.match(negative.body.error, /ttl/);
   });
 
+  it("rejects a non-string value", async () => {
+    const res = await request(app).post("/set").send({ key: "a", value: 42 }).expect(400);
+    assert.match(res.body.error, /value must be a string/);
+  });
+
   it("returns malformed-JSON as a 400 with a JSON body", async () => {
     const res = await request(app)
       .post("/set")
