@@ -16,6 +16,13 @@ describe("REST API", () => {
     await request(app).get("/get/a").expect(404);
   });
 
+  it("round-trips a key containing a slash, URL-encoded in the path", async () => {
+    await request(app).post("/set").send({ key: "a/b", value: "slash-key" }).expect(200);
+    const got = await request(app).get("/get/a%2Fb").expect(200);
+    assert.equal(got.body.key, "a/b");
+    assert.equal(got.body.value, "slash-key");
+  });
+
   it("rejects a set with a missing key", async () => {
     const res = await request(app).post("/set").send({ value: "1" }).expect(400);
     assert.match(res.body.error, /key/);
