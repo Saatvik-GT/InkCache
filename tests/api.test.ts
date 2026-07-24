@@ -28,6 +28,18 @@ describe("REST API", () => {
     assert.match(res.body.error, /key/);
   });
 
+  it("accepts a key at exactly the 256-char limit, rejects one over it", async () => {
+    await request(app)
+      .post("/set")
+      .send({ key: "x".repeat(256), value: "1" })
+      .expect(200);
+    const res = await request(app)
+      .post("/set")
+      .send({ key: "x".repeat(257), value: "1" })
+      .expect(400);
+    assert.match(res.body.error, /256 characters/);
+  });
+
   it("returns malformed-JSON as a 400 with a JSON body", async () => {
     const res = await request(app)
       .post("/set")
