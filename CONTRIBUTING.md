@@ -9,6 +9,7 @@ standard open-source hygiene still applies.
 npm install
 npm --prefix src/dashboard install
 npm run dev        # cache node on :8080 + dashboard on :5173
+npm run test:watch # re-runs core + API tests on save, while iterating
 ```
 
 ## Before opening a PR
