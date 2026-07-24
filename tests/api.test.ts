@@ -108,6 +108,12 @@ describe("REST API", () => {
     assert.equal(res.body.keys[0].ttl, null);
   });
 
+  it("returns an empty array (not an error) for /keys/stats on an empty store", async () => {
+    const res = await request(app).get("/keys/stats").expect(200);
+    assert.deepEqual(res.body.keys, []);
+    assert.equal(res.body.count, 0);
+  });
+
   it("reports deleted:false for a key that never existed, still 200", async () => {
     const res = await request(app).delete("/delete/never-existed").expect(200);
     assert.equal(res.body.deleted, false);
