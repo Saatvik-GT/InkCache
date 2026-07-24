@@ -27,6 +27,7 @@
     "dev:node": "tsx watch src/network/server.ts",
     "start:node": "tsx src/network/server.ts",
     "test": "node --import tsx --test tests/*.test.ts",
+    "test:watch": "node --import tsx --test --watch tests/*.test.ts",
     "dev:dashboard": "npm --prefix src/dashboard run dev",
     "dev": "concurrently -n node,dash -c yellow,green \"npm run dev:node\" \"npm run dev:dashboard\"",
     "format": "prettier --write .",
