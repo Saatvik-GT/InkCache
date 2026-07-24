@@ -40,6 +40,16 @@ describe("REST API", () => {
     assert.match(res.body.error, /256 characters/);
   });
 
+  it("rejects a zero or negative ttl at the API layer, not just the core", async () => {
+    const zero = await request(app).post("/set").send({ key: "a", value: "1", ttl: 0 }).expect(400);
+    assert.match(zero.body.error, /ttl/);
+    const negative = await request(app)
+      .post("/set")
+      .send({ key: "a", value: "1", ttl: -5 })
+      .expect(400);
+    assert.match(negative.body.error, /ttl/);
+  });
+
   it("returns malformed-JSON as a 400 with a JSON body", async () => {
     const res = await request(app)
       .post("/set")
