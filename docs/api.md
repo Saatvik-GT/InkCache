@@ -129,7 +129,8 @@ the node (`npm run dev:node` / `npm run start:node`):
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
 [`src/dashboard/.env.example`](../src/dashboard/.env.example)) — local dev
-origins (`localhost:5173`) are always allowed regardless.
+origins (`localhost:5173` and `127.0.0.1:5173`) are always allowed
+regardless.
 
 The three numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`) are
 validated as positive integers — set one to something else (a typo, an
