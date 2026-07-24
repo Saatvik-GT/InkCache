@@ -91,6 +91,12 @@ describe("REST API", () => {
     assert.equal(res.body.count, 2);
   });
 
+  it("returns an empty array (not an error) for /keys on an empty store", async () => {
+    const res = await request(app).get("/keys").expect(200);
+    assert.deepEqual(res.body.keys, []);
+    assert.equal(res.body.count, 0);
+  });
+
   it("reports per-key hit counts and ttl via /keys/stats", async () => {
     await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
     await request(app).get("/get/a").expect(200);
