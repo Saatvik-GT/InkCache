@@ -5,9 +5,8 @@ Base URL for a locally running node: `http://localhost:8080`
 local dev, or a build-time `VITE_API_BASE` when deployed separately —
 see [Deployment](../readme.md#deployment) in the root README).
 
-Every response, success or error, is `application/json` — including the
-404/400 error cases, which don't fall through to Express's default HTML
-error page (see [Errors](#errors) below).
+Every response, success or error, is `application/json` — see
+[Errors](#errors) below for the full set of error cases and status codes.
 
 ## POST /set
 
@@ -102,8 +101,16 @@ Clear the entire store. Intended for local dev/demo use.
 
 ## Errors
 
-Unknown routes return a JSON `404`, and malformed JSON bodies return a JSON
-`400` — neither falls through to Express's default HTML error page.
+| Status | When                              | Body                                               |
+| ------ | --------------------------------- | -------------------------------------------------- |
+| 400    | malformed JSON body               | `{ "error": "malformed JSON body" }`               |
+| 413    | request body over 64kb            | `{ "error": "request body too large (max 64kb)" }` |
+| 404    | unknown route                     | `{ "error": "not found", "path": "..." }`          |
+| 500    | genuinely unexpected server error | `{ "error": "internal server error" }`             |
+
+None of these fall through to Express's default HTML error page — every
+error case, expected or not, is caught and returned as JSON with no
+internal detail (stack traces, file paths) leaked to the client.
 
 ## Eviction policy
 
