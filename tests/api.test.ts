@@ -102,6 +102,12 @@ describe("REST API", () => {
     assert.equal(res.body.keys[0].ttl, null);
   });
 
+  it("reports deleted:false for a key that never existed, still 200", async () => {
+    const res = await request(app).delete("/delete/never-existed").expect(200);
+    assert.equal(res.body.deleted, false);
+    assert.equal(res.body.ok, true);
+  });
+
   it("clears the store via /flush", async () => {
     await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
     const res = await request(app).post("/flush").expect(200);
