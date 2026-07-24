@@ -23,8 +23,12 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `/flush`, `/metrics`, `/health`, `/version`.
 - Per-op latency instrumentation (avg/p95), hit-rate, rolling
   throughput, eviction-policy reporting.
-- JSON error responses for malformed bodies and unknown routes instead
-  of Express's default HTML pages; graceful shutdown on SIGINT/SIGTERM
+- JSON error responses for every error case (malformed body, oversized
+  body, unknown route, and now a catch-all for anything else
+  unexpected) instead of Express's default HTML error page — the
+  oversized-body and catch-all cases were a real gap found and fixed
+  live, since neither previously existed and both leaked a stack trace
+  with server filesystem paths. Graceful shutdown on SIGINT/SIGTERM
   (now with a 5s force-exit safety net against a hung connection);
   request body size cap and basic security headers.
 - All numeric config env vars (`INKCACHE_PORT`, `INKCACHE_MAX_ENTRIES`,
