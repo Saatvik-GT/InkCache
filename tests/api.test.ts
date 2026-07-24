@@ -1,4 +1,4 @@
-import { describe, it, beforeEach } from "node:test";
+import { describe, it, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { app, store } from "../src/network/app.js";
@@ -96,5 +96,18 @@ describe("REST API", () => {
       .expect(200); // cors() doesn't block the response, just omits the header —
     // the browser is what actually enforces same-origin policy client-side.
     assert.equal(disallowed.headers["access-control-allow-origin"], undefined);
+  });
+
+  it("returns a JSON 500 for a genuinely unexpected error, not Express's default HTML page", async () => {
+    const getMock = mock.method(store, "get", () => {
+      throw new Error("simulated unexpected failure");
+    });
+    try {
+      const res = await request(app).get("/get/anything").expect(500);
+      assert.equal(res.body.error, "internal server error");
+      assert.equal(res.type, "application/json");
+    } finally {
+      getMock.mock.restore();
+    }
   });
 });

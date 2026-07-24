@@ -179,3 +179,16 @@ app.get("/health", (_req, res) => {
 app.use((req, res) => {
   res.status(404).json({ error: "not found", path: req.path });
 });
+
+// Final safety net: anything an earlier handler didn't recognize (the
+// malformed-body and oversized-body cases above catch the two body-parser
+// errors specifically) still falls through to here rather than Express's
+// default HTML error page. No stack trace or error detail in the response —
+// this is what a genuinely unexpected bug looks like to a client, logged
+// server-side instead where it's actually useful.
+app.use(
+  (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("[inkcache] unhandled error:", err);
+    res.status(500).json({ error: "internal server error" });
+  },
+);
