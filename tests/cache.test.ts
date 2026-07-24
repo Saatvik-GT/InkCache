@@ -233,3 +233,21 @@ describe("clear()", () => {
     assert.equal(store.get("a"), undefined);
   });
 });
+
+describe("startSweeper()/stopSweeper()", () => {
+  it("automatically reclaims expired entries on the interval", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    const store = new CacheStore();
+    store.set("a", "1", { ttl: 1 });
+    store.startSweeper(1000);
+    mock.timers.tick(1500); // past both the ttl and one sweep interval
+    assert.equal(store.size, 0);
+    store.stopSweeper();
+    mock.timers.reset();
+  });
+
+  it("stopSweeper() is safe to call without a running sweeper", () => {
+    const store = new CacheStore();
+    assert.doesNotThrow(() => store.stopSweeper());
+  });
+});
