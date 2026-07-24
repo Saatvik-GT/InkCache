@@ -83,12 +83,18 @@ app.use((_req, res, next) => {
 });
 
 app.use(express.json({ limit: "64kb" }));
-// Malformed JSON bodies throw inside express.json(); without this handler
-// Express falls through to its default HTML error page.
+// Malformed JSON and oversized bodies both throw inside express.json();
+// without this handler Express falls through to its default HTML error
+// page — which, for an oversized body specifically, includes a full stack
+// trace with local filesystem paths. Caught live: a >64kb request got back
+// PayloadTooLargeError's HTML page instead of JSON before this existed.
 app.use(
   (err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (err instanceof SyntaxError && "body" in err) {
       return res.status(400).json({ error: "malformed JSON body" });
+    }
+    if (err instanceof Error && "status" in err && err.status === 413) {
+      return res.status(413).json({ error: "request body too large (max 64kb)" });
     }
     next(err);
   },

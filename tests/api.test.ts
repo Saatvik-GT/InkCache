@@ -30,6 +30,15 @@ describe("REST API", () => {
     assert.equal(res.body.error, "malformed JSON body");
   });
 
+  it("returns an oversized body as a JSON 413, not Express's default HTML error page", async () => {
+    const res = await request(app)
+      .post("/set")
+      .set("Content-Type", "application/json")
+      .send({ key: "big", value: "x".repeat(70_000) })
+      .expect(413);
+    assert.equal(res.body.error, "request body too large (max 64kb)");
+  });
+
   it("lists active keys via /keys", async () => {
     await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
     await request(app).post("/set").send({ key: "b", value: "2" }).expect(200);
