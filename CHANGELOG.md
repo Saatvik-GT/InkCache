@@ -39,19 +39,22 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Dashboard
 
-- Went through three visual directions before settling: a CRT/phosphor
-  terminal theme, then dark neumorphism, then the current light
-  neumorphic-glass theme with retro hardware details (corner rivets,
-  7-segment uptime clock, keycap shortcut legend, ticket-perforation
-  dividers, punch-card/dot-matrix op stream).
+- Went through four visual directions before settling: a CRT/phosphor
+  terminal theme, dark neumorphism, light neumorphic-glass with retro
+  hardware details, and finally the current **ASCII terminal** — black
+  field, box-drawing panel chrome, and a five-step greyscale ramp that
+  serves as both the UI hierarchy and the ASCII luminance scale.
 - Keyboard-driven KV console (`set`/`get`/`del`/`flush`, arrow-key
   history, `/` to focus, Esc to clear) with a pressable send button and
   copy-last-value.
-- Metrics: circular hit-rate gauge, hand-built analog needle gauge for
-  ops/s, real ops/s + hit-rate + p95-latency sparklines fed by an
-  actual rolling sample history (no synthesized data).
-- KEYS panel rendered as an access-frequency heat map, colored by real
-  hit counts from `/keys/stats`.
+- Metrics rendered in block glyphs rather than SVG: a full-width hit-rate
+  meter plus `▁▂▃▄▅▆▇█` sparklines for ops/s, hit rate and p95 latency,
+  fed by an actual rolling sample history (no synthesized data). Null
+  samples stay visible gaps rather than being interpolated across.
+- KEYS panel is an access-frequency heat map using shade glyphs
+  (`░▒▓█`) sorted hottest-first, driven by real hit counts from
+  `/keys/stats` — density rides on the glyph rather than a background
+  tint, so the ranking survives monochrome and screenshots.
 - Optional synthesized sound cues per event kind via Web Audio (off by
   default, `m` to toggle), synthetic traffic simulator, power-on boot
   sequence, `prefers-reduced-motion` support throughout.
@@ -60,13 +63,21 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 - Dashboard is now two routes via react-router-dom: `/` (a new home
   page) and `/dashboard` (the console, unchanged behavior).
-- Home page hero is a real Three.js scene (`@react-three/fiber` +
-  `drei`): a ring of glass cache-slot cubes orbiting a pulsing core,
-  driven live by real hit-rate (glow) and ops/s (rotation speed) —
-  not a static render. Lazy-loaded and code-split so `/dashboard`
-  never downloads three.js; falls back to a static panel if WebGL is
-  unavailable or the scene throws at runtime; respects
-  `prefers-reduced-motion`.
+- Home page hero is a **rotating ASCII moon** — a genuine 3D sphere
+  (spherical sampling, per-cell depth buffer, diffuse lighting against a
+  fixed world-space light, limb darkening, object-space crater field)
+  rasterized to characters instead of pixels. Rotation speed is derived
+  from live ops/sec; `prefers-reduced-motion` holds a static lit frame
+  rather than merely slowing it.
+- Headlines use a hand-built 5×7 bitmap font rendered into the same
+  character grid, so display type scales by font-size instead of by
+  resampling an image.
+- This replaced an earlier Three.js hero (`@react-three/fiber` + `drei`).
+  Removing it took `three`, `@react-three/*` and `@types/three` out of
+  the tree along with the lazy-loading, WebGL capability probe, 3D error
+  boundary and static fallback that existed solely to manage three's
+  weight and hardware requirement — shipped JS went from ~1.16 MB
+  (271 KB main + an 899 KB lazy chunk) to a single ~267 KB bundle.
 - Live stats strip, feature cards, a copyable quick-start curl
   snippet, and an honest architecture note (what's real today vs.
   roadmap) round out the home page.
