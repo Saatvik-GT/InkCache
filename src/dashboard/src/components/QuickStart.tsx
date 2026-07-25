@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AsciiPanel } from "./AsciiPanel";
 
 const SNIPPET = `curl -X POST http://localhost:8080/set \\
   -H "Content-Type: application/json" \\
@@ -8,9 +9,9 @@ export function QuickStart() {
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="neu-inset rounded-md p-4 text-left">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] tracking-widest text-ink-mid uppercase">quick start</span>
+    <AsciiPanel
+      title="quick start"
+      right={
         <button
           type="button"
           onClick={() => {
@@ -22,14 +23,15 @@ export function QuickStart() {
               })
               .catch(() => {});
           }}
-          className="cursor-pointer text-[10px] text-ink-mid hover:text-ink"
+          className="cursor-pointer text-dim hover:text-bright"
         >
-          {copied ? "copied" : "⧉ copy"}
+          {copied ? "[ copied ]" : "[ copy ]"}
         </button>
-      </div>
-      <pre className="overflow-x-auto text-xs text-ink">
+      }
+    >
+      <pre className="ascii-grid overflow-x-auto text-[11px] leading-relaxed text-text">
         <code>{SNIPPET}</code>
       </pre>
-    </div>
+    </AsciiPanel>
   );
 }
