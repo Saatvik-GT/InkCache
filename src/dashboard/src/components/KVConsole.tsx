@@ -3,7 +3,7 @@ import { deleteKey, flush, getKey, setKey } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { Button } from "./Button";
 import { KeyCap } from "./KeyCap";
-import { Panel } from "./Panel";
+import { AsciiPanel } from "./AsciiPanel";
 
 type Tone = "plain" | "ok" | "hit" | "miss" | "err";
 
@@ -13,7 +13,7 @@ interface Line {
 }
 
 const TONE_CLASS: Record<Tone, string> = {
-  plain: "text-ink-mid",
+  plain: "text-dim",
   ok: "text-accent",
   hit: "text-kind-hit",
   miss: "text-kind-miss",
@@ -164,14 +164,14 @@ export function KVConsole({
   }
 
   return (
-    <Panel
-      title="KV CONSOLE"
-      right={busy ? <span className="cursor-blink text-accent">tx…</span> : "press / to focus"}
+    <AsciiPanel
+      title="kv console"
+      right={busy ? <span className="cursor-blink text-accent">tx…</span> : "/ to focus"}
       className="flex flex-col"
     >
       <div
         ref={scrollRef}
-        className="neu-inset h-48 overflow-y-auto rounded-md p-3 whitespace-pre-wrap break-all"
+        className="h-48 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed whitespace-pre-wrap break-all"
       >
         {lines.map((line, i) => (
           <div key={i} className={TONE_CLASS[line.tone]}>
@@ -186,7 +186,7 @@ export function KVConsole({
           submit();
         }}
       >
-        <div className="neu-inset-sm focus-within:ring-accent flex flex-1 items-center gap-2 rounded-md px-3 py-2 focus-within:ring-2">
+        <div className="flex flex-1 items-center gap-2 border border-ghost bg-void px-3 py-2 focus-within:border-accent">
           <span className="text-accent">&gt;</span>
           <input
             ref={inputRef}
@@ -220,7 +220,7 @@ export function KVConsole({
             spellCheck={false}
             autoComplete="off"
             disabled={busy}
-            className="w-full bg-transparent text-ink outline-none placeholder:text-ink-faint disabled:opacity-50"
+            className="w-full bg-transparent text-bright outline-none placeholder:text-faint disabled:opacity-50"
             placeholder="set user:1 saatvik 300"
           />
         </div>
@@ -229,7 +229,7 @@ export function KVConsole({
         </Button>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-ink-faint">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-faint">
         <span className="flex items-center gap-1">
           <KeyCap>/</KeyCap> focus
         </span>
@@ -255,13 +255,13 @@ export function KVConsole({
                 .then(() => print("copied last value to clipboard", "ok"))
                 .catch(() => print("clipboard write failed", "err"));
             }}
-            className="ml-auto cursor-pointer text-ink-mid hover:text-ink"
+            className="ml-auto cursor-pointer text-dim hover:text-bright"
             title="copy the last GET result to the clipboard"
           >
             ⧉ copy last value
           </button>
         )}
       </div>
-    </Panel>
+    </AsciiPanel>
   );
 }
