@@ -1,8 +1,7 @@
 /**
- * Neumorphic switch: a sunken track with a raised knob that slides and
- * lights up with the accent color when on. Standard switch semantics
- * (role="switch", aria-checked) so it's announced correctly, not just
- * styled like one.
+ * Terminal switch: [ON ]/[OFF] rendered as characters rather than a
+ * sliding knob. Still a real switch to assistive tech — role and
+ * aria-checked carry the state that the glyphs show visually.
  */
 export function Toggle({
   checked,
@@ -20,13 +19,11 @@ export function Toggle({
       aria-checked={checked}
       onClick={onChange}
       title={label}
-      className="neu-inset-sm relative h-7 w-14 shrink-0 cursor-pointer rounded-full"
+      className={`cursor-pointer border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${
+        checked ? "border-accent text-accent" : "text-faint hover:text-dim"
+      }`}
     >
-      <span
-        className={`neu-raised-sm absolute top-0.5 left-0.5 h-6 w-6 rounded-full transition-transform duration-150 ${
-          checked ? "neu-accent-fill translate-x-7" : "translate-x-0"
-        }`}
-      />
+      {checked ? "[■ on ]" : "[□ off]"}
     </button>
   );
 }

@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
 
 /**
- * A pressable neumorphic button: raised at rest, sinks into the panel on
- * press (see .neu-pressable). `tone` swaps the label color only — the shape
- * language stays identical so tone reads as "what this does", not
- * "how important this looks" (avoids a rainbow of button styles).
+ * Bracketed terminal button. Tone changes the label colour only — the
+ * shape language stays identical so tone reads as "what this does", not
+ * as a second visual hierarchy.
  */
-const TONE_CLASS: Record<"default" | "accent" | "danger", string> = {
-  default: "text-ink-mid hover:text-ink",
-  accent: "text-accent",
-  danger: "text-kind-err",
+const TONE: Record<"default" | "accent" | "danger", string> = {
+  default: "text-dim hover:text-bright hover:border-dim",
+  accent: "text-accent hover:text-bright hover:border-accent",
+  danger: "text-kind-err hover:text-bright hover:border-kind-err",
 };
 
 export function Button({
@@ -30,9 +29,9 @@ export function Button({
       type={type}
       onClick={onClick}
       title={title}
-      className={`neu-raised neu-pressable cursor-pointer rounded-md px-4 py-2 text-[11px] font-bold tracking-widest uppercase ${TONE_CLASS[tone]}`}
+      className={`cursor-pointer border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${TONE[tone]}`}
     >
-      {children}
+      [ {children} ]
     </button>
   );
 }
