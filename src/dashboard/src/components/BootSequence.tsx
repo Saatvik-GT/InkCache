@@ -1,35 +1,40 @@
 import { useEffect, useState } from "react";
+import { renderMeter } from "../lib/asciiChart";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
-const DURATION_MS = 1400;
+const LINES = [
+  "inkcache console v0.1.0",
+  "",
+  "checking character grid ......... ok",
+  "loading glyph tables ............ ok",
+  "mounting metrics poller ......... ok",
+  "opening op stream ............... ok",
+  "resolving node :8080 ............ ok",
+];
+
+const LINE_MS = 110;
 
 /**
- * One-shot power-on sequence: a sunken ring fills once while the node link
- * comes up, then hands off to the dashboard. Any key or click skips it
- * straight through — this is a functional loading beat, not a loop.
+ * POST-style boot screen. One-shot functional motion — it plays once on
+ * load and any key or click skips straight through, so it never becomes
+ * something you have to sit through twice.
  */
 export function BootSequence({ onDone }: { onDone: () => void }) {
-  const [pct, setPct] = useState(0);
+  const [shown, setShown] = useState(0);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setPct(1);
+    if (reducedMotion) {
       onDone();
       return;
     }
-    const start = performance.now();
-    let raf: number;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / DURATION_MS);
-      setPct(p);
-      if (p < 1) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        setTimeout(onDone, 200);
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [onDone]);
+    if (shown >= LINES.length) {
+      const t = setTimeout(onDone, 260);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setShown((n) => n + 1), LINE_MS);
+    return () => clearTimeout(t);
+  }, [shown, onDone, reducedMotion]);
 
   useEffect(() => {
     const skip = () => onDone();
@@ -41,48 +46,22 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
     };
   }, [onDone]);
 
-  const size = 120;
-  const stroke = 10;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
+  const progress = shown / LINES.length;
 
   return (
-    <div className="neu-field fixed inset-0 z-50 grid place-items-center">
-      <div className="flex flex-col items-center gap-5">
-        <div
-          className="neu-inset relative grid place-items-center rounded-full"
-          style={{ width: size, height: size }}
-        >
-          <svg width={size} height={size} className="-rotate-90" aria-hidden>
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke="var(--color-shadow-dark)"
-              strokeWidth={stroke}
-              strokeOpacity={0.5}
-            />
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke="var(--color-accent)"
-              strokeWidth={stroke}
-              strokeLinecap="round"
-              strokeDasharray={c}
-              strokeDashoffset={c * (1 - pct)}
-            />
-          </svg>
-          <span className="absolute text-sm font-bold text-accent">{Math.round(pct * 100)}%</span>
+    <div className="fixed inset-0 z-50 bg-void p-6 sm:p-10">
+      <div className="text-xs leading-relaxed">
+        {LINES.slice(0, shown).map((line, i) => (
+          <div key={i} className={i === 0 ? "text-bright" : "text-text"}>
+            {line}
+            {i === shown - 1 && <span className="cursor-blink text-accent">█</span>}
+          </div>
+        ))}
+        <div className="ascii-grid mt-4 text-accent">
+          {renderMeter(progress, 32)} {Math.round(progress * 100)}%
         </div>
-        <div className="text-center">
-          <div className="text-sm font-bold tracking-[0.3em] text-ink">INKCACHE</div>
-          <div className="mt-1 text-xs text-ink-mid">establishing link :8080…</div>
-        </div>
-        <div className="text-[10px] text-ink-faint">click or press any key to skip</div>
       </div>
+      <div className="mt-6 text-[10px] text-faint">press any key to skip</div>
     </div>
   );
 }
