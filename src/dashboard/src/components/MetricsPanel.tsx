@@ -1,43 +1,52 @@
 import type { NodeMetrics } from "../lib/api";
 import type { MetricsSample } from "../hooks/useNode";
-import { HitRateGauge } from "./HitRateGauge";
-import { NeedleGauge } from "./NeedleGauge";
-import { Panel } from "./Panel";
-import { SevenSegment } from "./SevenSegment";
-import { Sparkline } from "./Sparkline";
+import { AsciiPanel } from "./AsciiPanel";
+import { renderMeter, renderSparkline } from "../lib/asciiChart";
 
-function StatTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <div className="neu-inset-sm flex flex-col gap-0.5 rounded-md px-3 py-2">
-      <span className="text-[9px] tracking-[0.18em] text-ink-mid uppercase">{label}</span>
-      <span className="text-sm font-bold text-ink">
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[9px] tracking-[0.18em] text-faint uppercase">{label}</span>
+      <span className="text-sm text-bright">
         {value}
-        {unit && <span className="ml-1 text-[10px] font-normal text-ink-mid">{unit}</span>}
+        {unit && <span className="ml-1 text-[10px] text-dim">{unit}</span>}
       </span>
     </div>
   );
 }
 
-/** Linear fill meter — sunken track, accent-filled bar for a 0..1 ratio. */
-function Bar({ ratio }: { ratio: number }) {
-  const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+function Trend({
+  label,
+  data,
+  tone = "text-dim",
+  format,
+}: {
+  label: string;
+  data: Array<number | null>;
+  tone?: string;
+  format?: (v: number) => string;
+}) {
+  const present = data.filter((v): v is number => v !== null);
+  const latest = present.length > 0 ? present[present.length - 1]! : null;
   return (
-    <div className="neu-inset-sm h-3 flex-1 overflow-hidden rounded-full">
-      <div
-        className="h-full rounded-full bg-accent transition-[width] duration-300"
-        style={{ width: `${pct}%` }}
-      />
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[9px] tracking-[0.18em] text-faint uppercase">{label}</span>
+        <span className="text-[10px] text-dim">
+          {latest === null ? "--" : (format ?? ((v: number) => v.toFixed(1)))(latest)}
+        </span>
+      </div>
+      <div className={`ascii-grid truncate text-xs ${tone}`}>{renderSparkline(data)}</div>
     </div>
   );
 }
 
-/** HH:MM once the node has been up an hour, MM:SS before that. */
-function fmtUptimeDigits(sec: number): string {
+function fmtUptime(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.floor(sec % 60);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return h > 0 ? `${pad(h)}:${pad(m)}` : `${pad(m)}:${pad(s)}`;
+  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
 export function MetricsPanel({
@@ -51,73 +60,89 @@ export function MetricsPanel({
   stale?: boolean;
 }) {
   const fill = metrics.maxEntries > 0 ? metrics.keys / metrics.maxEntries : 0;
-  // Auto-scale the needle's range off real recent throughput, with headroom
-  // so the needle isn't permanently pinned at max the moment traffic spikes.
-  const maxOps = Math.max(1, metrics.opsPerSec, ...history.map((h) => h.opsPerSec)) * 1.15;
+  const hit = metrics.hitRate;
 
   return (
-    <Panel
-      title="METRICS"
-      right={
-        stale ? <span className="text-kind-miss">stale — last known</span> : `node ${metrics.node}`
-      }
+    <AsciiPanel
+      title="metrics"
+      right={stale ? <span className="text-kind-miss">stale — last known</span> : metrics.node}
     >
       <div className={`flex flex-col gap-4 ${stale ? "opacity-50" : ""}`}>
-        <div className="flex flex-wrap items-center gap-3">
-          <HitRateGauge ratio={metrics.hitRate} />
-          <NeedleGauge value={metrics.opsPerSec} max={maxOps} label="ops/s" />
-          <div className="grid min-w-40 flex-1 grid-cols-2 gap-2">
-            <StatTile
-              label="lat avg"
-              value={metrics.latency.avgUs === null ? "--" : metrics.latency.avgUs.toFixed(0)}
-              unit="µs"
-            />
-            <StatTile
-              label="lat p95"
-              value={metrics.latency.p95Us === null ? "--" : metrics.latency.p95Us.toFixed(0)}
-              unit="µs"
-            />
-            <StatTile label="sets" value={String(metrics.sets)} />
-            <StatTile label="evictions" value={String(metrics.evictions)} />
-            <StatTile
-              label="policy"
-              value={metrics.evictionPolicy}
-              unit={
-                metrics.evictionPolicy === "access-aware"
-                  ? `k=${metrics.evictionSampleSize}`
-                  : undefined
-              }
-            />
+        {/* Hit rate is the headline number, so it gets the large type and
+            its own full-width meter rather than being one tile among many. */}
+        <div>
+          <div className="flex items-baseline gap-3">
+            <span className="text-3xl leading-none text-bright">
+              {hit === null ? "--.-" : (hit * 100).toFixed(1)}
+              <span className="text-base text-dim">%</span>
+            </span>
+            <span className="text-[9px] tracking-[0.2em] text-faint uppercase">hit rate</span>
+          </div>
+          <div className="ascii-grid mt-2 truncate text-xs text-accent">
+            {renderMeter(hit ?? 0, 44)}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] tracking-[0.18em] text-ink-mid uppercase">uptime</span>
-          <SevenSegment value={fmtUptimeDigits(metrics.uptimeSec)} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+          <Stat label="ops/sec" value={metrics.opsPerSec.toFixed(1)} />
+          <Stat
+            label="lat avg"
+            value={metrics.latency.avgUs === null ? "--" : metrics.latency.avgUs.toFixed(0)}
+            unit="µs"
+          />
+          <Stat
+            label="lat p95"
+            value={metrics.latency.p95Us === null ? "--" : metrics.latency.p95Us.toFixed(0)}
+            unit="µs"
+          />
+          <Stat label="uptime" value={fmtUptime(metrics.uptimeSec)} />
+          <Stat label="sets" value={String(metrics.sets)} />
+          <Stat label="evictions" value={String(metrics.evictions)} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Sparkline label="ops/s" data={history.map((h) => h.opsPerSec)} />
-          <Sparkline
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Trend label="ops/sec" data={history.map((h) => h.opsPerSec)} />
+          <Trend
             label="hit rate"
             data={history.map((h) => (h.hitRate === null ? null : h.hitRate * 100))}
-            color="var(--color-kind-hit)"
+            tone="text-kind-hit"
+            format={(v) => `${v.toFixed(0)}%`}
           />
-          <Sparkline
+          <Trend
             label="lat p95"
             data={history.map((h) => h.p95Us)}
-            color="var(--color-kind-set)"
+            tone="text-kind-set"
+            format={(v) => `${v.toFixed(0)}µs`}
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] tracking-[0.18em] text-ink-mid uppercase">store</span>
-          <Bar ratio={fill} />
-          <span className="shrink-0 text-xs text-ink-mid">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-[9px] tracking-[0.18em] text-faint uppercase">store</span>
+          <span className="ascii-grid min-w-0 flex-1 truncate text-dim">
+            {renderMeter(fill, 28)}
+          </span>
+          <span className="shrink-0 text-dim">
             {metrics.keys}/{metrics.maxEntries}
           </span>
         </div>
+
+        <div className="flex flex-wrap gap-x-4 text-[10px] text-faint">
+          <span>
+            policy <span className="text-dim">{metrics.evictionPolicy}</span>
+          </span>
+          {metrics.evictionPolicy === "access-aware" && (
+            <span>
+              sample <span className="text-dim">k={metrics.evictionSampleSize}</span>
+            </span>
+          )}
+          <span>
+            hits/misses{" "}
+            <span className="text-dim">
+              {metrics.hits}/{metrics.misses}
+            </span>
+          </span>
+        </div>
       </div>
-    </Panel>
+    </AsciiPanel>
   );
 }
