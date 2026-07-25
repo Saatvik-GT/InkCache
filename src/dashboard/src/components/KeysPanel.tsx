@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { fetchKeyStats, type KeyStat } from "../lib/api";
-import { Panel } from "./Panel";
+import { AsciiPanel } from "./AsciiPanel";
+
+/** Shade ramp for access frequency — colourless, so it survives being read
+    in monochrome and doesn't lean on hue to carry a quantity. */
+const HEAT = "░▒▓█";
+
+function heatGlyph(hits: number, max: number): string {
+  if (hits === 0) return HEAT[0]!;
+  const t = max > 0 ? hits / max : 0;
+  return HEAT[Math.min(HEAT.length - 1, Math.max(1, Math.ceil(t * (HEAT.length - 1))))]!;
+}
 
 /**
- * Access-frequency heat map: each key is a tile, background intensity
- * scaled by its real hit count from /keys/stats (0 hits = base surface,
- * the hottest key in the store = full accent). Same refreshToken-driven
- * polling this panel always used — the upgrade is what it renders, not
- * how it fetches.
+ * Access-frequency heat map. Density is carried by the glyph itself rather
+ * than a background tint, so the ranking is legible in a screenshot, in
+ * monochrome, and to anyone who can't separate the hue steps.
  */
 export function KeysPanel({ refreshToken }: { refreshToken: number }) {
   const [stats, setStats] = useState<KeyStat[] | null>(null);
@@ -27,33 +35,40 @@ export function KeysPanel({ refreshToken }: { refreshToken: number }) {
   }, [refreshToken]);
 
   const maxHits = stats ? Math.max(0, ...stats.map((s) => s.hits)) : 0;
+  const sorted = stats ? [...stats].sort((a, b) => b.hits - a.hits) : null;
 
   return (
-    <Panel title="KEYS" right={stats ? `${stats.length} live · heat by hits` : "--"}>
-      <div className="grid max-h-40 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 md:grid-cols-6">
-        {stats === null ? (
-          <p className="col-span-full text-ink-mid">-- no signal --</p>
-        ) : stats.length === 0 ? (
-          <p className="col-span-full text-ink-faint">-- store empty --</p>
+    <AsciiPanel
+      title="keys"
+      right={
+        sorted ? (
+          <span className="flex items-center gap-2">
+            <span className="ascii-grid text-dim">{HEAT}</span>
+            <span>{sorted.length} live</span>
+          </span>
         ) : (
-          stats.map(({ key, hits }) => {
-            const intensity = maxHits > 0 ? hits / maxHits : 0;
-            return (
-              <div
-                key={key}
-                title={`${key} — ${hits} read${hits === 1 ? "" : "s"}`}
-                className="neu-inset-sm flex flex-col gap-0.5 rounded-md px-2 py-1.5"
-                style={{
-                  backgroundColor: `color-mix(in oklab, var(--color-accent) ${Math.round(intensity * 65)}%, var(--color-base))`,
-                }}
-              >
-                <span className="truncate text-xs text-ink">{key}</span>
-                <span className="text-[9px] text-ink-mid">{hits}h</span>
-              </div>
-            );
-          })
+          "--"
+        )
+      }
+    >
+      <div className="max-h-40 overflow-y-auto text-xs">
+        {sorted === null ? (
+          <p className="text-dim">-- no signal --</p>
+        ) : sorted.length === 0 ? (
+          <p className="text-faint">-- store empty --</p>
+        ) : (
+          <ul className="space-y-0.5">
+            {sorted.map(({ key, hits, ttl }) => (
+              <li key={key} className="flex items-baseline gap-2" title={`${key} — ${hits} reads`}>
+                <span className="ascii-grid shrink-0 text-accent">{heatGlyph(hits, maxHits)}</span>
+                <span className="min-w-0 flex-1 truncate text-text">{key}</span>
+                {ttl !== null && <span className="shrink-0 text-faint">{ttl.toFixed(0)}s</span>}
+                <span className="w-8 shrink-0 text-right text-dim">{hits}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-    </Panel>
+    </AsciiPanel>
   );
 }
