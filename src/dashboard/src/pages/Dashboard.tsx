@@ -1,11 +1,10 @@
+import { AsciiPanel, Dashes } from "../components/AsciiPanel";
 import { BootSequence } from "../components/BootSequence";
 import { Button } from "../components/Button";
 import { KeysPanel } from "../components/KeysPanel";
 import { KVConsole } from "../components/KVConsole";
 import { LogStream } from "../components/LogStream";
 import { MetricsPanel } from "../components/MetricsPanel";
-import { Panel } from "../components/Panel";
-import { TicketDivider } from "../components/TicketDivider";
 import { Toggle } from "../components/Toggle";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode, type NodeStatus } from "../hooks/useNode";
@@ -16,25 +15,20 @@ import { setSoundEnabled, useSoundEnabled } from "../lib/sound";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-const STATUS_DOT: Record<NodeStatus, string> = {
-  connecting: "bg-ink-mid",
-  online: "bg-accent",
-  offline: "bg-kind-err",
-};
-
-const STATUS_LABEL: Record<NodeStatus, string> = {
-  connecting: "CONNECTING",
-  online: "ONLINE",
-  offline: "OFFLINE",
+/** Status as a glyph as well as a colour, so it survives monochrome. */
+const STATUS: Record<NodeStatus, { glyph: string; label: string; tone: string }> = {
+  connecting: { glyph: "◌", label: "connecting", tone: "text-dim" },
+  online: { glyph: "●", label: "online", tone: "text-accent" },
+  offline: { glyph: "○", label: "offline", tone: "text-kind-err" },
 };
 
 export function Dashboard() {
   const { metrics, status, history, refreshNow } = useNode(1000);
-  useDocumentTitle("InkCache // node monitor");
   const { running: simRunning, toggle: toggleSim } = useSimulator();
   const soundEnabled = useSoundEnabled();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
+  useDocumentTitle("InkCache // node console");
 
   // 's' toggles the traffic simulator, 'm' toggles sound, unless typing
   useEffect(() => {
@@ -47,65 +41,77 @@ export function Dashboard() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleSim, soundEnabled]);
 
+  const badge = STATUS[status];
+
   return (
-    <div className="neu-field min-h-screen">
+    <div className="ascii-scanlines relative min-h-screen bg-void">
       {booting && <BootSequence onDone={finishBoot} />}
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4 sm:p-6">
-        <header className="neu-raised flex flex-wrap items-center justify-between gap-4 rounded-lg px-5 py-3">
-          <Link to="/" className="text-base font-bold tracking-[0.3em] text-ink" title="home">
-            INKCACHE
-          </Link>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-[11px] tracking-widest text-ink-mid uppercase">
-              sim
-              <Toggle
-                checked={simRunning}
-                onChange={toggleSim}
-                label="toggle synthetic traffic (s)"
-              />
-            </label>
-
-            <label className="flex items-center gap-2 text-[11px] tracking-widest text-ink-mid uppercase">
-              sound
-              <Toggle
-                checked={soundEnabled}
-                onChange={() => setSoundEnabled(!soundEnabled)}
-                label="toggle op-stream sound cues (m)"
-              />
-            </label>
-
-            <Button
-              tone="danger"
-              title="clear every key from the store"
-              onClick={() => {
-                flush()
-                  .then((res) => {
-                    logEvent(
-                      "del",
-                      `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
-                    );
-                    refreshNow();
-                  })
-                  .catch(() => logEvent("err", "flush failed"));
-              }}
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6">
+        <header>
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-2">
+            <Link
+              to="/"
+              className="text-xs font-bold tracking-[0.35em] text-bright hover:text-accent"
+              title="home"
             >
-              flush
-            </Button>
+              INKCACHE
+            </Link>
 
-            <span className="neu-inset-sm flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-widest text-ink-mid uppercase">
-              <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
-              {STATUS_LABEL[status]}
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-[10px] tracking-widest text-faint uppercase">
+                sim
+                <Toggle
+                  checked={simRunning}
+                  onChange={toggleSim}
+                  label="toggle synthetic traffic (s)"
+                />
+              </label>
+
+              <label className="flex items-center gap-2 text-[10px] tracking-widest text-faint uppercase">
+                snd
+                <Toggle
+                  checked={soundEnabled}
+                  onChange={() => setSoundEnabled(!soundEnabled)}
+                  label="toggle op-stream sound cues (m)"
+                />
+              </label>
+
+              <Button
+                tone="danger"
+                title="clear every key from the store"
+                onClick={() => {
+                  flush()
+                    .then((res) => {
+                      logEvent(
+                        "del",
+                        `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+                      );
+                      refreshNow();
+                    })
+                    .catch(() => logEvent("err", "flush failed"));
+                }}
+              >
+                flush
+              </Button>
+
+              <span
+                className={`flex items-center gap-2 text-[10px] tracking-widest uppercase ${badge.tone}`}
+              >
+                <span aria-hidden>{badge.glyph}</span>
+                {badge.label}
+              </span>
+            </div>
+          </div>
+          <div aria-hidden className="flex text-xs leading-none text-ghost select-none">
+            <Dashes />
           </div>
         </header>
 
-        <TicketDivider />
-
         {status === "offline" && (
-          <div className="neu-inset rounded-md border-l-2 border-kind-err px-4 py-3 text-xs text-kind-err">
-            !! LINK DOWN — cache node not responding on :8080. start it with{" "}
-            <span className="text-ink">npm run dev:node</span>
+          <div className="border border-kind-err/40 px-4 py-3 text-xs text-kind-err">
+            !! link down — cache node not responding on :8080. start it with{" "}
+            <span className="text-bright">npm run dev:node</span>
           </div>
         )}
 
@@ -114,17 +120,17 @@ export function Dashboard() {
           {metrics ? (
             <MetricsPanel metrics={metrics} history={history} stale={status === "offline"} />
           ) : (
-            <Panel title="METRICS" right="no signal">
-              <p className="py-8 text-center text-ink-mid">
+            <AsciiPanel title="metrics" right="no signal">
+              <p className="py-10 text-center text-xs text-dim">
                 {status === "connecting" ? (
                   <>
-                    -- acquiring signal<span className="cursor-blink">_</span> --
+                    acquiring signal<span className="cursor-blink">_</span>
                   </>
                 ) : (
-                  "-- node unreachable --"
+                  "node unreachable"
                 )}
               </p>
-            </Panel>
+            </AsciiPanel>
           )}
         </div>
 
