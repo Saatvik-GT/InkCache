@@ -4,167 +4,101 @@
 @import "tailwindcss";
 
 /*
- * InkCache design system — light neumorphism with a glass finish.
- * Same carved-from-one-surface shadow logic as before, ported to a white
- * base: raised elements now also pick up translucency + backdrop-blur so
- * they read as frosted panels sitting slightly off the surface rather than
- * flat cards. Radii are kept tight (6-10px) on purpose — full pill/blob
- * corners are the single fastest tell of a default AI-generated UI.
+ * InkCache design system — ASCII terminal.
+ *
+ * Everything on screen is characters on a black field: box-drawing borders
+ * instead of CSS borders, block/shade glyphs instead of filled bars, and a
+ * character-grid sphere instead of a WebGL one. The greyscale ramp below
+ * doubles as the ASCII luminance ramp — dim glyphs read as "less lit", so
+ * shading and UI hierarchy come from the same five values.
  */
 @theme {
   --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
   --font-sans: var(--font-mono);
 
-  --color-base: #e8ecf1; /* the stock everything is carved from */
-  --color-base-raised: #eef1f5;
-  --color-shadow-dark: #a9b3c1;
-  --color-shadow-light: #ffffff;
+  --color-void: #000000; /* the field everything is drawn on */
+  --color-surface: #080808; /* panel interiors, barely lifted off the void */
 
-  --color-ink: #1b222c; /* primary text */
-  --color-ink-mid: #5b6472; /* secondary text */
-  --color-ink-faint: #98a1ae; /* disabled / decorative */
+  /* luminance ramp: UI hierarchy *and* ASCII shading levels */
+  --color-bright: #f0f0f0;
+  --color-text: #b4b4b4;
+  --color-dim: #6e6e6e;
+  --color-faint: #3c3c3c;
+  --color-ghost: #1e1e1e; /* rules, inactive grid, empty meter cells */
 
-  --color-accent: #0d9488; /* single interactive accent — used sparingly */
-  --color-accent-dim: #0f766e;
+  --color-accent: #6ee7d0; /* one interactive accent, used sparingly */
 
-  /* op-kind palette — validated as a set (adjacent-pair CVD + 3:1 contrast
-     against the light surface), never reassigned or cycled; every use
-     also carries a text label, never color alone. */
-  --color-kind-set: #2563eb;
-  --color-kind-evict: #ea580c;
-  --color-kind-hit: #0d9488;
-  --color-kind-err: #dc2626;
-  --color-kind-del: #7c3aed;
-  --color-kind-miss: #a16207;
+  /* op-kind palette — validated as a set against the black field
+     (adjacent-pair CVD + 3:1 contrast). Never reassigned or cycled, and
+     every use ships alongside its text label (HIT/MISS/SET/...), so color
+     is reinforcement and never the only signal. */
+  --color-kind-evict: #d95926;
+  --color-kind-set: #3987e5;
+  --color-kind-err: #e66767;
+  --color-kind-hit: #199e70;
+  --color-kind-miss: #c98500;
+  --color-kind-del: #9085e9;
 }
 
 html,
 body {
   margin: 0;
-  background: var(--color-base);
+  background: var(--color-void);
 }
 
 body {
   font-family: var(--font-mono);
-  color: var(--color-ink);
+  color: var(--color-text);
+  /* Terminal cells, not typographic niceties — ligatures would break the
+     character-grid alignment the whole design depends on. */
   font-variant-ligatures: none;
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: #ffffff;
+  background: var(--color-bright);
+  color: var(--color-void);
 }
 
-/* ---- surface texture ---------------------------------------------------- */
+/* ---- ASCII primitives --------------------------------------------------- */
 
-/* A faint grain keeps the flat stock color from reading as a plain
-   gradient-tool fill; subtle enough to disappear at normal zoom. */
-.neu-field {
+/* A character-grid block: the ASCII renderers emit newline-separated rows,
+   so whitespace must be preserved and line-height locked to 1 or the rows
+   won't line up into a coherent image. */
+.ascii-grid {
+  white-space: pre;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Panels are drawn with box-drawing characters in the corners rather than
+   CSS borders, so the chrome sits on the same character grid as its
+   contents instead of between the cells. */
+.ascii-panel {
   position: relative;
-  background: var(--color-base);
+  background: var(--color-surface);
+  outline: 1px solid var(--color-ghost);
+  outline-offset: 0;
 }
-.neu-field::before {
+
+/* Scanline wash — very low contrast, just enough to read as a CRT field
+   rather than a flat black div. */
+.ascii-scanlines::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Ticket-stub perforation: a row of punched dots instead of a plain
-   border/hr. One CSS background instead of dozens of DOM nodes. */
-.retro-perf {
-  height: 6px;
-  background-image: radial-gradient(circle, var(--color-shadow-dark) 1.4px, transparent 1.4px);
-  background-size: 11px 100%;
-  background-repeat: repeat-x;
-  background-position: center;
-  opacity: 0.55;
-}
-
-/* Dot-matrix printer paper: a 2D dot grid instead of the 1D perforation
-   strip above, layered behind the op stream so it reads like thermal
-   receipt paper instead of a plain scrollbox. */
-.retro-dotfield {
-  background-image: radial-gradient(
-    circle,
-    color-mix(in oklab, var(--color-shadow-dark) 45%, transparent) 0.6px,
-    transparent 0.6px
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgba(255, 255, 255, 0.014) 2px 3px
   );
-  background-size: 6px 6px;
 }
 
-/* ---- neumorphic + glass primitives -------------------------------------- */
-
-/* Extruded / convex, with a frosted-glass finish: translucent fill,
-   backdrop blur+saturate, and a hairline light border to sell the glass
-   edge, layered under the same soft dual shadow as the dark theme had.
-   No border-radius here on purpose — callers add Tailwind's rounded-*. */
-.neu-raised {
-  background: color-mix(in oklab, var(--color-base-raised) 72%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 1px solid color-mix(in oklab, white 70%, transparent);
-  box-shadow:
-    7px 7px 16px var(--color-shadow-dark),
-    -7px -7px 16px var(--color-shadow-light);
-}
-
-/* Sunken / concave — consoles, inputs, anything that reads as a "display"
-   recessed into the panel rather than sitting on top of it. Stays flat
-   (no blur) so it reads as carved-in, not floating. */
-.neu-inset {
-  background: var(--color-base);
-  box-shadow:
-    inset 5px 5px 10px var(--color-shadow-dark),
-    inset -5px -5px 10px var(--color-shadow-light);
-}
-
-/* Small-radius weights for compact elements (chips, toggle knobs) where
-   the offsets above read as too heavy. */
-.neu-raised-sm {
-  background: color-mix(in oklab, var(--color-base-raised) 78%, transparent);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid color-mix(in oklab, white 65%, transparent);
-  box-shadow:
-    3px 3px 7px var(--color-shadow-dark),
-    -3px -3px 7px var(--color-shadow-light);
-}
-.neu-inset-sm {
-  background: var(--color-base);
-  box-shadow:
-    inset 2.5px 2.5px 5px var(--color-shadow-dark),
-    inset -2.5px -2.5px 5px var(--color-shadow-light);
-}
-
-/* Cascade-order override (not class-order dependent): applied alongside
-   neu-raised-sm to swap the frosted fill for a solid accent. */
-.neu-accent-fill {
-  background: var(--color-accent);
-  border-color: var(--color-accent-dim);
-}
-
-/* Pressable: raised at rest, sinks in on press. Apply alongside neu-raised. */
-.neu-pressable {
-  transition:
-    box-shadow 120ms ease,
-    transform 120ms ease;
-}
-.neu-pressable:active {
-  box-shadow:
-    inset 3px 3px 8px var(--color-shadow-dark),
-    inset -3px -3px 8px var(--color-shadow-light);
-  transform: translateY(1px);
-}
-
-.glow-text {
-  text-shadow: 0 0 10px color-mix(in oklab, var(--color-accent) 35%, transparent);
-}
-
-/* Blinking block cursor — kept for the boot sequence only */
+/* Blinking block cursor */
 @keyframes cursor-blink {
   0%,
   49% {
