@@ -54,15 +54,20 @@ describe("renderAsciiSphere()", () => {
     );
   });
 
-  it("projects a circle, not an egg — corrects for tall monospace cells", () => {
-    const rows = 21;
-    const lines = renderAsciiSphere({ cols: 60, rows, spin: 0, ambient: 1 }).split("\n");
+  it("projects a visually round disc once cell proportions are accounted for", () => {
+    // Measured at the size the hero actually renders — the cell-rounding
+    // error that skews the aspect is resolution-dependent, so checking a
+    // toy grid would pass while the real one came out an egg.
+    const lines = renderAsciiSphere({ cols: 108, rows: 46, spin: 0.5, ambient: 1 }).split("\n");
     const heightCells = lines.filter((l) => l.trim().length > 0).length;
     const widthCells = Math.max(...lines.map((l) => l.trim().length));
-    // A monospace cell is ~0.6em wide, so a visually circular disc needs
-    // roughly 1.65x more columns than rows.
-    const ratio = widthCells / heightCells;
-    assert.ok(ratio > 1.4 && ratio < 1.9, `aspect ratio ${ratio.toFixed(2)} should be near 1.65`);
+    // A monospace cell is ~0.6em wide by 1em tall, so convert to em before
+    // comparing: that ratio is what the eye actually sees.
+    const emRatio = (widthCells * 0.6) / heightCells;
+    assert.ok(
+      Math.abs(emRatio - 1) < 0.04,
+      `rendered ${widthCells}x${heightCells} cells = em ratio ${emRatio.toFixed(3)}, want ~1.000`,
+    );
   });
 
   it("leaves the corners empty — a sphere doesn't fill its bounding box", () => {

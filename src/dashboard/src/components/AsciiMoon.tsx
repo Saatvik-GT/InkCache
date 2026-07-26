@@ -12,10 +12,12 @@ const FPS = 24;
  * only content is that string.
  */
 export function AsciiMoon({
-  cols = 78,
-  rows = 32,
+  // Denser grid than the body strictly needs: the extra resolution is what
+  // keeps the limb reading as a smooth curve instead of a staircase.
+  cols = 108,
+  rows = 46,
   /** Radians per second. Callers pass a rate derived from real node traffic. */
-  spinSpeed = 0.22,
+  spinSpeed = 0.55,
   className = "",
 }: {
   cols?: number;
@@ -68,7 +70,7 @@ export function AsciiMoon({
       className={`ascii-grid text-dim ${className}`}
       // Scales with the viewport so the body keeps its proportions on a
       // phone; the character grid itself stays the same cols x rows.
-      style={{ fontSize: "clamp(4px, 1.15vw, 11px)" }}
+      style={{ fontSize: "clamp(3px, 0.8vw, 9px)" }}
     />
   );
 }

@@ -16,9 +16,12 @@ export const LUMA_RAMP = " .·:;+=*oO0@";
 
 /**
  * A monospace cell is roughly 0.6em wide by 1em tall, so a circle needs
- * ~1.65x more columns than rows to avoid rendering as an egg.
+ * more columns than rows to avoid rendering as an egg. The pure ratio is
+ * 1/0.6 = 1.667, but rasterizing to whole cells rounds the vertical extent
+ * out further than the horizontal, which left the body ~4.5% tall. 1.73 is
+ * that measured correction, not a guess — see the roundness test.
  */
-const CHAR_ASPECT = 1.65;
+const CHAR_ASPECT = 1.73;
 
 /** Fixed world-space light. Upper-left, slightly toward the viewer. */
 const LIGHT = normalize([-0.55, -0.5, 0.68]);
@@ -137,13 +140,17 @@ export function renderAsciiSphere({
       lum = Math.max(0, lum);
 
       // Craters darken in object space, so they rotate with the surface.
-      for (const crater of CRATERS) {
-        const d = ox * crater.v[0] + oy * crater.v[1] + oz * crater.v[2];
-        // Dot product near 1 means the sample sits inside the crater cap.
-        const inside = 1 - d;
-        if (inside < crater.radius) {
-          const falloff = 1 - inside / crater.radius;
-          lum *= 1 - crater.depth * falloff * falloff;
+      // Skipped entirely on the unlit half: darkening zero stays zero, and
+      // that's roughly half the sampled points at any given moment.
+      if (lum > 0) {
+        for (const crater of CRATERS) {
+          const d = ox * crater.v[0] + oy * crater.v[1] + oz * crater.v[2];
+          // Dot product near 1 means the sample sits inside the crater cap.
+          const inside = 1 - d;
+          if (inside < crater.radius) {
+            const falloff = 1 - inside / crater.radius;
+            lum *= 1 - crater.depth * falloff * falloff;
+          }
         }
       }
 
