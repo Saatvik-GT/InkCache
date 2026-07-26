@@ -173,13 +173,16 @@ export function Dashboard() {
             )}
           </div>
 
-          <div className="lg:col-span-5">
+          {/* Equal thirds — the op stream was on 3 of 12 and long keys were
+              wrapping constantly. min-h gives the row a floor so all three
+              stretch to the same height instead of each sizing to content. */}
+          <div className="lg:col-span-4 lg:min-h-104">
             <KVConsole onOp={refreshNow} />
           </div>
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-4 lg:min-h-104">
             <KeysPanel refreshToken={keyRefreshToken} />
           </div>
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-4 lg:min-h-104">
             <LogStream />
           </div>
         </div>

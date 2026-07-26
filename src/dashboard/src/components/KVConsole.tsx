@@ -167,11 +167,14 @@ export function KVConsole({
     <AsciiPanel
       title="kv console"
       right={busy ? <span className="cursor-blink text-accent">tx…</span> : "/ to focus"}
-      className="flex flex-col"
+      className="h-full"
+      bodyClassName="flex flex-col"
     >
+      {/* Grows to fill whatever height the grid cell gives it, so the three
+          bottom panels line up instead of each ending at its own height. */}
       <div
         ref={scrollRef}
-        className="h-48 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed whitespace-pre-wrap break-all"
+        className="min-h-0 flex-1 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed whitespace-pre-wrap break-all"
       >
         {lines.map((line, i) => (
           <div key={i} className={TONE_CLASS[line.tone]}>
@@ -180,7 +183,7 @@ export function KVConsole({
         ))}
       </div>
       <form
-        className="mt-3 flex items-center gap-2"
+        className="mt-3 flex shrink-0 items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -229,7 +232,7 @@ export function KVConsole({
         </Button>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-faint">
+      <div className="mt-3 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-faint">
         <span className="flex items-center gap-1">
           <KeyCap>/</KeyCap> focus
         </span>

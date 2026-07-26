@@ -42,10 +42,12 @@ export function LogStream() {
           {events.length} events · [ clear ]
         </button>
       }
+      className="h-full"
+      bodyClassName="flex flex-col"
     >
       <div
         ref={scrollRef}
-        className="max-h-44 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed"
+        className="min-h-0 flex-1 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed"
       >
         {events.length === 0 ? (
           <p className="text-faint">-- no operations yet; try the kv console --</p>
@@ -53,11 +55,14 @@ export function LogStream() {
           events.map((ev) => {
             const style = KIND_STYLE[ev.kind];
             return (
-              <div key={ev.id} className="whitespace-pre-wrap break-all">
-                <span className="text-faint">{fmtTime(ev.at)}</span>{" "}
-                <span className={style.text}>{style.label}</span>
-                <span className="text-ghost"> │ </span>
-                <span className="text-text">{ev.text}</span>
+              // Columns rather than one wrapping string: a long key used to
+              // break mid-token and restart at column 0, which read as a
+              // separate entry. Now the message wraps inside its own column,
+              // staying aligned under itself.
+              <div key={ev.id} className="flex gap-1.5">
+                <span className="shrink-0 text-faint">{fmtTime(ev.at)}</span>
+                <span className={`shrink-0 ${style.text}`}>{style.label}</span>
+                <span className="min-w-0 flex-1 text-text wrap-break-word">{ev.text}</span>
               </div>
             );
           })

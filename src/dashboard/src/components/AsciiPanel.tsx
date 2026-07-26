@@ -53,8 +53,10 @@ export function AsciiPanel({
         <span aria-hidden>─┐</span>
       </div>
 
+      {/* min-h-0 is load-bearing: without it a flex child that scrolls
+          refuses to shrink below its content and blows past the panel. */}
       <div
-        className={`min-w-0 flex-1 border-x border-ghost bg-surface px-3 py-3 text-sm ${bodyClassName}`}
+        className={`min-h-0 min-w-0 flex-1 border-x border-ghost bg-surface px-3 py-3 text-sm ${bodyClassName}`}
       >
         {children}
       </div>
