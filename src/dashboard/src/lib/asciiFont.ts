@@ -60,8 +60,15 @@ export interface AsciiTextOptions {
   on?: string;
   /** Glyph painted for an unlit pixel — space keeps the field clean. */
   off?: string;
-  /** Blank columns between characters. */
+  /** Blank pixel columns between characters. */
   tracking?: number;
+  /**
+   * Character cells per bitmap pixel, horizontally. A monospace cell is
+   * ~0.6em wide and 1em tall, so at pixelWidth 1 every "pixel" is
+   * two-thirds as wide as it is tall and the letterforms come out
+   * horizontally squeezed. 2 gets close to square pixels.
+   */
+  pixelWidth?: number;
 }
 
 /**
@@ -71,7 +78,7 @@ export interface AsciiTextOptions {
  */
 export function renderAsciiText(
   text: string,
-  { on = "#", off = " ", tracking = 1 }: AsciiTextOptions = {},
+  { on = "#", off = " ", tracking = 1, pixelWidth = 1 }: AsciiTextOptions = {},
 ): string {
   const chars = [...text.toUpperCase()];
   const rows: string[] = [];
@@ -81,9 +88,9 @@ export function renderAsciiText(
     chars.forEach((ch, i) => {
       const bits = GLYPHS[ch] ?? GLYPHS[" "]!;
       for (let x = 0; x < GLYPH_W; x++) {
-        row += bits[y * GLYPH_W + x] === "#" ? on : off;
+        row += (bits[y * GLYPH_W + x] === "#" ? on : off).repeat(pixelWidth);
       }
-      if (i < chars.length - 1) row += off.repeat(tracking);
+      if (i < chars.length - 1) row += off.repeat(tracking * pixelWidth);
     });
     rows.push(row);
   }
@@ -92,7 +99,7 @@ export function renderAsciiText(
 }
 
 /** Width in characters a given string will occupy once rendered. */
-export function asciiTextWidth(text: string, tracking = 1): number {
+export function asciiTextWidth(text: string, tracking = 1, pixelWidth = 1): number {
   const n = [...text].length;
-  return n === 0 ? 0 : n * GLYPH_W + (n - 1) * tracking;
+  return n === 0 ? 0 : (n * GLYPH_W + (n - 1) * tracking) * pixelWidth;
 }

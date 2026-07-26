@@ -30,6 +30,21 @@ describe("renderAsciiText()", () => {
     assert.equal(asciiTextWidth(""), 0);
   });
 
+  it("pixelWidth widens every pixel and the tracking gap together", () => {
+    const text = "AB";
+    const lines = renderAsciiText(text, { pixelWidth: 2 }).split("\n");
+    // Doubling pixel width must double the whole rendered width, gaps
+    // included — widening only the glyphs would drift the letter spacing.
+    assert.equal(asciiTextWidth(text, 1, 2), asciiTextWidth(text, 1, 1) * 2);
+    for (const line of lines) assert.equal(line.length, asciiTextWidth(text, 1, 2));
+  });
+
+  it("pixelWidth 2 emits lit pixels in pairs", () => {
+    // A lone vertical stroke at pixelWidth 2 must be two cells wide, not one.
+    const row = renderAsciiText("I", { on: "#", pixelWidth: 2 }).split("\n")[1]!;
+    assert.ok(row.includes("##"), `expected paired pixels, got ${JSON.stringify(row)}`);
+  });
+
   it("actually differentiates glyphs — O and Q are not the same bitmap", () => {
     assert.notEqual(renderAsciiText("O"), renderAsciiText("Q"));
   });

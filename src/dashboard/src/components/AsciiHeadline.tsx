@@ -9,8 +9,9 @@ import { renderAsciiText } from "../lib/asciiFont";
 export function AsciiHeadline({
   lines,
   className = "",
-  glyph = "#",
-  size = "clamp(3px, 0.95vw, 9px)",
+  glyph = "█",
+  size = "clamp(3px, 0.78vw, 8px)",
+  tracking = 1,
 }: {
   lines: string[];
   className?: string;
@@ -18,10 +19,14 @@ export function AsciiHeadline({
   glyph?: string;
   /** font-size for the character grid; the bitmap itself is fixed at 5x7. */
   size?: string;
+  /** Blank pixel columns between letters. */
+  tracking?: number;
 }) {
   const rendered = useMemo(
-    () => lines.map((line) => renderAsciiText(line, { on: glyph })),
-    [lines, glyph],
+    // pixelWidth 2 makes each bitmap pixel roughly square; at 1 the
+    // letterforms come out squeezed to two-thirds width and mush together.
+    () => lines.map((line) => renderAsciiText(line, { on: glyph, tracking, pixelWidth: 2 })),
+    [lines, glyph, tracking],
   );
 
   return (
