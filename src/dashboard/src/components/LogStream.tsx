@@ -21,13 +21,28 @@ function fmtTime(ms: number): string {
   return new Date(ms).toLocaleTimeString("en-GB", { hour12: false });
 }
 
+/** Distance from the bottom, in px, still counted as "following the tail". */
+const STICK_THRESHOLD = 24;
+
 export function LogStream() {
   const events = useLogEvents();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Whether to keep pinning to the newest entry. Scrolling up to read
+  // history sets this false, so an incoming event doesn't yank the view
+  // back to the bottom mid-read — `tail -f` behaviour, not a hard snap.
+  const stickToBottom = useRef(true);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+    const el = scrollRef.current;
+    if (!el || !stickToBottom.current) return;
+    el.scrollTop = el.scrollHeight;
   }, [events]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
+  };
 
   return (
     <AsciiPanel
@@ -47,7 +62,8 @@ export function LogStream() {
     >
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed"
+        onScroll={handleScroll}
+        className="ascii-scroll min-h-0 flex-1 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed"
       >
         {events.length === 0 ? (
           <p className="text-faint">-- no operations yet; try the kv console --</p>

@@ -173,16 +173,18 @@ export function Dashboard() {
             )}
           </div>
 
-          {/* Equal thirds — the op stream was on 3 of 12 and long keys were
-              wrapping constantly. min-h gives the row a floor so all three
-              stretch to the same height instead of each sizing to content. */}
-          <div className="lg:col-span-4 lg:min-h-104">
+          {/* Equal thirds, and a *definite* height rather than a minimum:
+              these panels hold streams that grow without bound, and with an
+              auto-height cell the inner overflow never engages — the panel
+              just keeps getting taller as entries arrive. A fixed height is
+              what gives flex-1 + min-h-0 something to resolve against. */}
+          <div className="h-104 lg:col-span-4">
             <KVConsole onOp={refreshNow} />
           </div>
-          <div className="lg:col-span-4 lg:min-h-104">
+          <div className="h-104 lg:col-span-4">
             <KeysPanel refreshToken={keyRefreshToken} />
           </div>
-          <div className="lg:col-span-4 lg:min-h-104">
+          <div className="h-104 lg:col-span-4">
             <LogStream />
           </div>
         </div>

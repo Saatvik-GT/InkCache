@@ -53,7 +53,7 @@ export function KeysPanel({ refreshToken }: { refreshToken: number }) {
       className="h-full"
       bodyClassName="flex flex-col"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto text-xs">
+      <div className="ascii-scroll min-h-0 flex-1 overflow-y-auto text-xs">
         {sorted === null ? (
           <p className="text-dim">-- no signal --</p>
         ) : sorted.length === 0 ? (

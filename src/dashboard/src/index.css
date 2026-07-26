@@ -98,6 +98,26 @@ body {
   );
 }
 
+/* Scrollbars styled to match the field — the default light-on-dark
+   scrollbar reads as a foreign UI element sitting on top of the terminal. */
+.ascii-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-faint) var(--color-void);
+}
+.ascii-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.ascii-scroll::-webkit-scrollbar-track {
+  background: var(--color-void);
+}
+.ascii-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-faint);
+}
+.ascii-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dim);
+}
+
 /* Blinking block cursor */
 @keyframes cursor-blink {
   0%,
