@@ -12,6 +12,7 @@ import { flush } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { useSimulator } from "../lib/simulator";
 import { setSoundEnabled, useSoundEnabled } from "../lib/sound";
+import { StarField } from "../components/StarField";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -44,7 +45,8 @@ export function Dashboard() {
   const badge = STATUS[status];
 
   return (
-    <div className="ascii-scanlines relative min-h-screen bg-void">
+    <div className="ascii-scanlines relative min-h-screen overflow-hidden bg-void">
+      <StarField count={140} />
       {booting && <BootSequence onDone={finishBoot} />}
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6">
@@ -52,10 +54,17 @@ export function Dashboard() {
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-2">
             <Link
               to="/"
-              className="text-xs font-bold tracking-[0.35em] text-bright hover:text-accent"
+              className="group flex items-baseline gap-2 text-xs tracking-[0.35em] text-bright hover:text-accent"
               title="home"
             >
-              INKCACHE
+              <span
+                aria-hidden
+                className="text-accent transition-transform group-hover:-translate-x-1"
+              >
+                ←
+              </span>
+              <span className="font-bold">INKCACHE</span>
+              <span className="tracking-normal text-faint normal-case">/ console</span>
             </Link>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -96,9 +105,11 @@ export function Dashboard() {
               </Button>
 
               <span
-                className={`flex items-center gap-2 text-[10px] tracking-widest uppercase ${badge.tone}`}
+                className={`flex items-center gap-2 border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${badge.tone}`}
               >
-                <span aria-hidden>{badge.glyph}</span>
+                <span aria-hidden className={status === "online" ? "cursor-blink" : ""}>
+                  {badge.glyph}
+                </span>
                 {badge.label}
               </span>
             </div>

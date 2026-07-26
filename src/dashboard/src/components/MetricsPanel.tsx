@@ -65,6 +65,7 @@ export function MetricsPanel({
   return (
     <AsciiPanel
       title="metrics"
+      accent
       right={stale ? <span className="text-kind-miss">stale — last known</span> : metrics.node}
     >
       <div className={`flex flex-col gap-4 ${stale ? "opacity-50" : ""}`}>

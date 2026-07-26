@@ -26,6 +26,7 @@ export function AsciiPanel({
   children,
   className = "",
   bodyClassName = "",
+  accent = false,
 }: {
   title: string;
   /** Optional right-aligned slot spliced into the top rule. */
@@ -33,12 +34,18 @@ export function AsciiPanel({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** Lifts the title out of the greyscale — for the panel you look at first. */
+  accent?: boolean;
 }) {
   return (
     <section className={`flex min-w-0 flex-col ${className}`}>
       <div className="flex items-center gap-1 text-xs leading-none text-faint select-none">
         <span aria-hidden>┌─</span>
-        <span className="shrink-0 tracking-[0.2em] text-dim uppercase">[ {title} ]</span>
+        <span
+          className={`shrink-0 tracking-[0.2em] uppercase ${accent ? "text-accent" : "text-dim"}`}
+        >
+          [ {title} ]
+        </span>
         <Dashes />
         {right !== undefined && (
           <span className="shrink-0 truncate text-dim normal-case">{right}</span>
