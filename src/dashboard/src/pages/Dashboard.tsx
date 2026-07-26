@@ -4,7 +4,10 @@ import { Button } from "../components/Button";
 import { KeysPanel } from "../components/KeysPanel";
 import { KVConsole } from "../components/KVConsole";
 import { LogStream } from "../components/LogStream";
-import { MetricsPanel } from "../components/MetricsPanel";
+import { StatsTable } from "../components/StatsTable";
+import { StoreGauge } from "../components/StoreGauge";
+import { TopKeysChart } from "../components/TopKeysChart";
+import { LatencyChart, TrafficChart } from "../components/TrafficChart";
 import { Toggle } from "../components/Toggle";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode, type NodeStatus } from "../hooks/useNode";
@@ -43,6 +46,9 @@ export function Dashboard() {
   }, [toggleSim, soundEnabled]);
 
   const badge = STATUS[status];
+  // Any write-ish op invalidates the key views; recomputing off the
+  // counters means they refetch on real change rather than on a timer.
+  const keyRefreshToken = metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0;
 
   return (
     <div className="ascii-scanlines relative min-h-screen overflow-hidden bg-void">
@@ -126,30 +132,57 @@ export function Dashboard() {
           </div>
         )}
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <KVConsole onOp={refreshNow} />
-          {metrics ? (
-            <MetricsPanel metrics={metrics} history={history} stale={status === "offline"} />
-          ) : (
-            <AsciiPanel title="metrics" right="no signal">
-              <p className="py-10 text-center text-xs text-dim">
-                {status === "connecting" ? (
-                  <>
-                    acquiring signal<span className="cursor-blink">_</span>
-                  </>
-                ) : (
-                  "node unreachable"
-                )}
-              </p>
-            </AsciiPanel>
-          )}
+        {/* Dense tiled grid: charts on top where they're scanned first,
+            interactive surfaces below. 12 columns so panels can take
+            asymmetric widths instead of everything being a half. */}
+        <div className="grid gap-3 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <TrafficChart history={history} />
+          </div>
+          <div className="lg:col-span-5">
+            <LatencyChart history={history} />
+          </div>
+
+          <div className="lg:col-span-4">
+            {metrics ? (
+              <StatsTable metrics={metrics} stale={status === "offline"} />
+            ) : (
+              <AsciiPanel title="node counters" right="no signal" className="h-full">
+                <p className="py-10 text-center text-xs text-dim">
+                  {status === "connecting" ? (
+                    <>
+                      acquiring signal<span className="cursor-blink">_</span>
+                    </>
+                  ) : (
+                    "node unreachable"
+                  )}
+                </p>
+              </AsciiPanel>
+            )}
+          </div>
+          <div className="lg:col-span-4">
+            <TopKeysChart refreshToken={keyRefreshToken} />
+          </div>
+          <div className="flex flex-col gap-3 lg:col-span-4">
+            {metrics ? (
+              <StoreGauge metrics={metrics} stale={status === "offline"} />
+            ) : (
+              <AsciiPanel title="store capacity" right="--" className="h-full">
+                <p className="py-6 text-center text-xs text-dim">no signal</p>
+              </AsciiPanel>
+            )}
+          </div>
+
+          <div className="lg:col-span-5">
+            <KVConsole onOp={refreshNow} />
+          </div>
+          <div className="lg:col-span-4">
+            <KeysPanel refreshToken={keyRefreshToken} />
+          </div>
+          <div className="lg:col-span-3">
+            <LogStream />
+          </div>
         </div>
-
-        <KeysPanel
-          refreshToken={metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0}
-        />
-
-        <LogStream />
       </div>
     </div>
   );
