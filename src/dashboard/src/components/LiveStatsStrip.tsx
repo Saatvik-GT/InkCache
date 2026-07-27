@@ -61,7 +61,7 @@ export function LiveStatsStrip({
       <Row label="uptime" value={fmtUptime(metrics.uptimeSec)} />
       <div className="flex items-center gap-2 pt-1">
         <span className="text-dim">load</span>
-        <span className="ascii-grid text-accent">
+        <span aria-hidden className="ascii-grid text-accent">
           {renderMeter(metrics.maxEntries > 0 ? metrics.keys / metrics.maxEntries : 0, 24)}
         </span>
       </div>
