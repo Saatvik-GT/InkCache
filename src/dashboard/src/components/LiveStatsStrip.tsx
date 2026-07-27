@@ -36,7 +36,7 @@ export function LiveStatsStrip({
 }) {
   if (status !== "online" || !metrics) {
     return (
-      <p className="text-xs text-dim">
+      <p aria-live="polite" className="text-xs text-dim">
         {status === "connecting" ? (
           <>
             connecting to local node<span className="cursor-blink">_</span>
