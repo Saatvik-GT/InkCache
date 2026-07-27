@@ -8,14 +8,18 @@ import { StarField } from "../components/StarField";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode } from "../hooks/useNode";
 
+// The moon's spin speed floor, load cap, and rad/s-per-op — floored well
+// above zero so an idle node still visibly turns instead of looking like a
+// still, and capped so heavy traffic reads as "busy" rather than a glitch.
+const SPIN_BASE = 0.45;
+const SPIN_MAX_OPS = 25;
+const SPIN_PER_OP = 0.03;
+
 export function Home() {
   const { metrics, status } = useNode(1000);
   useDocumentTitle("InkCache — access-pattern-aware caching");
 
-  // The body turns faster under load. Capped so heavy traffic reads as
-  // "busy" rather than as a rendering glitch, and floored well above zero
-  // so an idle node still visibly turns instead of looking like a still.
-  const spinSpeed = 0.45 + Math.min(metrics?.opsPerSec ?? 0, 25) * 0.03;
+  const spinSpeed = SPIN_BASE + Math.min(metrics?.opsPerSec ?? 0, SPIN_MAX_OPS) * SPIN_PER_OP;
 
   return (
     <div className="ascii-scanlines relative min-h-screen overflow-hidden bg-void">
