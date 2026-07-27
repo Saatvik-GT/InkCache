@@ -81,6 +81,16 @@ describe("LRU eviction", () => {
     assert.equal(store.evictions, 1);
   });
 
+  it("evicts the sole entry on a single-slot store", () => {
+    const evicted: string[] = [];
+    const store = new CacheStore({ maxEntries: 1, onEvict: (k) => evicted.push(k) });
+    store.set("a", "1");
+    store.set("b", "2");
+    assert.deepEqual(evicted, ["a"]);
+    assert.equal(store.get("a"), undefined);
+    assert.equal(store.get("b"), "2");
+  });
+
   it("overwriting refreshes recency", () => {
     const store = new CacheStore({ maxEntries: 3 });
     store.set("a", "1");
