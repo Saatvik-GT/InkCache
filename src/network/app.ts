@@ -111,7 +111,7 @@ app.post("/set", (req, res) => {
   if (typeof value !== "string") {
     return res.status(400).json({ error: "value must be a string" });
   }
-  if (ttl !== undefined && (typeof ttl !== "number" || ttl <= 0)) {
+  if (ttl !== undefined && (typeof ttl !== "number" || !Number.isFinite(ttl) || ttl <= 0)) {
     return res.status(400).json({ error: "ttl must be a positive number of seconds" });
   }
   const { latencyUs } = timed(() => store.set(key, value, { ttl }));
