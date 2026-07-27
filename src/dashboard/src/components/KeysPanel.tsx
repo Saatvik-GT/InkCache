@@ -43,7 +43,9 @@ export function KeysPanel({ refreshToken }: { refreshToken: number }) {
       right={
         sorted ? (
           <span className="flex items-center gap-2">
-            <span className="ascii-grid text-dim">{HEAT}</span>
+            <span aria-hidden className="ascii-grid text-dim">
+              {HEAT}
+            </span>
             <span>{sorted.length} live</span>
           </span>
         ) : (
@@ -62,7 +64,9 @@ export function KeysPanel({ refreshToken }: { refreshToken: number }) {
           <ul className="space-y-0.5">
             {sorted.map(({ key, hits, ttl }) => (
               <li key={key} className="flex items-baseline gap-2" title={`${key} — ${hits} reads`}>
-                <span className="ascii-grid shrink-0 text-accent">{heatGlyph(hits, maxHits)}</span>
+                <span aria-hidden className="ascii-grid shrink-0 text-accent">
+                  {heatGlyph(hits, maxHits)}
+                </span>
                 <span className="min-w-0 flex-1 truncate text-text">{key}</span>
                 {ttl !== null && <span className="shrink-0 text-faint">{ttl.toFixed(0)}s</span>}
                 <span className="w-8 shrink-0 text-right text-dim">{hits}</span>
