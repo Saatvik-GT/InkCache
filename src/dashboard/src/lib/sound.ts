@@ -50,7 +50,9 @@ export function playBlip(kind: LogKind): void {
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = "square";
-  osc.frequency.value = FREQ_HZ[kind] ?? 440;
+  // FREQ_HZ is typed Record<LogKind, number>, so every LogKind is covered —
+  // this is just satisfying the indexed-access type, not a real fallback.
+  osc.frequency.value = FREQ_HZ[kind];
 
   const now = audioCtx.currentTime;
   gain.gain.setValueAtTime(0.0001, now);
