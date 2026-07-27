@@ -31,7 +31,13 @@ const HELP: string[] = [
 /** Split a command line into tokens, honouring double quotes. */
 function tokenize(input: string): string[] {
   const matches = input.match(/"([^"]*)"|\S+/g) ?? [];
-  return matches.map((t) => (t.startsWith('"') ? t.slice(1, -1) : t));
+  // An unterminated quote (`set foo "bar`) doesn't match the quoted
+  // alternative, so it falls through to \S+ as one raw token starting with
+  // a literal quote — stripping first/last char there would silently drop
+  // the token's real last character instead of leaving it untouched.
+  return matches.map((t) =>
+    t.length >= 2 && t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1) : t,
+  );
 }
 
 export function KVConsole({
