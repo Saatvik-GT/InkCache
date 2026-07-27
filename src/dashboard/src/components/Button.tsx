@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CONTROL_BASE } from "../lib/uiClasses";
 
 /**
  * Bracketed terminal button. Tone changes the label colour only — the
@@ -25,12 +26,7 @@ export function Button({
   type?: "button" | "submit";
 }) {
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      title={title}
-      className={`cursor-pointer border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${TONE[tone]}`}
-    >
+    <button type={type} onClick={onClick} title={title} className={`${CONTROL_BASE} ${TONE[tone]}`}>
       [ {children} ]
     </button>
   );

@@ -1,3 +1,5 @@
+import { CONTROL_BASE } from "../lib/uiClasses";
+
 /**
  * Terminal switch: [ON ]/[OFF] rendered as characters rather than a
  * sliding knob. Still a real switch to assistive tech — role and
@@ -20,9 +22,7 @@ export function Toggle({
       aria-label={label}
       onClick={onChange}
       title={label}
-      className={`cursor-pointer border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${
-        checked ? "border-accent text-accent" : "text-faint hover:text-dim"
-      }`}
+      className={`${CONTROL_BASE} ${checked ? "border-accent text-accent" : "text-faint hover:text-dim"}`}
     >
       {checked ? "[■ on ]" : "[□ off]"}
     </button>
