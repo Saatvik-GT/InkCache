@@ -36,13 +36,14 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
 
   if (history.length < 2 || !latest) return <Collecting title="hits vs misses" />;
 
+  // From real timestamps rather than assuming one sample per second — that
+  // assumption holds today (useNode is always polled at 1000ms) but would
+  // silently mislabel the window the moment a caller passed a different
+  // pollMs.
+  const windowSec = Math.round((latest.at - history[0]!.at) / 1000);
+
   return (
-    <AsciiPanel
-      title="hits vs misses"
-      accent
-      right={`${history.length}s window`}
-      className="h-full"
-    >
+    <AsciiPanel title="hits vs misses" accent right={`${windowSec}s window`} className="h-full">
       {/* The chart itself is aria-hidden (no discrete text content); this
           is what a screen reader gets instead. */}
       <p className="sr-only">
