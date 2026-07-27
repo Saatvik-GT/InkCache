@@ -38,7 +38,10 @@ export function AsciiPanel({
   accent?: boolean;
 }) {
   return (
-    <section className={`flex min-w-0 flex-col ${className}`}>
+    // aria-label rather than relying on the visible title text: a <section>
+    // is an implicit landmark region, and without a name every panel on the
+    // page would show up identically as "region" in landmark navigation.
+    <section aria-label={title} className={`flex min-w-0 flex-col ${className}`}>
       <div className="flex items-center gap-1 text-xs leading-none text-faint select-none">
         <span aria-hidden>┌─</span>
         <span
