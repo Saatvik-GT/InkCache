@@ -33,7 +33,11 @@ export const MAX_ENTRIES = parsePositiveInt(
   "INKCACHE_MAX_ENTRIES",
 );
 const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
-const MAX_KEY_LENGTH = 256;
+const MAX_KEY_LENGTH = parsePositiveInt(
+  process.env.INKCACHE_MAX_KEY_LENGTH,
+  256,
+  "INKCACHE_MAX_KEY_LENGTH",
+);
 
 const EVICTION_POLICY: EvictionPolicy =
   process.env.INKCACHE_EVICTION_POLICY === "lru" ? "lru" : "access-aware";

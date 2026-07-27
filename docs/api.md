@@ -124,6 +124,7 @@ the node (`npm run dev:node` / `npm run start:node`):
 | `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
 | `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware` or `lru`                  |
 | `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
+| `INKCACHE_MAX_KEY_LENGTH`  | `256`          | longest key `/set` will accept           |
 | `INKCACHE_CORS_ORIGIN`     | _(none)_       | comma-separated extra allowed origins    |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
