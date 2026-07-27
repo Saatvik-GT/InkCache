@@ -55,7 +55,7 @@ export async function setKey(
     body: JSON.stringify({ key, value, ttl }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `set failed (${res.status})`);
   }
   return res.json();
