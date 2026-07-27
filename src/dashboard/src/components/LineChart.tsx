@@ -50,7 +50,11 @@ export function LineChart({
   const gutter = Math.max(...ticks.map((t) => format(t).length));
 
   return (
-    <div className="ascii-grid overflow-hidden text-[10px] leading-none">
+    // The whole plot is glyphs with no discrete text content — hidden from
+    // screen readers rather than read aloud as noise. Callers that know
+    // what the chart means (e.g. TrafficChart) should pair this with a
+    // sr-only summary of their own.
+    <div aria-hidden className="ascii-grid overflow-hidden text-[10px] leading-none">
       <div className="flex">
         {/* Y axis */}
         <div className="shrink-0 text-right text-faint">
