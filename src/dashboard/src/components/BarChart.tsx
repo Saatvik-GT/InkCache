@@ -32,7 +32,9 @@ export function BarChart({
 
   return (
     <div className="ascii-grid overflow-x-auto text-[10px] leading-none">
-      <pre className={`m-0 ${tone}`}>{chart}</pre>
+      <pre aria-hidden className={`m-0 ${tone}`}>
+        {chart}
+      </pre>
       <div className="flex gap-1 text-bright">
         {bars.map((b) => (
           <span key={b.label} className="text-center" style={{ width: `${barWidth}ch` }}>
