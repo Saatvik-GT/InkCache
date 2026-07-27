@@ -37,9 +37,9 @@ export function Home() {
             {/* Three stacked words at descending weight: the first is the
                 claim, the last is the one doing the work. */}
             <div className="space-y-2">
-              <AsciiHeadline lines={["CACHE"]} className="text-bright" />
-              <AsciiHeadline lines={["THAT"]} className="opacity-70" />
-              <AsciiHeadline lines={["ADAPTS"]} className="text-accent" />
+              <AsciiHeadline lines={["CACHE"]} className="text-bright" srText="Cache that adapts" />
+              <AsciiHeadline lines={["THAT"]} className="opacity-70" srText={null} />
+              <AsciiHeadline lines={["ADAPTS"]} className="text-accent" srText={null} />
             </div>
 
             <p className="mt-9 max-w-sm text-xs leading-relaxed text-text">

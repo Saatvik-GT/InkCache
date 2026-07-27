@@ -12,6 +12,7 @@ export function AsciiHeadline({
   glyph = "█",
   size = "clamp(3px, 0.78vw, 8px)",
   tracking = 1,
+  srText,
 }: {
   lines: string[];
   className?: string;
@@ -21,6 +22,16 @@ export function AsciiHeadline({
   size?: string;
   /** Blank pixel columns between letters. */
   tracking?: number;
+  /**
+   * Screen-reader text for this block, rendered as an h1. Defaults to the
+   * visible lines joined with spaces. Pass null when a title is split
+   * across several AsciiHeadline calls for per-line styling (e.g.
+   * CACHE / THAT / ADAPTS each needing a different colour) — only the
+   * first call should own the real h1 (with srText set to the full
+   * phrase); the rest should pass null so the page doesn't end up with
+   * one h1 per visual line.
+   */
+  srText?: string | null;
 }) {
   const rendered = useMemo(
     // pixelWidth 2 makes each bitmap pixel roughly square; at 1 the
@@ -29,12 +40,14 @@ export function AsciiHeadline({
     [lines, glyph, tracking],
   );
 
+  const text = srText === undefined ? lines.join(" ") : srText;
+
   return (
     // The visually-hidden heading carries the real text: the bitmap is a
     // grid of '#' characters, which is meaningless to a screen reader (and
     // would be read out character by character).
     <div className={className}>
-      <h1 className="sr-only">{lines.join(" ")}</h1>
+      {text !== null && <h1 className="sr-only">{text}</h1>}
       <div aria-hidden className="ascii-grid text-bright" style={{ fontSize: size }}>
         {rendered.map((block, i) => (
           <div key={i} className={i > 0 ? "mt-[0.6em]" : ""}>
