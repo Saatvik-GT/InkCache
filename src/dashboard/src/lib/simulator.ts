@@ -12,6 +12,14 @@ import { logEvent } from "./log";
 const POOL = 64; // distinct sim keys
 const TICK_MS = 280;
 
+// Op mix: mostly reads, some writes, a few deletes — the two thresholds
+// below split a 0..1 roll into read / write / delete bands.
+const READ_PROB = 0.68;
+const WRITE_PROB = 0.96; // read..write band; the rest is delete
+const SHORT_TTL_PROB = 0.33; // fraction of writes that get a short TTL
+const SHORT_TTL_MIN_S = 6;
+const SHORT_TTL_RANGE_S = 20; // short TTL is SHORT_TTL_MIN_S..+RANGE-1 seconds
+
 let timer: ReturnType<typeof setInterval> | undefined;
 const listeners = new Set<() => void>();
 
@@ -25,12 +33,15 @@ async function fire(): Promise<void> {
   const roll = Math.random();
   const key = skewedKey();
   try {
-    if (roll < 0.68) {
+    if (roll < READ_PROB) {
       const res = await getKey(key);
       logEvent(res.hit ? "hit" : "miss", `${key} (sim)`);
-    } else if (roll < 0.96) {
+    } else if (roll < WRITE_PROB) {
       // ~1 in 3 writes get a short TTL so expiry shows up in the demo
-      const ttl = Math.random() < 0.33 ? 6 + Math.floor(Math.random() * 20) : undefined;
+      const ttl =
+        Math.random() < SHORT_TTL_PROB
+          ? SHORT_TTL_MIN_S + Math.floor(Math.random() * SHORT_TTL_RANGE_S)
+          : undefined;
       await setKey(key, `payload-${Date.now() % 100000}`, ttl);
       logEvent("set", `${key}${ttl ? ` ttl=${ttl}s` : ""} (sim)`);
     } else {
