@@ -2,6 +2,17 @@ import type { MetricsSample } from "../hooks/useNode";
 import { AsciiPanel } from "./AsciiPanel";
 import { LineChart } from "./LineChart";
 
+/** Shared empty state for both charts below, before enough samples exist. */
+function Collecting({ title }: { title: string }) {
+  return (
+    <AsciiPanel title={title} right="collecting" className="h-full">
+      <p className="py-10 text-center text-xs text-dim">
+        collecting samples<span className="cursor-blink">_</span>
+      </p>
+    </AsciiPanel>
+  );
+}
+
 /** Clock labels sampled across the window, oldest to newest. */
 function timeLabels(history: MetricsSample[], count = 5): string[] {
   if (history.length === 0) return [];
@@ -23,15 +34,7 @@ function timeLabels(history: MetricsSample[], count = 5): string[] {
 export function TrafficChart({ history }: { history: MetricsSample[] }) {
   const latest = history[history.length - 1];
 
-  if (history.length < 2 || !latest) {
-    return (
-      <AsciiPanel title="hits vs misses" right="collecting" className="h-full">
-        <p className="py-10 text-center text-xs text-dim">
-          collecting samples<span className="cursor-blink">_</span>
-        </p>
-      </AsciiPanel>
-    );
-  }
+  if (history.length < 2 || !latest) return <Collecting title="hits vs misses" />;
 
   return (
     <AsciiPanel
@@ -63,15 +66,7 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
 export function LatencyChart({ history }: { history: MetricsSample[] }) {
   const latest = history[history.length - 1];
 
-  if (history.length < 2 || !latest) {
-    return (
-      <AsciiPanel title="latency (µs)" right="collecting" className="h-full">
-        <p className="py-10 text-center text-xs text-dim">
-          collecting samples<span className="cursor-blink">_</span>
-        </p>
-      </AsciiPanel>
-    );
-  }
+  if (history.length < 2 || !latest) return <Collecting title="latency (µs)" />;
 
   return (
     <AsciiPanel title="latency (µs)" right="avg / p95" className="h-full">
