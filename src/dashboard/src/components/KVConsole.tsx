@@ -180,6 +180,7 @@ export function KVConsole({
           bottom panels line up instead of each ending at its own height. */}
       <div
         ref={scrollRef}
+        aria-live="polite"
         className="ascii-scroll min-h-0 flex-1 overflow-y-auto border border-ghost bg-void p-3 text-xs leading-relaxed whitespace-pre-wrap break-all"
       >
         {lines.map((line, i) => (
