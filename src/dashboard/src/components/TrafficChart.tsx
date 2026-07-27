@@ -21,7 +21,9 @@ function timeLabels(history: MetricsSample[], count = 5): string[] {
  * made visible over time.
  */
 export function TrafficChart({ history }: { history: MetricsSample[] }) {
-  if (history.length < 2) {
+  const latest = history[history.length - 1];
+
+  if (history.length < 2 || !latest) {
     return (
       <AsciiPanel title="hits vs misses" right="collecting" className="h-full">
         <p className="py-10 text-center text-xs text-dim">
@@ -38,6 +40,11 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
       right={`${history.length}s window`}
       className="h-full"
     >
+      {/* The chart itself is aria-hidden (no discrete text content); this
+          is what a screen reader gets instead. */}
+      <p className="sr-only">
+        {latest.hits} hits, {latest.misses} misses over the last {history.length} seconds.
+      </p>
       <LineChart
         rows={12}
         cols={82}
@@ -54,7 +61,9 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
 
 /** Latency percentiles — different unit from the counters, so its own axis. */
 export function LatencyChart({ history }: { history: MetricsSample[] }) {
-  if (history.length < 2) {
+  const latest = history[history.length - 1];
+
+  if (history.length < 2 || !latest) {
     return (
       <AsciiPanel title="latency (µs)" right="collecting" className="h-full">
         <p className="py-10 text-center text-xs text-dim">
@@ -66,6 +75,10 @@ export function LatencyChart({ history }: { history: MetricsSample[] }) {
 
   return (
     <AsciiPanel title="latency (µs)" right="avg / p95" className="h-full">
+      <p className="sr-only">
+        {latest.avgUs === null ? "no" : latest.avgUs.toFixed(0)} microsecond average latency,
+        {latest.p95Us === null ? " no" : ` ${latest.p95Us.toFixed(0)}`} microsecond p95.
+      </p>
       <LineChart
         rows={12}
         cols={52}
