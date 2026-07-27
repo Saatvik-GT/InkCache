@@ -19,6 +19,10 @@ import { StarField } from "../components/StarField";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+/** Shared fixed height for the three bottom stream panels — see the grid
+    comment below for why a fixed (not minimum) height matters here. */
+const STREAM_PANEL_HEIGHT = "h-104";
+
 /** Status as a glyph as well as a colour, so it survives monochrome. */
 const STATUS: Record<NodeStatus, { glyph: string; label: string; tone: string }> = {
   connecting: { glyph: "◌", label: "connecting", tone: "text-dim" },
@@ -177,14 +181,16 @@ export function Dashboard() {
               these panels hold streams that grow without bound, and with an
               auto-height cell the inner overflow never engages — the panel
               just keeps getting taller as entries arrive. A fixed height is
-              what gives flex-1 + min-h-0 something to resolve against. */}
-          <div className="h-104 lg:col-span-4">
+              what gives flex-1 + min-h-0 something to resolve against.
+              STREAM_PANEL_HEIGHT (26rem/416px) is shared across all three
+              so a future tweak can't accidentally desync them. */}
+          <div className={`${STREAM_PANEL_HEIGHT} lg:col-span-4`}>
             <KVConsole onOp={refreshNow} />
           </div>
-          <div className="h-104 lg:col-span-4">
+          <div className={`${STREAM_PANEL_HEIGHT} lg:col-span-4`}>
             <KeysPanel refreshToken={keyRefreshToken} />
           </div>
-          <div className="h-104 lg:col-span-4">
+          <div className={`${STREAM_PANEL_HEIGHT} lg:col-span-4`}>
             <LogStream />
           </div>
         </div>
