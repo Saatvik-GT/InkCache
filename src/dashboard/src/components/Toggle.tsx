@@ -17,6 +17,7 @@ export function Toggle({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={onChange}
       title={label}
       className={`cursor-pointer border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${
