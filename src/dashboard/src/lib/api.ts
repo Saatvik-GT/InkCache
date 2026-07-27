@@ -65,7 +65,7 @@ export async function getKey(key: string): Promise<GetResult> {
   const res = await request(`/get/${encodeURIComponent(key)}`);
   if (res.status === 404) return { hit: false, key };
   if (!res.ok) throw new Error(`get failed (${res.status})`);
-  const body = await res.json();
+  const body = (await res.json()) as { value?: string; ttl?: number | null };
   return { hit: true, key, value: body.value, ttl: body.ttl };
 }
 
