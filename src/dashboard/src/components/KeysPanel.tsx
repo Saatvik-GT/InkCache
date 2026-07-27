@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { fetchKeyStats, type KeyStat } from "../lib/api";
+import { useKeyStats } from "../hooks/useKeyStats";
 import { AsciiPanel } from "./AsciiPanel";
 
 /** Shade ramp for access frequency — colourless, so it survives being read
@@ -18,21 +17,7 @@ function heatGlyph(hits: number, max: number): string {
  * monochrome, and to anyone who can't separate the hue steps.
  */
 export function KeysPanel({ refreshToken }: { refreshToken: number }) {
-  const [stats, setStats] = useState<KeyStat[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchKeyStats()
-      .then((res) => {
-        if (!cancelled) setStats(res.keys);
-      })
-      .catch(() => {
-        if (!cancelled) setStats(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshToken]);
+  const stats = useKeyStats(refreshToken);
 
   const maxHits = stats ? Math.max(0, ...stats.map((s) => s.hits)) : 0;
   const sorted = stats ? [...stats].sort((a, b) => b.hits - a.hits) : null;
