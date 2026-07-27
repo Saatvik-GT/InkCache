@@ -29,6 +29,15 @@ describe("MetricsCollector", () => {
     assert.equal(snap.latency.p95Us, 96);
   });
 
+  it("caps latency samples at the ring buffer size instead of growing forever", () => {
+    const m = new MetricsCollector();
+    // One more than the 512-slot ring buffer; the last one should have
+    // overwritten the oldest slot rather than the array just growing to 600.
+    for (let i = 1; i <= 600; i++) m.record("get", i, true);
+    const snap = m.snapshot();
+    assert.equal(snap.latency.samples, 512);
+  });
+
   it("reports a small positive uptimeSec right after construction", () => {
     const m = new MetricsCollector();
     assert.ok(m.uptimeSec >= 0 && m.uptimeSec < 1);
