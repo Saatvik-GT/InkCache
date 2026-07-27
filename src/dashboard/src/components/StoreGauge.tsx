@@ -28,7 +28,9 @@ export function StoreGauge({ metrics, stale = false }: { metrics: NodeMetrics; s
           </span>
         </div>
 
-        <div className={`ascii-grid truncate text-xs ${tone}`}>{renderMeter(fill, 32)}</div>
+        <div aria-hidden className={`ascii-grid truncate text-xs ${tone}`}>
+          {renderMeter(fill, 32)}
+        </div>
 
         <dl className="mt-1 space-y-0.5 text-[10px]">
           <div className="flex justify-between">
