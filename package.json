@@ -1,7 +1,7 @@
 {
   "name": "inkcache",
   "version": "0.1.0",
-  "description": "InkCache — intelligent distributed caching system (CUSoC 2026)",
+  "description": "InkCache — single-node cache with access-aware eviction (CUSoC 2026)",
   "keywords": [
     "cache",
     "lru",
