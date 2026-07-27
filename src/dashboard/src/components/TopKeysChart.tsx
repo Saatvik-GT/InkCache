@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { fetchKeyStats, type KeyStat } from "../lib/api";
+import { useKeyStats } from "../hooks/useKeyStats";
 import { AsciiPanel } from "./AsciiPanel";
 import { BarChart } from "./BarChart";
 
@@ -9,21 +8,7 @@ import { BarChart } from "./BarChart";
  * can't give you at a glance.
  */
 export function TopKeysChart({ refreshToken, top = 6 }: { refreshToken: number; top?: number }) {
-  const [stats, setStats] = useState<KeyStat[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchKeyStats()
-      .then((res) => {
-        if (!cancelled) setStats(res.keys);
-      })
-      .catch(() => {
-        if (!cancelled) setStats(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshToken]);
+  const stats = useKeyStats(refreshToken);
 
   const bars = (stats ?? [])
     .slice()
