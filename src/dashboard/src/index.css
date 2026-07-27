@@ -73,16 +73,6 @@ body {
   user-select: none;
 }
 
-/* Panels are drawn with box-drawing characters in the corners rather than
-   CSS borders, so the chrome sits on the same character grid as its
-   contents instead of between the cells. */
-.ascii-panel {
-  position: relative;
-  background: var(--color-surface);
-  outline: 1px solid var(--color-ghost);
-  outline-offset: 0;
-}
-
 /* Scanline wash — very low contrast, just enough to read as a CRT field
    rather than a flat black div. */
 .ascii-scanlines::before {
