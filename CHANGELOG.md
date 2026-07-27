@@ -96,3 +96,12 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - GitHub Actions workflow running backend typecheck, `prettier --check`,
   tests, the dashboard's `oxlint`, the dashboard build, and a Docker
   build-and-run smoke test on every push/PR.
+
+### Security
+
+- `react-router-dom` stays pinned at 7.18.1 rather than following
+  `npm audit fix --force` onto 7.11.0, which carries ten-plus advisories
+  including an unauthenticated RCE — worse than the single advisory it
+  would have "fixed." Rationale, the grep used to confirm the flagged
+  advisory's code path is unreachable here, and what would invalidate
+  the exemption are in `docs/security-notes.md`.
