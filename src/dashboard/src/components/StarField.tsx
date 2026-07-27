@@ -4,6 +4,10 @@ import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 /** Dimmest to brightest. Most stars should sit at the faint end. */
 const STAR_GLYPHS = [".", ".", ".", "·", "·", "+", "*"];
 
+// A slow shimmer, not a framerate — negligible work next to the moon's
+// 24fps loop, so there's no need to chase a smooth animation here.
+const PAINT_INTERVAL_MS = 250;
+
 /**
  * Deterministic hash — a fixed sky beats a re-randomized one, which would
  * reshuffle on every re-render and read as noise rather than as a
@@ -85,10 +89,9 @@ export function StarField({
       return;
     }
 
-    // 4fps: a slow shimmer, and negligible work next to the moon's 24fps.
     paint(0);
     const start = performance.now();
-    const id = setInterval(() => paint((performance.now() - start) / 900), 250);
+    const id = setInterval(() => paint((performance.now() - start) / 900), PAINT_INTERVAL_MS);
     return () => clearInterval(id);
   }, [stars, cols, rows, reducedMotion]);
 
