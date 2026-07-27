@@ -116,6 +116,7 @@ export function Dashboard() {
               </Button>
 
               <span
+                aria-live="polite"
                 className={`flex items-center gap-2 border border-ghost px-2 py-1 text-[10px] tracking-widest uppercase ${badge.tone}`}
               >
                 <span aria-hidden className={status === "online" ? "cursor-blink" : ""}>
