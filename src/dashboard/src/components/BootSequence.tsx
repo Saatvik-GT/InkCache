@@ -58,7 +58,7 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
           </div>
         ))}
         <div className="ascii-grid mt-4 text-accent">
-          {renderMeter(progress, 32)} {Math.round(progress * 100)}%
+          <span aria-hidden>{renderMeter(progress, 32)}</span> {Math.round(progress * 100)}%
         </div>
       </div>
       <div className="mt-6 text-[10px] text-faint">press any key to skip</div>
