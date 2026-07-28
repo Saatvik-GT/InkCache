@@ -47,10 +47,13 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Keyboard-driven KV console (`set`/`get`/`del`/`flush`, arrow-key
   history, `/` to focus, Esc to clear) with a pressable send button and
   copy-last-value.
-- Metrics rendered in block glyphs rather than SVG: a full-width hit-rate
-  meter plus `▁▂▃▄▅▆▇█` sparklines for ops/s, hit rate and p95 latency,
-  fed by an actual rolling sample history (no synthesized data). Null
-  samples stay visible gaps rather than being interpolated across.
+- Rebuilt from a sparkline-based metrics panel into a dense tiled
+  ops-console grid: hits-vs-misses and latency (avg/p95) plotted as line
+  charts on the character grid (own small plotting library — connected
+  traces, not scattered points, with nulls breaking the line rather than
+  being bridged), a node-counters table, a hottest-keys bar chart, and a
+  dedicated store-capacity gauge, fed by an actual rolling sample history
+  (no synthesized data).
 - KEYS panel is an access-frequency heat map using shade glyphs
   (`░▒▓█`) sorted hottest-first, driven by real hit counts from
   `/keys/stats` — density rides on the glyph rather than a background
@@ -78,9 +81,11 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   boundary and static fallback that existed solely to manage three's
   weight and hardware requirement — shipped JS went from ~1.16 MB
   (271 KB main + an 899 KB lazy chunk) to a single ~267 KB bundle.
-- Live stats strip, feature cards, a copyable quick-start curl
-  snippet, and an honest architecture note (what's real today vs.
-  roadmap) round out the home page.
+- Simplified to a single-screen hero: the moon, a live node-stats strip
+  as a dot-leader manifest, and a link into the console, in front of a
+  deterministic ASCII starfield — the feature cards, quick-start
+  snippet and roadmap checklist that used to fill out the rest of the
+  page were cut.
 
 ### Deployment
 
@@ -96,6 +101,40 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - GitHub Actions workflow running backend typecheck, `prettier --check`,
   tests, the dashboard's `oxlint`, the dashboard build, and a Docker
   build-and-run smoke test on every push/PR.
+
+### Accessibility
+
+- Every decorative ASCII glyph that duplicates real text next to it
+  (meters, heat-map glyphs, bar-chart bars, the raw line-chart trace) is
+  now `aria-hidden`, with `sr-only` summaries added where the chart was
+  the _only_ source of a number a screen reader user would otherwise
+  never get.
+- Fixed the home page shipping three separate `<h1>` elements (one per
+  colour-styled word in "CACHE THAT ADAPTS") instead of one coherent
+  heading, and the console page having no `<h1>` at all.
+- Every panel (`AsciiPanel`, the base for all of them) is a `<section>`
+  landmark that previously had no accessible name — landmark navigation
+  would have listed every one of them identically as "region".
+- `aria-live="polite"` on the two places connection status changes
+  silently (home page, console) and on KV console command output.
+- The toggle switch's accessible name was only wired to `title` (a
+  tooltip) — a screen reader announced its literal bracket glyphs
+  instead of what it does. Now has a real `aria-label`.
+
+### Fixes
+
+- A silent data-corruption bug in the KV console's command tokenizer: an
+  unclosed quote (`set foo "bar`) dropped the real last character of the
+  value instead of leaving it untouched.
+- The dashboard's TypeScript configs never had `strict: true` — the
+  backend enforced it, the dashboard quietly didn't. Enabling it
+  surfaced zero new errors; the code was already strict-clean.
+- `INKCACHE_NODE_ID`'s `"node-1"` default was independently duplicated
+  in both `app.ts` and `server.ts` (the exact drift risk this file
+  already documents for `MAX_ENTRIES`) — now defined once and imported.
+- `MAX_KEY_LENGTH` was the one hardcoded config value left over once
+  `MAX_ENTRIES`/`EVICTION_SAMPLE`/`EVICTION_POLICY` all became env vars;
+  it's now `INKCACHE_MAX_KEY_LENGTH`, same validation as the rest.
 
 ### Security
 
