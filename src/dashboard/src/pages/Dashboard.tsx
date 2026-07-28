@@ -36,6 +36,11 @@ export function Dashboard() {
   const soundEnabled = useSoundEnabled();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
+  // Guards against a rapid double-click firing two independent flush
+  // requests -- each would log its own "flushed store" line even though
+  // the second one always drops zero keys, since the first already emptied
+  // the store.
+  const [flushing, setFlushing] = useState(false);
   useDocumentTitle("InkCache — node console");
 
   // 's' toggles the traffic simulator, 'm' toggles sound, unless typing
@@ -100,7 +105,9 @@ export function Dashboard() {
               <Button
                 tone="danger"
                 title="clear every key from the store"
+                disabled={flushing}
                 onClick={() => {
+                  setFlushing(true);
                   flush()
                     .then((res) => {
                       logEvent(
@@ -109,7 +116,8 @@ export function Dashboard() {
                       );
                       refreshNow();
                     })
-                    .catch(() => logEvent("err", "flush failed"));
+                    .catch(() => logEvent("err", "flush failed"))
+                    .finally(() => setFlushing(false));
                 }}
               >
                 flush
