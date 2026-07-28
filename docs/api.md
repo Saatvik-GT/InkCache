@@ -91,6 +91,13 @@ Clear the entire store. Intended for local dev/demo use.
 `evictionPolicy` is `"access-aware"` (default) or `"lru"` — see
 [Eviction policy](#eviction-policy) below.
 
+`opsPerSec` is throughput over a rolling 10-second window (all op types:
+get/set/delete), not a lifetime average — it responds to a burst or a
+lull within seconds rather than smoothing over the whole uptime.
+`latency.samples` is capped at the last 512 recorded operations (a ring
+buffer), also for the same reason: percentiles that reflect recent
+behaviour, not history from hours ago.
+
 ## GET /health
 
 **200** `{ "status": "ok", "node": "node-1", "uptimeSec": 84.2, "keys": 12, "timestamp": "..." }`
