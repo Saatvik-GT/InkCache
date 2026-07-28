@@ -119,6 +119,17 @@ None of these fall through to Express's default HTML error page — every
 error case, expected or not, is caught and returned as JSON with no
 internal detail (stack traces, file paths) leaked to the client.
 
+## Security headers
+
+Every response carries three headers applied by hand (a small local demo
+doesn't need a full `helmet` dependency for three lines):
+
+| Header                   | Value         | Why                                                                          |
+| ------------------------ | ------------- | ---------------------------------------------------------------------------- |
+| `X-Content-Type-Options` | `nosniff`     | stops the browser from MIME-sniffing a response as something other than JSON |
+| `X-Frame-Options`        | `DENY`        | the API has no UI of its own worth framing, so disallow it outright          |
+| `Referrer-Policy`        | `no-referrer` | baseline hardening — this is a JSON API, not a page that links elsewhere     |
+
 ## Eviction policy
 
 All node configuration is via environment variables, set before starting
