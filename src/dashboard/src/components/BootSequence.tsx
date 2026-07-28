@@ -3,7 +3,7 @@ import { renderMeter } from "../lib/asciiChart";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 const LINES = [
-  "inkcache console v0.1.0",
+  `inkcache console v${__APP_VERSION__}`,
   "",
   "checking character grid ......... ok",
   "loading glyph tables ............ ok",
