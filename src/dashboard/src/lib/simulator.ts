@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { deleteKey, getKey, setKey } from "./api";
 import { logEvent } from "./log";
 
@@ -77,5 +77,13 @@ export function useSimulator(): { running: boolean; toggle: () => void } {
     },
     () => timer !== undefined,
   );
+
+  // The timer is module-level, not component-level — it doesn't stop on
+  // its own just because the console page unmounts. Without this, leaving
+  // /dashboard for / while the simulator is running would leave it firing
+  // real requests in the background indefinitely, with nothing on the
+  // home page to show it or turn it off.
+  useEffect(() => stopSimulator, []);
+
   return { running, toggle: () => (timer ? stopSimulator() : startSimulator()) };
 }
