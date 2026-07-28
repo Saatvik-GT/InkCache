@@ -135,6 +135,14 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - `MAX_KEY_LENGTH` was the one hardcoded config value left over once
   `MAX_ENTRIES`/`EVICTION_SAMPLE`/`EVICTION_POLICY` all became env vars;
   it's now `INKCACHE_MAX_KEY_LENGTH`, same validation as the rest.
+- The traffic simulator runs on a module-level `setInterval` independent
+  of any component's lifecycle — starting it on `/dashboard` and then
+  navigating to `/` used to leave it firing real requests against the
+  node in the background indefinitely, with no indication anywhere on
+  the home page. Now stops on unmount.
+- Neither the KV console's run button nor the flush button reflected
+  their own in-flight state; both are disabled while their request is
+  pending, matching the pattern the console's text input already used.
 
 ### Security
 
