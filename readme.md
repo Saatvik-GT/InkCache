@@ -267,7 +267,8 @@ InkCache/
 │       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)
 ├── tests/                # node:test + supertest: core cache logic + REST routes
 └── docs/
-    └── api.md            # full endpoint + config reference
+    ├── api.md            # full endpoint + config reference
+    └── security-notes.md # why react-router-dom stays pinned at 7.18.1
 ```
 
 Planned additions per roadmap: `src/intelligence/` (adaptive layer) and
