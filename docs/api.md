@@ -18,11 +18,11 @@ curl -X POST http://localhost:8080/set \
   -d '{"key":"user:1","value":"Saatvik","ttl":300}'
 ```
 
-| Field | Type   | Required | Notes                         |
-| ----- | ------ | -------- | ----------------------------- |
-| key   | string | yes      | non-empty, max 256 characters |
-| value | string | yes      | stored as-is                  |
-| ttl   | number | no       | seconds; omit for no expiry   |
+| Field | Type   | Required | Notes                                                     |
+| ----- | ------ | -------- | --------------------------------------------------------- |
+| key   | string | yes      | non-empty, max 256 characters (`INKCACHE_MAX_KEY_LENGTH`) |
+| value | string | yes      | stored as-is                                              |
+| ttl   | number | no       | seconds; omit for no expiry                               |
 
 **200** `{ "ok": true, "key": "user:1", "ttl": 300 }`
 **400** `{ "error": "<reason>" }`
@@ -133,10 +133,11 @@ separately from this node (see `VITE_API_BASE` in
 origins (`localhost:5173` and `127.0.0.1:5173`) are always allowed
 regardless.
 
-The three numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`) are
-validated as positive integers — set one to something else (a typo, an
-empty string, a negative number) and the node logs a warning and falls
-back to its default instead of silently misbehaving.
+The four numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`,
+`MAX_KEY_LENGTH`) are validated as positive integers — set one to
+something else (a typo, an empty string, a negative number) and the node
+logs a warning and falls back to its default instead of silently
+misbehaving.
 
 **`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
 keys and evicts whichever of _those_ was read the fewest times, instead of
