@@ -32,7 +32,7 @@ export const MAX_ENTRIES = parsePositiveInt(
   512,
   "INKCACHE_MAX_ENTRIES",
 );
-const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
+export const NODE_ID = process.env.INKCACHE_NODE_ID ?? "node-1";
 const MAX_KEY_LENGTH = parsePositiveInt(
   process.env.INKCACHE_MAX_KEY_LENGTH,
   256,
