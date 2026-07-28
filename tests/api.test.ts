@@ -145,6 +145,13 @@ describe("REST API", () => {
     assert.equal(res.body.error, "not found");
   });
 
+  it("sends the hand-applied security headers on every response", async () => {
+    const res = await request(app).get("/health").expect(200);
+    assert.equal(res.headers["x-content-type-options"], "nosniff");
+    assert.equal(res.headers["x-frame-options"], "DENY");
+    assert.equal(res.headers["referrer-policy"], "no-referrer");
+  });
+
   it("sends the CORS header for the allowed dev origin, not for a random one", async () => {
     const allowed = await request(app)
       .get("/health")
