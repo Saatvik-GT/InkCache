@@ -248,7 +248,7 @@ export function KVConsole({
           <KeyCap>↓</KeyCap> history
         </span>
         <span className="flex items-center gap-1">
-          <KeyCap>Esc</KeyCap> clear
+          <KeyCap>Esc</KeyCap> clear input
         </span>
         <span className="flex items-center gap-1">
           <KeyCap>S</KeyCap> sim
