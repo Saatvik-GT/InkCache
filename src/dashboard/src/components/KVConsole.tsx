@@ -234,7 +234,7 @@ export function KVConsole({
             placeholder="set user:1 saatvik 300"
           />
         </div>
-        <Button type="submit" tone="accent" title="run the command (Enter)">
+        <Button type="submit" tone="accent" title="run the command (Enter)" disabled={busy}>
           run
         </Button>
       </form>

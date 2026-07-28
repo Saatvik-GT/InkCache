@@ -18,15 +18,23 @@ export function Button({
   title,
   tone = "default",
   type = "button",
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   title?: string;
   tone?: "default" | "accent" | "danger";
   type?: "button" | "submit";
+  disabled?: boolean;
 }) {
   return (
-    <button type={type} onClick={onClick} title={title} className={`${CONTROL_BASE} ${TONE[tone]}`}>
+    <button
+      type={type}
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={`${CONTROL_BASE} ${TONE[tone]} disabled:cursor-not-allowed disabled:opacity-40`}
+    >
       [ {children} ]
     </button>
   );
