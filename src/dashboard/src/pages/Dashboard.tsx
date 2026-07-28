@@ -36,7 +36,7 @@ export function Dashboard() {
   const soundEnabled = useSoundEnabled();
   const [booting, setBooting] = useState(true);
   const finishBoot = useCallback(() => setBooting(false), []);
-  useDocumentTitle("InkCache // node console");
+  useDocumentTitle("InkCache — node console");
 
   // 's' toggles the traffic simulator, 'm' toggles sound, unless typing
   useEffect(() => {
