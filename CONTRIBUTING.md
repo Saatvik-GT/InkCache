@@ -15,11 +15,11 @@ npm run test:watch # re-runs core + API tests on save, while iterating
 ## Before opening a PR
 
 ```bash
-npm test                 # core + API tests (node:test)
-npx tsc --noEmit          # backend typecheck
-npm run format:check     # prettier — repo-wide
-npm --prefix src/dashboard run lint    # oxlint
-npm --prefix src/dashboard run build   # dashboard typecheck + build
+npm test                                # core + API tests (node:test)
+npx tsc --noEmit                        # backend typecheck
+npm run format:check                    # prettier — repo-wide
+npm --prefix src/dashboard run lint     # oxlint
+npm --prefix src/dashboard run build    # dashboard typecheck + build
 npm run docker:build                    # only strictly needed if you touched the Dockerfile
 ```
 
