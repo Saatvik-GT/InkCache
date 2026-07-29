@@ -3,7 +3,7 @@
 Standing decisions about dependency advisories, so they don't get
 re-litigated (or "fixed" into something worse) on the next `npm audit`.
 
-## react-router-dom stays on 7.18.1 despite an open advisory
+## react-router-dom stays on 7.18.x despite an open advisory
 
 `npm audit` reports **GHSA-qwww-vcr4-c8h2** — "RSC Mode CSRF Bypass Allows
 Action Execution Before 400 Response" — against `react-router` 7.12.0
@@ -15,8 +15,11 @@ that version carries ten-plus advisories including a vendored
 XSS vectors, and multiple open-redirect issues. Trading one inapplicable
 advisory for a working RCE is a straight downgrade in safety.
 
-7.18.1 is the latest published release; there is no patched version to move
-to yet.
+7.18.2 is the latest published release as of this writing; there is no
+patched version to move to yet. Patch releases within 7.x don't change
+this exemption's reasoning — the vulnerable range (7.12.0–8.2.0) covers
+the whole 7.18.x line regardless, so bumping the patch version is safe to
+do freely but doesn't affect the advisory either way.
 
 ### Why the advisory doesn't apply here
 
