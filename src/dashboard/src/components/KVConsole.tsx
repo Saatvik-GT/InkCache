@@ -20,6 +20,13 @@ const TONE_CLASS: Record<Tone, string> = {
   err: "text-kind-err",
 };
 
+// Matches the console output's own cap (see print() below) — without one,
+// a long-running session (this is a terminal meant to be left open) grows
+// the recall history without bound, unlike every other array in this file
+// and codebase (log events, latency samples, metrics history), which all
+// cap themselves.
+const HISTORY_CAP = 200;
+
 const HELP: string[] = [
   "set <key> <value> [ttlSec]   store a value (quote values with spaces)",
   "get <key>                    read a value",
@@ -162,7 +169,7 @@ export function KVConsole({
   function submit() {
     const cmd = input.trim();
     if (!cmd) return;
-    setHistory((prev) => [...prev, cmd]);
+    setHistory((prev) => [...prev.slice(-(HISTORY_CAP - 1)), cmd]);
     setHistIdx(-1);
     setInput("");
     setBusy(true);
