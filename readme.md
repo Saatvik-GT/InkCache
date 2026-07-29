@@ -1,6 +1,6 @@
-# InkCache — Intelligent Distributed Caching System
+# InkCache — Toward an Intelligent, Distributed Caching System
 
-> An adaptive, distributed key-value caching layer that goes beyond static eviction policies by learning access patterns to optimize hit rates, reduce latency, and scale horizontally across nodes.
+> A key-value cache aiming to go beyond static eviction policies by learning access patterns to optimize hit rates and reduce latency, on its way to scaling horizontally across nodes. What's actually built and running today — a single-node core with access-aware eviction — is in [Current Status](#current-status) below.
 
 [![CI](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml/badge.svg)](https://github.com/Saatvik-GT/InkCache/actions/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-in%20development-yellow)](#project-roadmap)
