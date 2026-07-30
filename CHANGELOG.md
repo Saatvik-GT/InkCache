@@ -146,7 +146,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Security
 
-- `react-router-dom` stays pinned at 7.18.1 rather than following
+- `react-router-dom` stays on the 7.18.x line rather than following
   `npm audit fix --force` onto 7.11.0, which carries ten-plus advisories
   including an unauthenticated RCE — worse than the single advisory it
   would have "fixed." Rationale, the grep used to confirm the flagged
