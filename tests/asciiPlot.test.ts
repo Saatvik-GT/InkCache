@@ -68,6 +68,14 @@ describe("renderBarChart()", () => {
     assert.equal(renderBarChart([1, 2, 3], { rows: 5 }).split("\n").length, 5);
   });
 
+  it("honours a custom block glyph", () => {
+    const lines = renderBarChart([5], { rows: 2, barWidth: 1, block: "▓" }).split("\n");
+    assert.ok(
+      lines.every((l) => l === "▓"),
+      "every filled row should use the custom glyph",
+    );
+  });
+
   it("gives the tallest bar full height", () => {
     const lines = renderBarChart([1, 10], { rows: 4, barWidth: 2 }).split("\n");
     assert.ok(lines[0]!.includes("██"), "the max value should reach the top row");
