@@ -36,6 +36,12 @@ describe("renderAsciiText()", () => {
     );
   });
 
+  it("asciiTextWidth grows with tracking on its own, not just via pixelWidth", () => {
+    // "AB" is 2 glyphs (5 cols each) + 1 tracking gap.
+    assert.equal(asciiTextWidth("AB", 1), 11);
+    assert.equal(asciiTextWidth("AB", 3), 13);
+  });
+
   it("returns zero width for empty text", () => {
     assert.equal(asciiTextWidth(""), 0);
   });
