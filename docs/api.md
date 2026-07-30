@@ -24,7 +24,8 @@ curl -X POST http://localhost:8080/set \
 | value | string | yes      | stored as-is                                              |
 | ttl   | number | no       | seconds; omit for no expiry                               |
 
-**200** `{ "ok": true, "key": "user:1", "ttl": 300 }`
+**200** `{ "ok": true, "key": "user:1", "ttl": 300 }` (`ttl` is `null` in the
+response if you omit it in the request — it never expires)
 **400** `{ "error": "<reason>" }`
 
 ## GET /get/:key
