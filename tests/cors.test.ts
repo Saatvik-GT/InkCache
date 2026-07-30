@@ -32,4 +32,8 @@ describe("resolveCorsOrigins()", () => {
       "https://a.example.com",
     ]);
   });
+
+  it("falls back to just the defaults when every entry is whitespace", () => {
+    assert.deepEqual(resolveCorsOrigins("   ,  , "), DEFAULT_ORIGINS);
+  });
 });
