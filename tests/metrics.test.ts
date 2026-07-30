@@ -29,6 +29,14 @@ describe("MetricsCollector", () => {
     assert.equal(snap.latency.p95Us, 96);
   });
 
+  it("rounds avgUs to exactly 2 decimal places", () => {
+    const m = new MetricsCollector();
+    m.record("get", 1, true);
+    m.record("get", 2, true);
+    m.record("get", 4, true); // avg = 7/3 = 2.3333... -> should round to 2.33
+    assert.equal(m.snapshot().latency.avgUs, 2.33);
+  });
+
   it("caps latency samples at the ring buffer size instead of growing forever", () => {
     const m = new MetricsCollector();
     // One more than the 512-slot ring buffer; the last one should have
