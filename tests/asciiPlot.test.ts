@@ -67,6 +67,13 @@ describe("axisTicks()", () => {
     assert.equal(t[4], 0);
     assert.equal(t.length, 5);
   });
+
+  it("returns just the max for count 1 or 0 instead of dividing by zero", () => {
+    // count - 1 is the divisor in the general case; count<=1 has its own
+    // explicit branch specifically to dodge that.
+    assert.deepEqual(axisTicks(0, 100, 1), [100]);
+    assert.deepEqual(axisTicks(0, 100, 0), [100]);
+  });
 });
 
 describe("renderBarChart()", () => {
