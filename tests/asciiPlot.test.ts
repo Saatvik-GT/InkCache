@@ -46,6 +46,11 @@ describe("plotSeries()", () => {
     assert.equal(out.max, 100);
   });
 
+  it("clamps a value that exceeds explicit bounds instead of going off-grid", () => {
+    const lines = plotSeries([150], { cols: 5, rows: 5, min: 0, max: 100 }).text.split("\n");
+    assert.ok(lines[0]!.includes(PLOT_DOT), "150 against a max of 100 should sit at the top row");
+  });
+
   it("connects steep segments without leaving vertical gaps", () => {
     // Two points at opposite extremes two columns apart: every row between
     // them should be touched, or the trace looks like scattered dots.
