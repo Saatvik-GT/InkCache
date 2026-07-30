@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteKey, flush, getKey, setKey } from "../lib/api";
+import { deleteKey, describeFetchError, flush, getKey, setKey } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { Button } from "./Button";
 import { KeyCap } from "./KeyCap";
@@ -154,13 +154,7 @@ export function KVConsole({
           print(`unknown command: ${cmd} — try \`help\``, "err");
       }
     } catch (err) {
-      // fetch throws TypeError when the node itself is down, not just on bad input
-      const msg =
-        err instanceof TypeError
-          ? "node unreachable — is the cache node running?"
-          : err instanceof Error
-            ? err.message
-            : String(err);
+      const msg = describeFetchError(err);
       print(`ERR  ${msg}`, "err");
       logEvent("err", msg);
     }

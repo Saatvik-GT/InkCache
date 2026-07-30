@@ -11,7 +11,7 @@ import { LatencyChart, TrafficChart } from "../components/TrafficChart";
 import { Toggle } from "../components/Toggle";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useNode, type NodeStatus } from "../hooks/useNode";
-import { flush } from "../lib/api";
+import { describeFetchError, flush } from "../lib/api";
 import { logEvent } from "../lib/log";
 import { useSimulator } from "../lib/simulator";
 import { setSoundEnabled, useSoundEnabled } from "../lib/sound";
@@ -116,7 +116,7 @@ export function Dashboard() {
                       );
                       refreshNow();
                     })
-                    .catch(() => logEvent("err", "flush failed"))
+                    .catch((err: unknown) => logEvent("err", describeFetchError(err)))
                     .finally(() => setFlushing(false));
                 }}
               >
