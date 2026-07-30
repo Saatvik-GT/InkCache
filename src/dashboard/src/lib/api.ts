@@ -5,7 +5,10 @@
  * build (e.g. on Vercel) at a backend running somewhere else entirely —
  * see .env.example.
  */
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+// Every call below concatenates this straight onto a path that already
+// starts with "/" — strip a trailing slash so a VITE_API_BASE set with one
+// (an easy mistake) doesn't produce a double-slash URL.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "/api").replace(/\/$/, "");
 
 export interface GetResult {
   hit: boolean;
