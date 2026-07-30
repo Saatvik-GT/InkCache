@@ -6,8 +6,6 @@ export type NodeStatus = "connecting" | "online" | "offline";
 
 export interface MetricsSample {
   at: number;
-  opsPerSec: number;
-  hitRate: number | null;
   p95Us: number | null;
   /** Cumulative counters — plotted as two comparable series. */
   hits: number;
@@ -50,8 +48,6 @@ export function useNode(pollMs = 1000): {
         ...prev.slice(-(HISTORY_CAP - 1)),
         {
           at: Date.now(),
-          opsPerSec: m.opsPerSec,
-          hitRate: m.hitRate,
           p95Us: m.latency.p95Us,
           hits: m.hits,
           misses: m.misses,
