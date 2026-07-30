@@ -70,6 +70,26 @@ describe("renderAsciiSphere()", () => {
     );
   });
 
+  it("a smaller scale renders a visibly smaller disc", () => {
+    const countLit = (s: string) =>
+      s
+        .replace(/\n/g, "")
+        .split("")
+        .filter((c) => c !== " ").length;
+    const full = renderAsciiSphere({ cols: 50, rows: 20, spin: 0.3, scale: 0.92, ambient: 1 });
+    const small = renderAsciiSphere({ cols: 50, rows: 20, spin: 0.3, scale: 0.4, ambient: 1 });
+    assert.ok(
+      countLit(small) < countLit(full),
+      "a smaller scale should light up fewer cells, not the same or more",
+    );
+  });
+
+  it("tilt actually changes the projection, not just an unused parameter", () => {
+    const a = renderAsciiSphere({ cols: 50, rows: 20, spin: 0.3, tilt: 0, ambient: 1 });
+    const b = renderAsciiSphere({ cols: 50, rows: 20, spin: 0.3, tilt: 1.2, ambient: 1 });
+    assert.notEqual(a, b);
+  });
+
   it("leaves the corners empty — a sphere doesn't fill its bounding box", () => {
     const cols = 50;
     const lines = renderAsciiSphere({ cols, rows: 20, spin: 0.5 }).split("\n");
