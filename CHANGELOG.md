@@ -143,6 +143,15 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Neither the KV console's run button nor the flush button reflected
   their own in-flight state; both are disabled while their request is
   pending, matching the pattern the console's text input already used.
+- The flush button's failure handler discarded the real error and always
+  logged a generic "flush failed", while the KV console's own error
+  handling for the identical failure mode (the node itself unreachable)
+  already gave a specific, useful message. Both now share one
+  `describeFetchError()` helper.
+- The copy-last-value button could throw synchronously (before its own
+  `.catch()` ever attached) if `navigator.clipboard` was unavailable —
+  a non-secure context or an older browser — leaving the user with no
+  feedback at all instead of the intended error message.
 
 ### Security
 
