@@ -8,6 +8,12 @@ import {
 } from "../src/dashboard/src/lib/asciiPlot.js";
 
 describe("plotSeries()", () => {
+  it("honours a custom dot glyph", () => {
+    const out = plotSeries([5, 5], { cols: 4, rows: 2, dot: "*" }).text;
+    assert.ok(out.includes("*"), "the custom dot glyph should appear in the output");
+    assert.ok(!out.includes(PLOT_DOT), "the default dot glyph should not appear");
+  });
+
   it("renders exactly rows x cols", () => {
     const lines = plotSeries([1, 5, 3, 8], { cols: 30, rows: 8 }).text.split("\n");
     assert.equal(lines.length, 8);
