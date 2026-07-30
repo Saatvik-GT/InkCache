@@ -165,6 +165,17 @@ describe("access-aware eviction", () => {
     assert.equal(build(3).get("hot"), "1");
   });
 
+  it("stays safe when evictionSampleSize is larger than the store itself", () => {
+    // The scan loop breaks on running out of entries, not just on hitting
+    // the requested sample size -- this is what that guarantees in practice.
+    const store = new CacheStore({ maxEntries: 2, evictionSampleSize: 100 });
+    store.set("a", "1");
+    store.set("b", "2");
+    store.set("c", "3");
+    assert.equal(store.size, 2);
+    assert.equal(store.evictions, 1);
+  });
+
   it("accessCount() reports reads since last set, undefined once gone", () => {
     const store = new CacheStore();
     store.set("a", "1");
