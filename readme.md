@@ -154,7 +154,7 @@ cd InkCache
 
 # Install dependencies (node + dashboard)
 npm install
-npm install --prefix src/dashboard
+npm --prefix src/dashboard install
 
 # Run cache node + dashboard together
 npm run dev
