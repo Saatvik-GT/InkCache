@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { MetricsCollector } from "../src/core/metrics.js";
 
@@ -36,6 +36,24 @@ describe("MetricsCollector", () => {
     for (let i = 1; i <= 600; i++) m.record("get", i, true);
     const snap = m.snapshot();
     assert.equal(snap.latency.samples, 512);
+  });
+
+  it("opsPerSec is a rolling 10s window, not a lifetime average", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    try {
+      const m = new MetricsCollector();
+      m.record("get", 10, true);
+      m.record("get", 10, true);
+      assert.equal(m.snapshot().opsPerSec, 0.2); // 2 ops / 10s window
+
+      mock.timers.tick(11_000); // past the window — those two ops age out
+      assert.equal(m.snapshot().opsPerSec, 0);
+
+      m.record("set", 5);
+      assert.equal(m.snapshot().opsPerSec, 0.1); // only the new op counts
+    } finally {
+      mock.timers.reset();
+    }
   });
 
   it("reports a small positive uptimeSec right after construction", () => {
