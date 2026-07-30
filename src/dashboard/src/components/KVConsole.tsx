@@ -267,6 +267,14 @@ export function KVConsole({
           <button
             type="button"
             onClick={() => {
+              // navigator.clipboard is undefined in a non-secure context or
+              // an old browser — accessing .writeText on it would throw
+              // synchronously, before any .catch() could attach, leaving
+              // the user with no feedback at all instead of the error line.
+              if (!navigator.clipboard) {
+                print("clipboard write failed", "err");
+                return;
+              }
               navigator.clipboard
                 .writeText(lastValue)
                 .then(() => print("copied last value to clipboard", "ok"))
