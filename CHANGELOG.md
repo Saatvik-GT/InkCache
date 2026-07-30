@@ -152,3 +152,7 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   would have "fixed." Rationale, the grep used to confirm the flagged
   advisory's code path is unreachable here, and what would invalidate
   the exemption are in `docs/security-notes.md`.
+- Express's default `X-Powered-By: Express` header — announcing the
+  stack to every client for no benefit — was being sent on every
+  response and is now disabled, alongside the three headers already
+  applied by hand above it.
