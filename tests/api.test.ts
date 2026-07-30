@@ -74,6 +74,14 @@ describe("REST API", () => {
     assert.equal(res.body.error, "malformed JSON body");
   });
 
+  it("accepts a body comfortably under the 64kb limit", async () => {
+    await request(app)
+      .post("/set")
+      .set("Content-Type", "application/json")
+      .send({ key: "big", value: "x".repeat(60_000) })
+      .expect(200);
+  });
+
   it("returns an oversized body as a JSON 413, not Express's default HTML error page", async () => {
     const res = await request(app)
       .post("/set")
