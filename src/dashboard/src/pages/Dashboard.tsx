@@ -64,7 +64,7 @@ export function Dashboard() {
       <StarField count={140} />
       {booting && <BootSequence onDone={finishBoot} />}
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4 sm:px-6">
         <h1 className="sr-only">InkCache node console</h1>
         <header>
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-2">
