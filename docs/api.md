@@ -114,6 +114,7 @@ behaviour, not history from hours ago.
 | ------ | --------------------------------- | -------------------------------------------------- |
 | 400    | malformed JSON body               | `{ "error": "malformed JSON body" }`               |
 | 413    | request body over 64kb            | `{ "error": "request body too large (max 64kb)" }` |
+| 404    | `GET /get/:key` on a missing key  | `{ "error": "miss", "key": "..." }`                |
 | 404    | unknown route                     | `{ "error": "not found", "path": "..." }`          |
 | 500    | genuinely unexpected server error | `{ "error": "internal server error" }`             |
 
