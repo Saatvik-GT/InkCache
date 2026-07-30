@@ -29,6 +29,15 @@ describe("MetricsCollector", () => {
     assert.equal(snap.latency.p95Us, 96);
   });
 
+  it("computes avg and p95 correctly from a single sample", () => {
+    const m = new MetricsCollector();
+    m.record("get", 42, true);
+    const snap = m.snapshot();
+    assert.equal(snap.latency.avgUs, 42);
+    assert.equal(snap.latency.p95Us, 42);
+    assert.equal(snap.latency.samples, 1);
+  });
+
   it("rounds avgUs to exactly 2 decimal places", () => {
     const m = new MetricsCollector();
     m.record("get", 1, true);
