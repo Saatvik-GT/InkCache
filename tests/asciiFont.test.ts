@@ -26,6 +26,16 @@ describe("renderAsciiText()", () => {
     assert.equal(out.replace(/[\n ]/g, ""), "");
   });
 
+  it("tracking widens the gap between letters, not the letters themselves", () => {
+    const row = (n: number) => renderAsciiText("II", { on: "#", tracking: n }).split("\n")[1]!;
+    const wider = row(2).indexOf("#", row(2).indexOf("#") + 1) - row(2).indexOf("#");
+    const narrower = row(0).indexOf("#", row(0).indexOf("#") + 1) - row(0).indexOf("#");
+    assert.ok(
+      wider > narrower,
+      "tracking:2 should space the letters further apart than tracking:0",
+    );
+  });
+
   it("returns zero width for empty text", () => {
     assert.equal(asciiTextWidth(""), 0);
   });
