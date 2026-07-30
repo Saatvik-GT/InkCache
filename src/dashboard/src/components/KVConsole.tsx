@@ -30,7 +30,7 @@ const HISTORY_CAP = 200;
 const HELP: string[] = [
   "set <key> <value> [ttlSec]   store a value (quote values with spaces)",
   "get <key>                    read a value",
-  "del <key>                    remove a key",
+  "del <key>                    remove a key (alias: delete)",
   "flush                        clear every key in the store",
   "clear                        clear this console",
 ];
