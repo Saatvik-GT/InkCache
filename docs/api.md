@@ -124,8 +124,10 @@ internal detail (stack traces, file paths) leaked to the client.
 
 ## Security headers
 
-Every response carries three headers applied by hand (a small local demo
-doesn't need a full `helmet` dependency for three lines):
+Express's default `X-Powered-By: Express` header is disabled (no reason to
+announce the stack to every client), and every response carries three more
+headers applied by hand (a small local demo doesn't need a full `helmet`
+dependency for three lines):
 
 | Header                   | Value         | Why                                                                          |
 | ------------------------ | ------------- | ---------------------------------------------------------------------------- |

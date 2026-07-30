@@ -69,6 +69,11 @@ function timed<T>(fn: () => T): { result: T; latencyUs: number } {
 
 export const app = express();
 
+// Express sends this by default, announcing the stack to anyone who asks
+// for no benefit to a legitimate client — the exact kind of thing the
+// hand-applied headers below exist to avoid, just missed until now.
+app.disable("x-powered-by");
+
 // See CORS_ORIGINS above — local dev by default, extendable for a
 // separately-hosted dashboard via INKCACHE_CORS_ORIGIN.
 app.use(

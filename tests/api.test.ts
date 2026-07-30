@@ -165,6 +165,11 @@ describe("REST API", () => {
     assert.equal(res.headers["referrer-policy"], "no-referrer");
   });
 
+  it("does not leak Express's default X-Powered-By header", async () => {
+    const res = await request(app).get("/health").expect(200);
+    assert.equal(res.headers["x-powered-by"], undefined);
+  });
+
   it("sends the CORS header for the allowed dev origin, not for a random one", async () => {
     const allowed = await request(app)
       .get("/health")
