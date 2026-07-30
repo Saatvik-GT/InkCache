@@ -34,7 +34,8 @@ curl -X POST http://localhost:8080/set \
 
 ## DELETE /delete/:key
 
-**200** `{ "ok": true, "key": "user:1", "deleted": true }`
+**200** `{ "ok": true, "key": "user:1", "deleted": true }` (`deleted` is
+`false`, still **200**, if the key never existed — this is not an error)
 
 ## GET /keys
 
