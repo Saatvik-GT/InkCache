@@ -167,6 +167,16 @@ describe("REST API", () => {
     assert.equal(disallowed.headers["access-control-allow-origin"], undefined);
   });
 
+  it("answers a CORS preflight OPTIONS request for an allowed origin", async () => {
+    const res = await request(app)
+      .options("/set")
+      .set("Origin", "http://localhost:5173")
+      .set("Access-Control-Request-Method", "POST")
+      .expect(204);
+    assert.equal(res.headers["access-control-allow-origin"], "http://localhost:5173");
+    assert.match(res.headers["access-control-allow-methods"] ?? "", /POST/);
+  });
+
   it("returns a JSON 500 for a genuinely unexpected error, not Express's default HTML page", async () => {
     const getMock = mock.method(store, "get", () => {
       throw new Error("simulated unexpected failure");
