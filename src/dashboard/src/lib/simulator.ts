@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { deleteKey, getKey, setKey } from "./api";
-import { logEvent } from "./log";
+import { deleteKey, getKey, setKey } from "./api.js";
+import { logEvent } from "./log.js";
 
 /**
  * Demo traffic generator. Fires *real* requests at the node (nothing is
