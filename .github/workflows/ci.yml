@@ -28,6 +28,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+          # Without this, cache: npm only keys off the root lockfile --
+          # the dashboard's own (much larger) npm ci below got zero cache
+          # benefit and reinstalled React/Vite/TypeScript/oxlint from
+          # scratch on every run.
+          cache-dependency-path: |
+            package-lock.json
+            src/dashboard/package-lock.json
 
       - name: Install backend deps
         run: npm ci
