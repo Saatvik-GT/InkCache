@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel a still-running CI run for the same branch/PR when a newer push
+# arrives -- without this, pushing three commits in a row runs the whole
+# job (including the Docker build + smoke test) three times to completion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
