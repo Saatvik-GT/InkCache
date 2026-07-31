@@ -52,7 +52,7 @@ const EVICTION_SAMPLE_SIZE = parsePositiveInt(
 // static Vercel deploy talking to this node via VITE_API_BASE.
 const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
 
-export const metrics = new MetricsCollector();
+const metrics = new MetricsCollector();
 export const store = new CacheStore({
   maxEntries: MAX_ENTRIES,
   policy: EVICTION_POLICY,
