@@ -5,7 +5,7 @@
  * hashing, adaptive eviction) will build on. Deliberately dependency-free.
  */
 
-export interface CacheEntry {
+interface CacheEntry {
   value: string;
   /** Absolute epoch-ms deadline; undefined = never expires. */
   expiresAt?: number;
