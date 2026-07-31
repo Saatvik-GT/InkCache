@@ -152,6 +152,9 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `.catch()` ever attached) if `navigator.clipboard` was unavailable —
   a non-secure context or an older browser — leaving the user with no
   feedback at all instead of the intended error message.
+- `INKCACHE_EVICTION_POLICY` silently accepted any typo as `access-aware`
+  with no warning, unlike every numeric env var (which all warn via
+  `parsePositiveInt`) — now warns and falls back the same way.
 
 ### Security
 
