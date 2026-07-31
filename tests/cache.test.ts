@@ -63,6 +63,7 @@ describe("TTL expiry", () => {
     const remaining = store.ttl("t");
     assert.ok(remaining !== undefined && remaining > 29 && remaining <= 30);
     assert.equal(store.ttl("p"), undefined);
+    assert.equal(store.ttl("never-existed"), undefined);
   });
 });
 
