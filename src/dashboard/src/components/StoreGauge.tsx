@@ -16,7 +16,13 @@ export function StoreGauge({ metrics, stale = false }: { metrics: NodeMetrics; s
   return (
     <AsciiPanel
       title="store capacity"
-      right={`${metrics.keys}/${metrics.maxEntries}`}
+      right={
+        stale ? (
+          <span className="text-kind-miss">stale</span>
+        ) : (
+          `${metrics.keys}/${metrics.maxEntries}`
+        )
+      }
       className="h-full"
     >
       <div className={`flex flex-col gap-2 ${stale ? "opacity-50" : ""}`}>
