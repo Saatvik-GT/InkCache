@@ -115,17 +115,3 @@ export async function flush(): Promise<{ ok: boolean; dropped: number }> {
   if (!res.ok) throw new Error(`flush failed (${res.status})`);
   return res.json();
 }
-
-/**
- * Turns a caught fetch error into a message worth showing a user. fetch
- * throws a bare TypeError when the node itself is unreachable (DNS, refused
- * connection, CORS), as opposed to an Error we threw ourselves above for a
- * real non-2xx response — those two cases read very differently to someone
- * debugging a demo, so they're worth telling apart rather than collapsing
- * into one generic failure message.
- */
-export function describeFetchError(err: unknown): string {
-  if (err instanceof TypeError) return "node unreachable — is the cache node running?";
-  if (err instanceof Error) return err.message;
-  return String(err);
-}

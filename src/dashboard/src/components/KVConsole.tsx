@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteKey, describeFetchError, flush, getKey, setKey } from "../lib/api";
+import { deleteKey, flush, getKey, setKey } from "../lib/api";
+import { describeFetchError } from "../lib/errors";
 import { logEvent } from "../lib/log";
 import { Button } from "./Button";
 import { KeyCap } from "./KeyCap";
