@@ -39,8 +39,20 @@ const MAX_KEY_LENGTH = parsePositiveInt(
   "INKCACHE_MAX_KEY_LENGTH",
 );
 
-const EVICTION_POLICY: EvictionPolicy =
-  process.env.INKCACHE_EVICTION_POLICY === "lru" ? "lru" : "access-aware";
+const RAW_EVICTION_POLICY = process.env.INKCACHE_EVICTION_POLICY;
+if (
+  RAW_EVICTION_POLICY !== undefined &&
+  RAW_EVICTION_POLICY !== "lru" &&
+  RAW_EVICTION_POLICY !== "access-aware"
+) {
+  // Unlike the numeric env vars (parsePositiveInt warns on garbage input),
+  // this used to silently fall through to the default on *any* value that
+  // wasn't exactly "lru" -- a typo here failed with no warning at all.
+  console.warn(
+    `[inkcache] INKCACHE_EVICTION_POLICY="${RAW_EVICTION_POLICY}" is not "lru" or "access-aware" — using default access-aware`,
+  );
+}
+const EVICTION_POLICY: EvictionPolicy = RAW_EVICTION_POLICY === "lru" ? "lru" : "access-aware";
 const EVICTION_SAMPLE_SIZE = parsePositiveInt(
   process.env.INKCACHE_EVICTION_SAMPLE,
   5,
