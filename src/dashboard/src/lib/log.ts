@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { playBlip } from "./sound";
+import { playBlip } from "./sound.js";
 
 /**
  * Tiny append-only event store for the log stream. Kept outside React so any
@@ -33,12 +33,16 @@ export function clearLog(): void {
   listeners.forEach((fn) => fn());
 }
 
+/** Plain accessor behind the hook below — lets the capping/ordering logic
+    be exercised directly from node:test instead of needing a React
+    component context just to read the current events. */
+export function getEvents(): LogEvent[] {
+  return events;
+}
+
 export function useLogEvents(): LogEvent[] {
-  return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
-    },
-    () => events,
-  );
+  return useSyncExternalStore((fn) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }, getEvents);
 }

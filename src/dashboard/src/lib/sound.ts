@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { LogKind } from "./log";
+import type { LogKind } from "./log.js";
 
 /**
  * Synthesized op-stream blips — square-wave oscillator tones generated on

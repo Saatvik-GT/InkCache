@@ -3,7 +3,12 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
+    // tests/**/* transitively imports dashboard lib code (that's the point
+    // of testing pure functions from there); log.ts -> sound.ts is the
+    // first one that touches real DOM globals (AudioContext, window), so
+    // DOM types need to be visible here too. Doesn't change src/core or
+    // src/network at runtime -- this is compile-time-only visibility.
+    "lib": ["ES2022", "DOM"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
