@@ -147,7 +147,10 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   logged a generic "flush failed", while the KV console's own error
   handling for the identical failure mode (the node itself unreachable)
   already gave a specific, useful message. Both now share one
-  `describeFetchError()` helper.
+  `describeFetchError()` helper — moved to its own `lib/errors.ts` (no
+  `import.meta.env` dependency) after discovering `api.ts` throws at
+  module load outside Vite, which made the whole file untestable via
+  plain `node:test` despite this being a pure function with no such need.
 - The copy-last-value button could throw synchronously (before its own
   `.catch()` ever attached) if `navigator.clipboard` was unavailable —
   a non-secure context or an older browser — leaving the user with no
