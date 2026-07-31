@@ -160,7 +160,9 @@ The four numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`,
 `MAX_KEY_LENGTH`) are validated as positive integers — set one to
 something else (a typo, an empty string, a negative number) and the node
 logs a warning and falls back to its default instead of silently
-misbehaving.
+misbehaving. `EVICTION_POLICY` gets the same treatment: anything other
+than exactly `lru` or `access-aware` logs a warning and falls back to
+`access-aware` rather than silently accepting a typo.
 
 **`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
 keys and evicts whichever of _those_ was read the fewest times, instead of
