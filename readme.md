@@ -206,7 +206,8 @@ curl -X DELETE http://localhost:8080/delete/user:1
 ## Testing
 
 ```bash
-# Run unit + API tests (core cache logic + REST routes via supertest)
+# Core cache logic + REST routes (supertest), plus the dashboard's
+# pure-function lib code (ASCII rendering, plotting, log store, ...)
 npm test
 ```
 
