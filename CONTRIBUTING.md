@@ -16,7 +16,7 @@ npm run test:watch # re-runs core + API tests on save, while iterating
 
 ```bash
 npm test                                # core + API tests (node:test)
-npx tsc --noEmit                        # backend typecheck
+npm run typecheck                       # backend typecheck
 npm run format:check                    # prettier — repo-wide
 npm --prefix src/dashboard run lint     # oxlint
 npm --prefix src/dashboard run build    # dashboard typecheck + build
