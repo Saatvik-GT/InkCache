@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchKeyStats, type KeyStat } from "../lib/api";
+import { fetchKeyStats, type KeyStat } from "../lib/api.js";
 
 /**
  * Fetches per-key stats whenever refreshToken changes, with cancellation so

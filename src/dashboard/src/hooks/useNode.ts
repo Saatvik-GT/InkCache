@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchMetrics, type NodeMetrics } from "../lib/api";
-import { logEvent } from "../lib/log";
+import { fetchMetrics, type NodeMetrics } from "../lib/api.js";
+import { logEvent } from "../lib/log.js";
 
 export type NodeStatus = "connecting" | "online" | "offline";
 
