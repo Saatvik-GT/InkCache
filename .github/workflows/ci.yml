@@ -16,6 +16,11 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Without this, a genuinely hung step (a stuck install, a Docker pull
+    # that never completes) runs until GitHub's default 360-minute cap
+    # instead of failing fast. Generous relative to how long this job
+    # actually takes.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
