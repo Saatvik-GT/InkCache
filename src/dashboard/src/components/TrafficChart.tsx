@@ -31,7 +31,13 @@ function timeLabels(history: MetricsSample[], count = 5): string[] {
  * they share an axis honestly — the gap between the traces is the hit rate
  * made visible over time.
  */
-export function TrafficChart({ history }: { history: MetricsSample[] }) {
+export function TrafficChart({
+  history,
+  stale = false,
+}: {
+  history: MetricsSample[];
+  stale?: boolean;
+}) {
   const latest = history[history.length - 1];
 
   if (history.length < 2 || !latest) return <Collecting title="hits vs misses" />;
@@ -43,7 +49,12 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
   const windowSec = Math.round((latest.at - history[0]!.at) / 1000);
 
   return (
-    <AsciiPanel title="hits vs misses" accent right={`${windowSec}s window`} className="h-full">
+    <AsciiPanel
+      title="hits vs misses"
+      accent
+      right={stale ? <span className="text-kind-miss">stale</span> : `${windowSec}s window`}
+      className="h-full"
+    >
       {/* The chart itself is aria-hidden (no discrete text content); this
           is what a screen reader gets instead. */}
       <p className="sr-only">
@@ -64,13 +75,23 @@ export function TrafficChart({ history }: { history: MetricsSample[] }) {
 }
 
 /** Latency percentiles — different unit from the counters, so its own axis. */
-export function LatencyChart({ history }: { history: MetricsSample[] }) {
+export function LatencyChart({
+  history,
+  stale = false,
+}: {
+  history: MetricsSample[];
+  stale?: boolean;
+}) {
   const latest = history[history.length - 1];
 
   if (history.length < 2 || !latest) return <Collecting title="latency (µs)" />;
 
   return (
-    <AsciiPanel title="latency (µs)" right="avg / p95" className="h-full">
+    <AsciiPanel
+      title="latency (µs)"
+      right={stale ? <span className="text-kind-miss">stale</span> : "avg / p95"}
+      className="h-full"
+    >
       <p className="sr-only">
         {latest.avgUs === null ? "no" : latest.avgUs.toFixed(0)} microsecond average latency,
         {latest.p95Us === null ? " no" : ` ${latest.p95Us.toFixed(0)}`} microsecond p95.

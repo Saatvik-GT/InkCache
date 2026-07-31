@@ -151,10 +151,10 @@ export function Dashboard() {
             asymmetric widths instead of everything being a half. */}
         <div className="grid gap-3 lg:grid-cols-12">
           <div className="lg:col-span-7">
-            <TrafficChart history={history} />
+            <TrafficChart history={history} stale={status === "offline"} />
           </div>
           <div className="lg:col-span-5">
-            <LatencyChart history={history} />
+            <LatencyChart history={history} stale={status === "offline"} />
           </div>
 
           <div className="lg:col-span-4">
