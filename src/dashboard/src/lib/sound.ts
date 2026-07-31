@@ -64,10 +64,6 @@ export function playBlip(kind: LogKind): void {
   osc.stop(now + 0.13);
 }
 
-export function isSoundEnabled(): boolean {
-  return enabled;
-}
-
 export function setSoundEnabled(next: boolean): void {
   enabled = next;
   try {
