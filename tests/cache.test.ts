@@ -254,6 +254,14 @@ describe("clear()", () => {
     assert.equal(store.size, 0);
     assert.equal(store.get("a"), undefined);
   });
+
+  it("does not reset the lifetime evictions counter", () => {
+    const store = new CacheStore({ maxEntries: 1 });
+    store.set("a", "1");
+    store.set("b", "2"); // evicts "a"
+    store.clear();
+    assert.equal(store.evictions, 1);
+  });
 });
 
 describe("startSweeper()/stopSweeper()", () => {
