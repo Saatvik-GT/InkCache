@@ -158,6 +158,13 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - `INKCACHE_EVICTION_POLICY` silently accepted any typo as `access-aware`
   with no warning, unlike every numeric env var (which all warn via
   `parsePositiveInt`) — now warns and falls back the same way.
+- Five dashboard `lib/`/`hooks/` files (`log.ts`, `sound.ts`,
+  `simulator.ts`, `useKeyStats.ts`, `useNode.ts`) had relative imports
+  missing the `.js` extension `NodeNext` module resolution requires.
+  Vite's bundler resolution (the dashboard's own tsconfig) masked this
+  completely — these built and ran fine through Vite, but would break
+  running under plain Node ESM without a bundler. Surfaced by testing
+  `log.ts` for the first time.
 
 ### Security
 
