@@ -154,6 +154,27 @@ describe("REST API", () => {
     assert.equal(typeof res.body.evictionSampleSize, "number");
   });
 
+  it("reflects real operations in /metrics' own counters, not just /keys/stats'", async () => {
+    // The metrics collector is process-lifetime cumulative -- store.clear()
+    // in beforeEach resets the store, not these counters -- so this has to
+    // assert on the delta this test's own operations cause, not absolute
+    // values (which depend on how many prior tests already ran).
+    const before = (await request(app).get("/metrics").expect(200)).body;
+
+    await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
+    await request(app).post("/set").send({ key: "b", value: "2" }).expect(200);
+    await request(app).get("/get/a").expect(200); // hit
+    await request(app).get("/get/nope").expect(404); // miss
+    await request(app).delete("/delete/a").expect(200);
+
+    const after = (await request(app).get("/metrics").expect(200)).body;
+    assert.equal(after.keys, 1); // only "b" survives the delete
+    assert.equal(after.hits - before.hits, 1);
+    assert.equal(after.misses - before.misses, 1);
+    assert.equal(after.sets - before.sets, 2);
+    assert.equal(after.deletes - before.deletes, 1);
+  });
+
   it("reports health and version", async () => {
     const health = await request(app).get("/health").expect(200);
     assert.equal(health.body.status, "ok");
