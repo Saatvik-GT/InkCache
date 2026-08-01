@@ -67,6 +67,10 @@ Clear the entire store. Intended for local dev/demo use.
 
 **200** `{ "ok": true, "dropped": 2 }`
 
+Only removes the stored keys — the cumulative counters in `/metrics`
+(`hits`, `misses`, `sets`, `deletes`, `evictions`) are lifetime stats and
+are not reset by this.
+
 ## GET /metrics
 
 **200**
