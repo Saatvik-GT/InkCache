@@ -86,6 +86,22 @@ export const app = express();
 // hand-applied headers below exist to avoid, just missed until now.
 app.disable("x-powered-by");
 
+// A handful of the safer headers from the `helmet` playbook, applied by hand
+// so a small local demo doesn't need the extra dependency.
+//
+// Must run before cors() below: the cors package answers an OPTIONS
+// preflight itself (res.end(), no next()) without ever reaching later
+// middleware, so registering this after cors() meant preflight responses
+// silently shipped with none of these three headers -- caught live, by
+// actually curling a preflight request and diffing its headers against
+// a normal response.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
+
 // See CORS_ORIGINS above — local dev by default, extendable for a
 // separately-hosted dashboard via INKCACHE_CORS_ORIGIN.
 app.use(
@@ -93,15 +109,6 @@ app.use(
     origin: CORS_ORIGINS,
   }),
 );
-
-// A handful of the safer headers from the `helmet` playbook, applied by hand
-// so a small local demo doesn't need the extra dependency.
-app.use((_req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  next();
-});
 
 app.use(express.json({ limit: "64kb" }));
 // Malformed JSON and oversized bodies both throw inside express.json();

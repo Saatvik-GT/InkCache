@@ -228,6 +228,13 @@ describe("REST API", () => {
       .expect(204);
     assert.equal(res.headers["access-control-allow-origin"], "http://localhost:5173");
     assert.match(res.headers["access-control-allow-methods"] ?? "", /POST/);
+    // cors() answers preflight itself (res.end(), no next()) without ever
+    // reaching later middleware -- these three used to silently go missing
+    // on exactly this response until the security-headers middleware was
+    // moved ahead of cors() in the stack.
+    assert.equal(res.headers["x-content-type-options"], "nosniff");
+    assert.equal(res.headers["x-frame-options"], "DENY");
+    assert.equal(res.headers["referrer-policy"], "no-referrer");
   });
 
   it("returns a JSON 500 for a genuinely unexpected error, not Express's default HTML page", async () => {
