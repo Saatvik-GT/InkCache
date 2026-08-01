@@ -139,6 +139,11 @@ dependency for three lines):
 | `X-Frame-Options`        | `DENY`        | the API has no UI of its own worth framing, so disallow it outright          |
 | `Referrer-Policy`        | `no-referrer` | baseline hardening — this is a JSON API, not a page that links elsewhere     |
 
+"Every response" includes CORS preflight (`OPTIONS`) requests — the
+headers middleware runs before `cors()` in the stack specifically so
+that's true, since `cors()` answers a preflight itself without ever
+reaching later middleware.
+
 ## Eviction policy
 
 All node configuration is via environment variables, set before starting
