@@ -10,6 +10,16 @@ describe("CacheStore basics", () => {
     assert.equal(store.size, 1);
   });
 
+  it("treats an empty string as a real stored value, not a miss", () => {
+    // get()/has() must key off presence in the map, not truthiness of the
+    // value -- a falsy-value check here would make "" indistinguishable
+    // from a key that was never set.
+    const store = new CacheStore();
+    store.set("a", "");
+    assert.equal(store.get("a"), "");
+    assert.equal(store.has("a"), true);
+  });
+
   it("returns undefined for missing keys", () => {
     const store = new CacheStore();
     assert.equal(store.get("nope"), undefined);

@@ -16,6 +16,12 @@ describe("REST API", () => {
     await request(app).get("/get/a").expect(404);
   });
 
+  it("treats an empty string value as a hit, not a 404 miss", async () => {
+    await request(app).post("/set").send({ key: "a", value: "" }).expect(200);
+    const got = await request(app).get("/get/a").expect(200);
+    assert.equal(got.body.value, "");
+  });
+
   it("reports ttl:null on /set's own response when ttl is omitted", async () => {
     const res = await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
     assert.equal(res.body.ttl, null);
