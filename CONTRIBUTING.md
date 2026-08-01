@@ -15,13 +15,14 @@ npm run test:watch # re-runs core + API tests on save, while iterating
 ## Before opening a PR
 
 ```bash
-npm test                                # core + API tests (node:test)
-npm run typecheck                       # backend typecheck
-npm run format:check                    # prettier — repo-wide
+npm run check                           # typecheck + format:check + test in one go
 npm --prefix src/dashboard run lint     # oxlint
 npm --prefix src/dashboard run build    # dashboard typecheck + build
 npm run docker:build                    # only strictly needed if you touched the Dockerfile
 ```
+
+`npm run check` is `typecheck && format:check && test` — the three pure
+local checks that don't need the dashboard's own dependencies or Docker.
 
 CI builds the Docker image and runs it (`curl`s `/health` before tearing
 it down), so a broken `CMD`/`PORT`/startup crash gets caught there too —
