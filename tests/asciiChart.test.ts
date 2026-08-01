@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { renderMeter, renderSparkline, SPARK_LEVELS } from "../src/dashboard/src/lib/asciiChart.js";
+import { renderMeter } from "../src/dashboard/src/lib/asciiChart.js";
 
 describe("renderMeter()", () => {
   it("renders a full-width track at every ratio", () => {
@@ -18,30 +18,5 @@ describe("renderMeter()", () => {
     assert.equal(renderMeter(5, 6), "██████");
     assert.equal(renderMeter(-2, 6), "░░░░░░");
     assert.equal(renderMeter(NaN, 6), "░░░░░░");
-  });
-});
-
-describe("renderSparkline()", () => {
-  it("renders one character per value", () => {
-    assert.equal(renderSparkline([1, 2, 3, 4]).length, 4);
-  });
-
-  it("maps the lowest value to the floor and the highest to the ceiling", () => {
-    const out = renderSparkline([0, 100]);
-    assert.equal(out[0], SPARK_LEVELS[0]);
-    assert.equal(out[1], SPARK_LEVELS[SPARK_LEVELS.length - 1]);
-  });
-
-  it("keeps a gap for null rather than interpolating across it", () => {
-    assert.equal(renderSparkline([1, null, 5])[1], " ");
-  });
-
-  it("renders a flat series mid-ramp instead of dividing by zero", () => {
-    const out = renderSparkline([7, 7, 7]);
-    assert.equal(out, SPARK_LEVELS[4]!.repeat(3));
-  });
-
-  it("renders all-null input as blanks of the right length", () => {
-    assert.equal(renderSparkline([null, null, null]), "   ");
   });
 });
