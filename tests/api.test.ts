@@ -135,9 +135,17 @@ describe("REST API", () => {
 
   it("clears the store via /flush", async () => {
     await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
+    await request(app).post("/set").send({ key: "b", value: "2" }).expect(200);
     const res = await request(app).post("/flush").expect(200);
-    assert.equal(res.body.dropped, 1);
+    assert.equal(res.body.dropped, 2);
     await request(app).get("/get/a").expect(404);
+    await request(app).get("/get/b").expect(404);
+  });
+
+  it("reports dropped:0 flushing an already-empty store, not an error", async () => {
+    const res = await request(app).post("/flush").expect(200);
+    assert.equal(res.body.dropped, 0);
+    assert.equal(res.body.ok, true);
   });
 
   it("reports the eviction policy and sample size on /metrics", async () => {
