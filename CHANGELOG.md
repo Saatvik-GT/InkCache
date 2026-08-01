@@ -108,7 +108,13 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `lib/skewedKey.ts` both exist for exactly that reason.
 - GitHub Actions workflow running backend typecheck, `prettier --check`,
   tests, the dashboard's `oxlint`, the dashboard build, and a Docker
-  build-and-run smoke test on every push/PR.
+  build-and-run smoke test on every push/PR. A `concurrency` group
+  cancels a still-running CI run when a newer push supersedes it, the
+  job is capped at 15 minutes instead of GitHub's 360-minute default,
+  `npm ci` caching covers the dashboard's own (much larger) lockfile as
+  well as the root's, and the Docker build itself is cached across runs
+  via `docker/build-push-action` + the GHA cache backend rather than
+  rebuilding every layer from scratch on every push.
 
 ### Accessibility
 
