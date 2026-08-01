@@ -36,16 +36,16 @@ export function BarChart({
         {chart}
       </pre>
       <div className="flex gap-1 text-bright">
-        {bars.map((b) => (
-          <span key={b.label} className="text-center" style={{ width: `${barWidth}ch` }}>
+        {bars.map((b, i) => (
+          <span key={i} className="text-center" style={{ width: `${barWidth}ch` }}>
             {String(b.value).slice(0, barWidth)}
           </span>
         ))}
       </div>
       <div className="mt-0.5 flex gap-1 text-faint">
-        {bars.map((b) => (
+        {bars.map((b, i) => (
           <span
-            key={b.label}
+            key={i}
             className="truncate text-center"
             style={{ width: `${barWidth}ch` }}
             title={b.label}
