@@ -192,3 +192,9 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   stack to every client for no benefit — was being sent on every
   response and is now disabled, alongside the three headers already
   applied by hand above it.
+- The three hand-applied security headers were silently missing from
+  every CORS preflight (`OPTIONS`) response — `cors()` answers a
+  preflight itself without calling `next()`, so the headers middleware
+  (registered after it) never ran for that response. Caught by curling
+  a real preflight and diffing its headers against a normal request.
+  Fixed by reordering the middleware; regression-tested.
