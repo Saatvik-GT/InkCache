@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { deleteKey, getKey, setKey } from "./api.js";
 import { logEvent } from "./log.js";
+import { skewedKey } from "./skewedKey.js";
 
 /**
  * Demo traffic generator. Fires *real* requests at the node (nothing is
@@ -9,7 +10,6 @@ import { logEvent } from "./log.js";
  * all emerge from actual cache behaviour.
  */
 
-const POOL = 64; // distinct sim keys
 const TICK_MS = 280;
 
 // Op mix: mostly reads, some writes, a few deletes — the two thresholds
@@ -22,12 +22,6 @@ const SHORT_TTL_RANGE_S = 20; // short TTL is SHORT_TTL_MIN_S..+RANGE-1 seconds
 
 let timer: ReturnType<typeof setInterval> | undefined;
 const listeners = new Set<() => void>();
-
-/** Power-law pick: index 0 is hottest, tail is cold. */
-function skewedKey(): string {
-  const idx = Math.floor(POOL * Math.pow(Math.random(), 2.4));
-  return `sim:user:${idx}`;
-}
 
 async function fire(): Promise<void> {
   const roll = Math.random();
