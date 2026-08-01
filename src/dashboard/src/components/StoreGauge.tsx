@@ -8,7 +8,10 @@ import { renderMeter } from "../lib/asciiChart";
  * table of counters.
  */
 export function StoreGauge({ metrics, stale = false }: { metrics: NodeMetrics; stale?: boolean }) {
-  const fill = metrics.maxEntries > 0 ? metrics.keys / metrics.maxEntries : 0;
+  // Clamped: a burst of concurrent sets can land before the eviction sweep
+  // catches up, briefly pushing keys past maxEntries -- without this the
+  // gauge would show over 100% and "free" would go negative.
+  const fill = metrics.maxEntries > 0 ? Math.min(1, metrics.keys / metrics.maxEntries) : 0;
   const pct = Math.round(fill * 100);
   // Amber past 80%: eviction pressure is imminent, not yet a failure.
   const tone = fill >= 0.8 ? "text-kind-miss" : "text-accent";
@@ -30,7 +33,7 @@ export function StoreGauge({ metrics, stale = false }: { metrics: NodeMetrics; s
           <span className={`text-2xl leading-none ${tone}`}>{pct}</span>
           <span className="text-sm text-dim">%</span>
           <span className="ml-auto text-[10px] text-faint">
-            {metrics.maxEntries - metrics.keys} free
+            {Math.max(0, metrics.maxEntries - metrics.keys)} free
           </span>
         </div>
 
