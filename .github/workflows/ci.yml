@@ -60,8 +60,21 @@ jobs:
         run: npm run build
         working-directory: src/dashboard
 
+      - uses: docker/setup-buildx-action@v3
+
+      # Plain `docker build` has no cache across CI runs -- every run
+      # rebuilt every layer, including npm ci --omit=dev, from scratch.
+      # GHA-backed cache persists layers between runs; load: true keeps
+      # the image in the local Docker daemon so the smoke test below can
+      # still `docker run` it directly, same as before.
       - name: Build node Docker image
-        run: docker build -t inkcache-node .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: inkcache-node
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Smoke-test the Docker image
         run: |
