@@ -169,6 +169,17 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `.catch()` ever attached) if `navigator.clipboard` was unavailable —
   a non-secure context or an older browser — leaving the user with no
   feedback at all instead of the intended error message.
+- `TopKeysChart` truncates long keys to their last 5 characters for the bar
+  label, but `BarChart` used that same truncated label as the React `key`
+  for its value/footer spans — two keys sharing a tail (e.g. two
+  `sim:user:12345`-style entries) collided, so a re-render could reconcile
+  the wrong bar's value onto the wrong label. Now keyed by array index,
+  which is safe here since the whole bar list is replaced wholesale each
+  poll rather than reordered in place.
+- `StoreGauge`'s fill percentage and "N free" readout were unclamped: a
+  burst of concurrent sets landing before the eviction sweep catches up
+  could briefly push `keys` past `maxEntries`, rendering over 100% fill
+  and a negative free count. Now clamped to [0, 100]% and free floored at 0.
 - `INKCACHE_EVICTION_POLICY` silently accepted any typo as `access-aware`
   with no warning, unlike every numeric env var (which all warn via
   `parsePositiveInt`) — now warns and falls back the same way.
