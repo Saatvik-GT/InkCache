@@ -99,8 +99,13 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 - `node:test` + supertest covering the cache core and every API route,
   plus the dashboard's pure-function lib code (ASCII rendering, plotting,
-  the log store, fetch-error formatting) — the same test runner reaching
-  into `src/dashboard/src/lib` rather than a separate frontend test setup.
+  the log store, fetch-error formatting, the traffic simulator's
+  power-law key skew) — the same test runner reaching into
+  `src/dashboard/src/lib` rather than a separate frontend test setup.
+  Pure functions with a real dependency on `lib/api.ts` (which throws at
+  module load outside Vite) get split into their own dependency-free
+  file rather than left untestable — `lib/errors.ts` and
+  `lib/skewedKey.ts` both exist for exactly that reason.
 - GitHub Actions workflow running backend typecheck, `prettier --check`,
   tests, the dashboard's `oxlint`, the dashboard build, and a Docker
   build-and-run smoke test on every push/PR.
