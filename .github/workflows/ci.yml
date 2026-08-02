@@ -39,6 +39,18 @@ jobs:
       - name: Install backend deps
         run: npm ci
 
+      # Must run before the backend typecheck/test steps below: the root
+      # tsconfig's tests/**/* transitively pulls in dashboard lib code
+      # (tests/log.test.ts -> src/dashboard/src/lib/log.ts -> sound.ts,
+      # which needs @types/react for useSyncExternalStore's signature).
+      # @types/react only exists once src/dashboard's own deps are
+      # installed -- running typecheck/test first fails with "Cannot find
+      # module 'react'" on a clean checkout, caught live when this was
+      # still ordered after them.
+      - name: Install dashboard deps
+        run: npm ci
+        working-directory: src/dashboard
+
       - name: Typecheck backend
         run: npm run typecheck
 
@@ -47,10 +59,6 @@ jobs:
 
       - name: Run core + API tests
         run: npm test
-
-      - name: Install dashboard deps
-        run: npm ci
-        working-directory: src/dashboard
 
       - name: Lint dashboard
         run: npm run lint
