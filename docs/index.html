@@ -1,588 +1,637 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>InkCache — access-pattern-aware caching</title>
-<meta name="description" content="InkCache: a single-node key-value cache with access-aware eviction, on its way to scaling horizontally across nodes." />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InkCache — access-pattern-aware caching</title>
+    <meta
+      name="description"
+      content="InkCache: a single-node key-value cache with access-aware eviction, on its way to scaling horizontally across nodes."
+    />
 
-<!-- GitHub Pages entry point for this repo's landing page. Standalone —
+    <!-- GitHub Pages entry point for this repo's landing page. Standalone —
      no build step, nothing to compile. Deployed via GitHub Pages:
      Settings -> Pages -> Deploy from branch `main`, folder `/docs`. -->
 
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link
-  href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
-  rel="stylesheet"
-/>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
 
-<style>
-  /* Same five-step greyscale ramp + accent as the live dashboard's ASCII
+    <style>
+      /* Same five-step greyscale ramp + accent as the live dashboard's ASCII
      theme (src/dashboard/src/index.css) — kept in sync by eye since this
      page has no build step to share the source of truth with. */
-  :root {
-    --color-void: #000000;
-    --color-bright: #f0f0f0;
-    --color-text: #b4b4b4;
-    --color-dim: #6e6e6e;
-    --color-faint: #3c3c3c;
-    --color-ghost: #1e1e1e;
-    /* Amber, pulled from the ASCII-art gif's own halo instead of the live
+      :root {
+        --color-void: #000000;
+        --color-bright: #f0f0f0;
+        --color-text: #b4b4b4;
+        --color-dim: #6e6e6e;
+        --color-faint: #3c3c3c;
+        --color-ghost: #1e1e1e;
+        /* Amber, pulled from the ASCII-art gif's own halo instead of the live
        dashboard's teal -- this page matches its background, not the app. */
-    --color-accent: #e0a25c;
-    --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-  }
+        --color-accent: #e0a25c;
+        --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+      }
 
-  * {
-    box-sizing: border-box;
-  }
+      * {
+        box-sizing: border-box;
+      }
 
-  html,
-  body {
-    margin: 0;
-    background: var(--color-void);
-    height: 100%;
-    /* Locked to one viewport -- no scrollbar, no scroll-wheel movement. */
-    overflow: hidden;
-  }
+      html,
+      body {
+        margin: 0;
+        background: var(--color-void);
+        height: 100%;
+        /* Locked to one viewport -- no scrollbar, no scroll-wheel movement. */
+        overflow: hidden;
+      }
 
-  body {
-    font-family: var(--font-mono);
-    color: var(--color-text);
-    font-variant-ligatures: none;
-  }
+      body {
+        font-family: var(--font-mono);
+        color: var(--color-text);
+        font-variant-ligatures: none;
+      }
 
-  ::selection {
-    background: var(--color-bright);
-    color: var(--color-void);
-  }
+      ::selection {
+        background: var(--color-bright);
+        color: var(--color-void);
+      }
 
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
 
-  /* ---- background gif ------------------------------------------------ */
+      /* ---- background gif ------------------------------------------------ */
 
-  /* Full-bleed ASCII-art solar-system gif behind everything (docs/ascii-art.gif).
+      /* Full-bleed ASCII-art solar-system gif behind everything (docs/ascii-art.gif).
      GIFs loop and autoplay natively in every browser -- no JS needed to
      drive it, unlike a <video>. */
-  .bg-media {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    /* Nudged right of center so the gif's subject sits further from the
+      .bg-media {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Nudged right of center so the gif's subject sits further from the
        left-aligned text block instead of directly behind it. */
-    object-position: 65% center;
-    z-index: 0;
-  }
+        object-position: 65% center;
+        z-index: 0;
+      }
 
-  /* Dark wash so foreground text stays readable over bright footage, plus
+      /* Dark wash so foreground text stays readable over bright footage, plus
      a slight vignette toward the edges. */
-  .bg-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background:
-      radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.75) 100%),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.2) 30%, rgba(0, 0, 0, 0.2) 70%, rgba(0, 0, 0, 0.65) 100%);
-  }
+      .bg-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.75) 100%),
+          linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.55) 0%,
+            rgba(0, 0, 0, 0.2) 30%,
+            rgba(0, 0, 0, 0.2) 70%,
+            rgba(0, 0, 0, 0.65) 100%
+          );
+      }
 
-  /* Same low-contrast scanline wash as the live dashboard, so this page
+      /* Same low-contrast scanline wash as the live dashboard, so this page
      reads as the same CRT field rather than a plain video background. */
-  .bg-scanlines {
-    position: fixed;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      transparent 0 2px,
-      rgba(255, 255, 255, 0.02) 2px 3px
-    );
-  }
+      .bg-scanlines {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent 0 2px,
+          rgba(255, 255, 255, 0.02) 2px 3px
+        );
+      }
 
-  /* ---- ascii primitives ---------------------------------------------- */
+      /* ---- ascii primitives ---------------------------------------------- */
 
-  .ascii-grid {
-    white-space: pre;
-    line-height: 1;
-    letter-spacing: 0;
-    font-variant-ligatures: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
+      .ascii-grid {
+        white-space: pre;
+        line-height: 1;
+        letter-spacing: 0;
+        font-variant-ligatures: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
 
-  .dashes {
-    display: block;
-    overflow: hidden;
-    white-space: nowrap;
-    color: var(--color-ghost);
-    font-size: 12px;
-    line-height: 1;
-  }
+      .dashes {
+        display: block;
+        overflow: hidden;
+        white-space: nowrap;
+        color: var(--color-ghost);
+        font-size: 12px;
+        line-height: 1;
+      }
 
-  @keyframes cursor-blink {
-    0%,
-    49% {
-      opacity: 1;
-    }
-    50%,
-    100% {
-      opacity: 0;
-    }
-  }
-  .cursor-blink {
-    animation: cursor-blink 1.06s steps(1) infinite;
-  }
+      @keyframes cursor-blink {
+        0%,
+        49% {
+          opacity: 1;
+        }
+        50%,
+        100% {
+          opacity: 0;
+        }
+      }
+      .cursor-blink {
+        animation: cursor-blink 1.06s steps(1) infinite;
+      }
 
-  /* ---- headline glitch -------------------------------------------------- */
+      /* ---- headline glitch -------------------------------------------------- */
 
-  /* Two colour-split copies of the ADAPTS line, stacked on top of the real
+      /* Two colour-split copies of the ADAPTS line, stacked on top of the real
      one and normally fully clipped/invisible. Each briefly tears open a
      horizontal slice and shifts sideways on its own cycle, like a signal
      glitch rather than a clean loop -- mix-blend-mode: screen means the
      colour only shows where it overlaps the bright glyphs underneath, not
      as a solid colour block. */
-  .headline .line.accent {
-    position: relative;
-  }
+      .headline .line.accent {
+        position: relative;
+      }
 
-  .glitch-slice {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    mix-blend-mode: screen;
-    opacity: 0;
-    clip-path: inset(0 0 100% 0);
-  }
+      .glitch-slice {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        opacity: 0;
+        clip-path: inset(0 0 100% 0);
+      }
 
-  .glitch-slice.g1 {
-    color: #5ad1e8;
-    animation: glitch-1 5.2s ease-in-out infinite;
-  }
+      .glitch-slice.g1 {
+        color: #5ad1e8;
+        animation: glitch-1 5.2s ease-in-out infinite;
+      }
 
-  .glitch-slice.g2 {
-    color: #e85a7a;
-    animation: glitch-2 5.2s ease-in-out infinite;
-    animation-delay: 0.15s;
-  }
+      .glitch-slice.g2 {
+        color: #e85a7a;
+        animation: glitch-2 5.2s ease-in-out infinite;
+        animation-delay: 0.15s;
+      }
 
-  @keyframes glitch-1 {
-    0%,
-    91%,
-    100% {
-      opacity: 0;
-      clip-path: inset(0 0 100% 0);
-      transform: translate(0, 0);
-    }
-    92% {
-      opacity: 0.85;
-      clip-path: inset(8% 0 68% 0);
-      transform: translate(-3px, 0);
-    }
-    93.5% {
-      opacity: 0.85;
-      clip-path: inset(52% 0 12% 0);
-      transform: translate(2px, 0);
-    }
-    95% {
-      opacity: 0.6;
-      clip-path: inset(20% 0 40% 0);
-      transform: translate(-1px, 0);
-    }
-    96% {
-      opacity: 0;
-      clip-path: inset(0 0 100% 0);
-      transform: translate(0, 0);
-    }
-  }
+      @keyframes glitch-1 {
+        0%,
+        91%,
+        100% {
+          opacity: 0;
+          clip-path: inset(0 0 100% 0);
+          transform: translate(0, 0);
+        }
+        92% {
+          opacity: 0.85;
+          clip-path: inset(8% 0 68% 0);
+          transform: translate(-3px, 0);
+        }
+        93.5% {
+          opacity: 0.85;
+          clip-path: inset(52% 0 12% 0);
+          transform: translate(2px, 0);
+        }
+        95% {
+          opacity: 0.6;
+          clip-path: inset(20% 0 40% 0);
+          transform: translate(-1px, 0);
+        }
+        96% {
+          opacity: 0;
+          clip-path: inset(0 0 100% 0);
+          transform: translate(0, 0);
+        }
+      }
 
-  @keyframes glitch-2 {
-    0%,
-    93%,
-    100% {
-      opacity: 0;
-      clip-path: inset(0 0 100% 0);
-      transform: translate(0, 0);
-    }
-    94% {
-      opacity: 0.8;
-      clip-path: inset(30% 0 45% 0);
-      transform: translate(3px, 0);
-    }
-    95.5% {
-      opacity: 0.8;
-      clip-path: inset(65% 0 5% 0);
-      transform: translate(-2px, 0);
-    }
-    97% {
-      opacity: 0;
-      clip-path: inset(0 0 100% 0);
-      transform: translate(0, 0);
-    }
-  }
+      @keyframes glitch-2 {
+        0%,
+        93%,
+        100% {
+          opacity: 0;
+          clip-path: inset(0 0 100% 0);
+          transform: translate(0, 0);
+        }
+        94% {
+          opacity: 0.8;
+          clip-path: inset(30% 0 45% 0);
+          transform: translate(3px, 0);
+        }
+        95.5% {
+          opacity: 0.8;
+          clip-path: inset(65% 0 5% 0);
+          transform: translate(-2px, 0);
+        }
+        97% {
+          opacity: 0;
+          clip-path: inset(0 0 100% 0);
+          transform: translate(0, 0);
+        }
+      }
 
-  @media (prefers-reduced-motion: reduce) {
-    .cursor-blink {
-      animation: none;
-    }
-    .glitch-slice {
-      display: none;
-    }
-    * {
-      transition-duration: 1ms !important;
-      animation-duration: 1ms !important;
-    }
-  }
+      @media (prefers-reduced-motion: reduce) {
+        .cursor-blink {
+          animation: none;
+        }
+        .glitch-slice {
+          display: none;
+        }
+        * {
+          transition-duration: 1ms !important;
+          animation-duration: 1ms !important;
+        }
+      }
 
-  /* ---- layout ---------------------------------------------------------- */
+      /* ---- layout ---------------------------------------------------------- */
 
-  .page {
-    position: relative;
-    z-index: 10;
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+      .page {
+        position: relative;
+        z-index: 10;
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 0 1.5rem;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
 
-  header {
-    flex-shrink: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem 1.5rem;
-    padding: 0.75rem 0;
-  }
+      header {
+        flex-shrink: 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1.5rem;
+        padding: 0.75rem 0;
+      }
 
-  .wordmark {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.35em;
-    color: var(--color-bright);
-  }
+      .wordmark {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.35em;
+        color: var(--color-bright);
+      }
 
-  nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1.25rem;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--color-dim);
-  }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.25rem;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--color-dim);
+      }
 
-  nav a:hover {
-    color: var(--color-bright);
-  }
+      nav a:hover {
+        color: var(--color-bright);
+      }
 
-  nav a.accent {
-    color: var(--color-accent);
-  }
+      nav a.accent {
+        color: var(--color-accent);
+      }
 
-  main {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: clamp(0.5rem, 1.5vh, 1.5rem) 0;
-    gap: clamp(0.6rem, 1.6vh, 1.5rem);
-  }
+      main {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: clamp(0.5rem, 1.5vh, 1.5rem) 0;
+        gap: clamp(0.6rem, 1.6vh, 1.5rem);
+      }
 
-  .eyebrow {
-    font-size: 10px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: var(--color-dim);
-    margin: 0;
-  }
+      .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--color-dim);
+        margin: 0;
+      }
 
-  .eyebrow .accent {
-    color: var(--color-accent);
-  }
+      .eyebrow .accent {
+        color: var(--color-accent);
+      }
 
-  /* Sized against both axes -- a short, wide window and a tall, narrow one
+      /* Sized against both axes -- a short, wide window and a tall, narrow one
      both need the headline to actually fit inside the locked viewport
      (no scrolling), so it can't be driven by vw alone. */
-  .headline {
-    color: var(--color-bright);
-    font-size: clamp(3px, min(0.68vw, 1.8vh), 7px);
-  }
-
-  .headline .line {
-    margin-top: 0.6em;
-  }
-
-  .headline .line:first-child {
-    margin-top: 0;
-  }
-
-  .headline .bright {
-    color: var(--color-bright);
-  }
-  .headline .dim {
-    opacity: 0.7;
-  }
-  .headline .accent {
-    color: var(--color-accent);
-  }
-
-  .lede {
-    max-width: 34rem;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--color-text);
-  }
-
-  .facts {
-    max-width: 26rem;
-    font-size: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .fact-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-
-  .fact-label {
-    flex-shrink: 0;
-    color: var(--color-dim);
-  }
-
-  .fact-dots {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    color: var(--color-ghost);
-  }
-
-  .fact-value {
-    flex-shrink: 0;
-    color: var(--color-bright);
-  }
-
-  .cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: fit-content;
-    border: 1px solid var(--color-ghost);
-    padding: 0.65rem 1.25rem;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--color-accent);
-  }
-
-  .cta:hover {
-    border-color: var(--color-accent);
-    color: var(--color-bright);
-  }
-
-  .cta .arrow {
-    transition: transform 0.15s;
-  }
-  .cta:hover .arrow {
-    transform: translateX(3px);
-  }
-
-  footer {
-    flex-shrink: 0;
-    padding-top: 0.5rem;
-  }
-
-  .footer-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem 1.5rem;
-    padding: 1rem 0;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--color-faint);
-  }
-
-  .footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .footer-links a:hover {
-    color: var(--color-dim);
-  }
-</style>
-</head>
-<body>
-  <!-- Background: ASCII-art solar-system gif, loops natively. Decorative
-       only -- no content here a screen reader would need. -->
-  <img class="bg-media" id="bg-media" src="ascii-art.gif" alt="" aria-hidden="true" />
-  <div class="bg-overlay" aria-hidden="true"></div>
-  <div class="bg-scanlines" aria-hidden="true"></div>
-
-  <div class="page">
-    <header>
-      <span class="wordmark">INKCACHE</span>
-      <nav>
-        <a href="https://github.com/Saatvik-GT/InkCache" target="_blank" rel="noreferrer">[ github ]</a>
-        <a href="https://github.com/Saatvik-GT/InkCache/blob/main/docs/api.md" target="_blank" rel="noreferrer">[ api docs ]</a>
-        <a href="https://github.com/Saatvik-GT/InkCache#readme" target="_blank" rel="noreferrer" class="accent">[ read the readme ]</a>
-      </nav>
-    </header>
-    <span class="dashes" aria-hidden="true" id="dashes-top"></span>
-
-    <main>
-      <div>
-        <p class="eyebrow"><span class="accent">//</span> inkcache — single-node cache</p>
-
-        <div class="headline ascii-grid" id="headline" role="img" aria-label="Cache that adapts"></div>
-
-        <p class="lede" style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)">
-          Most caches evict by recency alone and drop a hot key the moment something newer
-          arrives. InkCache evicts whichever least-recently-used key has actually been read the
-          fewest times — so a key that earns its space keeps it.
-        </p>
-
-        <div class="facts" style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)" aria-hidden="true">
-          <div class="fact-row">
-            <span class="fact-label">eviction</span>
-            <span class="fact-dots">....................................................................</span>
-            <span class="fact-value">access-aware</span>
-          </div>
-          <div class="fact-row">
-            <span class="fact-label">core</span>
-            <span class="fact-dots">....................................................................</span>
-            <span class="fact-value">Node.js / TypeScript</span>
-          </div>
-          <div class="fact-row">
-            <span class="fact-label">tests</span>
-            <span class="fact-dots">....................................................................</span>
-            <span class="fact-value">node:test + supertest</span>
-          </div>
-          <div class="fact-row">
-           
-          </div>
-        </div>
-
-        <a
-          class="cta"
-          style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)"
-          href="https://github.com/Saatvik-GT/InkCache"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span>view on github</span>
-          <span class="arrow" aria-hidden="true">→</span>
-        </a>
-      </div>
-    </main>
-
-    <footer>
-      <span class="dashes" aria-hidden="true" id="dashes-bottom"></span>
-      <div class="footer-row">
-        <span class="footer-links">
-          <a href="https://github.com/Saatvik-GT/InkCache" target="_blank" rel="noreferrer">github</a>
-          <a href="https://github.com/Saatvik-GT/InkCache/blob/main/docs/api.md" target="_blank" rel="noreferrer">api docs</a>
-          <a href="https://github.com/Saatvik-GT/InkCache/blob/main/LICENSE" target="_blank" rel="noreferrer">mit license</a>
-        </span>
-        <span>CUSoC 2026 · built for the terminal</span>
-      </div>
-    </footer>
-  </div>
-
-  <script>
-    // Ported from src/dashboard/src/lib/asciiFont.ts -- kept in sync by eye
-    // since this static page has no build step to import the real source
-    // from. Same 5x7 bitmap font as the live dashboard's headline treatment.
-    const GLYPH_W = 5;
-    const GLYPH_H = 7;
-    const GLYPHS = {
-      A: ".###." + "#...#" + "#...#" + "#####" + "#...#" + "#...#" + "#...#",
-      C: ".####" + "#...." + "#...." + "#...." + "#...." + "#...." + ".####",
-      D: "####." + "#...#" + "#...#" + "#...#" + "#...#" + "#...#" + "####.",
-      E: "#####" + "#...." + "#...." + "####." + "#...." + "#...." + "#####",
-      H: "#...#" + "#...#" + "#...#" + "#####" + "#...#" + "#...#" + "#...#",
-      P: "####." + "#...#" + "#...#" + "####." + "#...." + "#...." + "#....",
-      S: ".####" + "#...." + "#...." + ".###." + "....#" + "....#" + "####.",
-      T: "#####" + "..#.." + "..#.." + "..#.." + "..#.." + "..#.." + "..#..",
-      " ": "....." + "....." + "....." + "....." + "....." + "....." + ".....",
-    };
-
-    function renderAsciiText(text, { on = "#", off = " ", tracking = 1, pixelWidth = 1 } = {}) {
-      const chars = [...text.toUpperCase()];
-      const rows = [];
-      for (let y = 0; y < GLYPH_H; y++) {
-        let row = "";
-        chars.forEach((ch, i) => {
-          const bits = GLYPHS[ch] ?? GLYPHS[" "];
-          for (let x = 0; x < GLYPH_W; x++) {
-            row += (bits[y * GLYPH_W + x] === "#" ? on : off).repeat(pixelWidth);
-          }
-          if (i < chars.length - 1) row += off.repeat(tracking * pixelWidth);
-        });
-        rows.push(row);
+      .headline {
+        color: var(--color-bright);
+        font-size: clamp(3px, min(0.68vw, 1.8vh), 7px);
       }
-      return rows.join("\n");
-    }
 
-    const headline = document.getElementById("headline");
-    const words = [
-      { text: "CACHE", cls: "bright" },
-      { text: "THAT", cls: "dim" },
-      { text: "ADAPTS", cls: "accent" },
-    ];
-    headline.innerHTML = words
-      .map(({ text, cls }, i) => {
-        const bitmap = renderAsciiText(text, { on: "█", tracking: 1, pixelWidth: 2 });
-        return `<div class="line ${cls}">${bitmap.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`;
-      })
-      .join("");
+      .headline .line {
+        margin-top: 0.6em;
+      }
 
-    // Two colour-split copies of the ADAPTS line, cloned from the real one
-    // so they always match its exact ascii-art content, then laid on top as
-    // absolutely-positioned overlays that the CSS glitch-1/glitch-2
-    // keyframes reveal in brief clipped slices (see .glitch-slice above).
-    const accentLine = headline.querySelector(".line.accent");
-    if (accentLine) {
-      ["g1", "g2"].forEach((cls) => {
-        const layer = accentLine.cloneNode(true);
-        layer.classList.remove("accent");
-        layer.classList.add("glitch-slice", cls);
-        layer.setAttribute("aria-hidden", "true");
-        accentLine.appendChild(layer);
+      .headline .line:first-child {
+        margin-top: 0;
+      }
+
+      .headline .bright {
+        color: var(--color-bright);
+      }
+      .headline .dim {
+        opacity: 0.7;
+      }
+      .headline .accent {
+        color: var(--color-accent);
+      }
+
+      .lede {
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--color-text);
+      }
+
+      .facts {
+        max-width: 26rem;
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .fact-row {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+      }
+
+      .fact-label {
+        flex-shrink: 0;
+        color: var(--color-dim);
+      }
+
+      .fact-dots {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        color: var(--color-ghost);
+      }
+
+      .fact-value {
+        flex-shrink: 0;
+        color: var(--color-bright);
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: fit-content;
+        border: 1px solid var(--color-ghost);
+        padding: 0.65rem 1.25rem;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+      }
+
+      .cta:hover {
+        border-color: var(--color-accent);
+        color: var(--color-bright);
+      }
+
+      .cta .arrow {
+        transition: transform 0.15s;
+      }
+      .cta:hover .arrow {
+        transform: translateX(3px);
+      }
+
+      footer {
+        flex-shrink: 0;
+        padding-top: 0.5rem;
+      }
+
+      .footer-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1.5rem;
+        padding: 1rem 0;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--color-faint);
+      }
+
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .footer-links a:hover {
+        color: var(--color-dim);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Background: ASCII-art solar-system gif, loops natively. Decorative
+       only -- no content here a screen reader would need. -->
+    <img class="bg-media" id="bg-media" src="ascii-art.gif" alt="" aria-hidden="true" />
+    <div class="bg-overlay" aria-hidden="true"></div>
+    <div class="bg-scanlines" aria-hidden="true"></div>
+
+    <div class="page">
+      <header>
+        <span class="wordmark">INKCACHE</span>
+        <nav>
+          <a href="https://github.com/Saatvik-GT/InkCache" target="_blank" rel="noreferrer"
+            >[ github ]</a
+          >
+          <a
+            href="https://github.com/Saatvik-GT/InkCache/blob/main/docs/api.md"
+            target="_blank"
+            rel="noreferrer"
+            >[ api docs ]</a
+          >
+          <a
+            href="https://github.com/Saatvik-GT/InkCache#readme"
+            target="_blank"
+            rel="noreferrer"
+            class="accent"
+            >[ read the readme ]</a
+          >
+        </nav>
+      </header>
+      <span class="dashes" aria-hidden="true" id="dashes-top"></span>
+
+      <main>
+        <div>
+          <p class="eyebrow"><span class="accent">//</span> inkcache — single-node cache</p>
+
+          <div
+            class="headline ascii-grid"
+            id="headline"
+            role="img"
+            aria-label="Cache that adapts"
+          ></div>
+
+          <p class="lede" style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)">
+            Most caches evict by recency alone and drop a hot key the moment something newer
+            arrives. InkCache evicts whichever least-recently-used key has actually been read the
+            fewest times — so a key that earns its space keeps it.
+          </p>
+
+          <div class="facts" style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)" aria-hidden="true">
+            <div class="fact-row">
+              <span class="fact-label">eviction</span>
+              <span class="fact-dots"
+                >....................................................................</span
+              >
+              <span class="fact-value">access-aware</span>
+            </div>
+            <div class="fact-row">
+              <span class="fact-label">core</span>
+              <span class="fact-dots"
+                >....................................................................</span
+              >
+              <span class="fact-value">Node.js / TypeScript</span>
+            </div>
+            <div class="fact-row">
+              <span class="fact-label">tests</span>
+              <span class="fact-dots"
+                >....................................................................</span
+              >
+              <span class="fact-value">node:test + supertest</span>
+            </div>
+            <div class="fact-row">
+              <span class="fact-label">license</span>
+              <span class="fact-dots"
+                >....................................................................</span
+              >
+              <span class="fact-value">MIT</span>
+            </div>
+          </div>
+
+          <a
+            class="cta"
+            style="margin-top: clamp(0.6rem, 1.6vh, 1.25rem)"
+            href="https://github.com/Saatvik-GT/InkCache"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>view on github</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </main>
+
+      <footer>
+        <span class="dashes" aria-hidden="true" id="dashes-bottom"></span>
+        <div class="footer-row">
+          <span class="footer-links">
+            <a href="https://github.com/Saatvik-GT/InkCache" target="_blank" rel="noreferrer"
+              >github</a
+            >
+            <a
+              href="https://github.com/Saatvik-GT/InkCache/blob/main/docs/api.md"
+              target="_blank"
+              rel="noreferrer"
+              >api docs</a
+            >
+            <a
+              href="https://github.com/Saatvik-GT/InkCache/blob/main/LICENSE"
+              target="_blank"
+              rel="noreferrer"
+              >mit license</a
+            >
+          </span>
+          <span>CUSoC 2026 · built for the terminal</span>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // Ported from src/dashboard/src/lib/asciiFont.ts -- kept in sync by eye
+      // since this static page has no build step to import the real source
+      // from. Same 5x7 bitmap font as the live dashboard's headline treatment.
+      const GLYPH_W = 5;
+      const GLYPH_H = 7;
+      const GLYPHS = {
+        A: ".###." + "#...#" + "#...#" + "#####" + "#...#" + "#...#" + "#...#",
+        C: ".####" + "#...." + "#...." + "#...." + "#...." + "#...." + ".####",
+        D: "####." + "#...#" + "#...#" + "#...#" + "#...#" + "#...#" + "####.",
+        E: "#####" + "#...." + "#...." + "####." + "#...." + "#...." + "#####",
+        H: "#...#" + "#...#" + "#...#" + "#####" + "#...#" + "#...#" + "#...#",
+        P: "####." + "#...#" + "#...#" + "####." + "#...." + "#...." + "#....",
+        S: ".####" + "#...." + "#...." + ".###." + "....#" + "....#" + "####.",
+        T: "#####" + "..#.." + "..#.." + "..#.." + "..#.." + "..#.." + "..#..",
+        " ": "....." + "....." + "....." + "....." + "....." + "....." + ".....",
+      };
+
+      function renderAsciiText(text, { on = "#", off = " ", tracking = 1, pixelWidth = 1 } = {}) {
+        const chars = [...text.toUpperCase()];
+        const rows = [];
+        for (let y = 0; y < GLYPH_H; y++) {
+          let row = "";
+          chars.forEach((ch, i) => {
+            const bits = GLYPHS[ch] ?? GLYPHS[" "];
+            for (let x = 0; x < GLYPH_W; x++) {
+              row += (bits[y * GLYPH_W + x] === "#" ? on : off).repeat(pixelWidth);
+            }
+            if (i < chars.length - 1) row += off.repeat(tracking * pixelWidth);
+          });
+          rows.push(row);
+        }
+        return rows.join("\n");
+      }
+
+      const headline = document.getElementById("headline");
+      const words = [
+        { text: "CACHE", cls: "bright" },
+        { text: "THAT", cls: "dim" },
+        { text: "ADAPTS", cls: "accent" },
+      ];
+      headline.innerHTML = words
+        .map(({ text, cls }, i) => {
+          const bitmap = renderAsciiText(text, { on: "█", tracking: 1, pixelWidth: 2 });
+          return `<div class="line ${cls}">${bitmap.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`;
+        })
+        .join("");
+
+      // Two colour-split copies of the ADAPTS line, cloned from the real one
+      // so they always match its exact ascii-art content, then laid on top as
+      // absolutely-positioned overlays that the CSS glitch-1/glitch-2
+      // keyframes reveal in brief clipped slices (see .glitch-slice above).
+      const accentLine = headline.querySelector(".line.accent");
+      if (accentLine) {
+        ["g1", "g2"].forEach((cls) => {
+          const layer = accentLine.cloneNode(true);
+          layer.classList.remove("accent");
+          layer.classList.add("glitch-slice", cls);
+          layer.setAttribute("aria-hidden", "true");
+          accentLine.appendChild(layer);
+        });
+      }
+
+      // Full-width dash rules (same look as the live dashboard's Dashes component).
+      document.querySelectorAll(".dashes").forEach((el) => {
+        el.textContent = "─".repeat(400);
       });
-    }
 
-    // Full-width dash rules (same look as the live dashboard's Dashes component).
-    document.querySelectorAll(".dashes").forEach((el) => {
-      el.textContent = "─".repeat(400);
-    });
-
-    // Respect the same reduced-motion contract as the live dashboard: don't
-    // force motion on someone who's asked the OS to avoid it. A gif has no
-    // pause() API like <video>, so the honest option is to hide it outright
-    // rather than let it keep animating -- the black --color-void field
-    // behind it is still a coherent background on its own.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      document.getElementById("bg-media").style.display = "none";
-    }
-  </script>
-</body>
+      // Respect the same reduced-motion contract as the live dashboard: don't
+      // force motion on someone who's asked the OS to avoid it. A gif has no
+      // pause() API like <video>, so the honest option is to hide it outright
+      // rather than let it keep animating -- the black --color-void field
+      // behind it is still a coherent background on its own.
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.getElementById("bg-media").style.display = "none";
+      }
+    </script>
+  </body>
 </html>
