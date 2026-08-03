@@ -94,6 +94,13 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - `VITE_API_BASE` (dashboard) and `INKCACHE_CORS_ORIGIN` (node) so the
   dashboard can be deployed statically (e.g. Vercel, `vercel.json`
   included) while pointed at a node running elsewhere.
+- `docs/index.html`: a standalone, no-build ASCII-themed marketing page
+  for GitHub Pages (`Settings → Pages → Deploy from branch main, folder
+/docs`) — distinct from the live `/dashboard` console, this is a
+  static pitch page with its own hand-ported copy of the design tokens
+  and 5×7 bitmap headline font, a full-bleed looping background gif, a
+  glitch effect on the headline, and a locked single-viewport layout
+  (no scrollbar) sized against `min(vw, vh)`.
 
 ### Testing & CI
 
@@ -115,6 +122,16 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   well as the root's, and the Docker build itself is cached across runs
   via `docker/build-push-action` + the GHA cache backend rather than
   rebuilding every layer from scratch on every push.
+- Fixed a real ordering bug: "Typecheck backend" ran before "Install
+  dashboard deps", but the root tsconfig's `tests/**/*` transitively
+  type-checks dashboard lib code (`tests/log.test.ts` → `lib/log.ts` →
+  `lib/sound.ts`, which needs `@types/react` for
+  `useSyncExternalStore`'s signature) — `@types/react` only exists once
+  the dashboard's own `npm ci` has run. Every CI run failed with
+  "Cannot find module 'react'" on a clean checkout until the dashboard
+  install step was moved ahead of both the typecheck and test steps.
+  Local `npm ci` runs never caught this because dashboard's
+  `node_modules` was already on disk from earlier work.
 
 ### Accessibility
 
