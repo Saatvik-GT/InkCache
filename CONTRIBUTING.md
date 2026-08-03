@@ -12,6 +12,13 @@ npm run dev        # cache node on :8080 + dashboard on :5173
 npm run test:watch # re-runs core + API tests on save, while iterating
 ```
 
+**On Windows**, run `npm install`/`npm ci` from PowerShell or `cmd.exe`,
+not Git Bash — installing from Git Bash makes npm link `tsx` and
+`concurrently`'s executables as bare Unix symlinks with no `.cmd`/`.ps1`
+wrapper, which native Windows shells can't run (`'tsx' is not recognized
+as an internal or external command...`). If you hit that error, delete
+`node_modules` and reinstall from PowerShell.
+
 ## Before opening a PR
 
 ```bash
