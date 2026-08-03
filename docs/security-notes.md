@@ -15,7 +15,7 @@ that version carries ten-plus advisories including a vendored
 XSS vectors, and multiple open-redirect issues. Trading one inapplicable
 advisory for a working RCE is a straight downgrade in safety.
 
-Last verified against `npm view react-router-dom versions` on 2026-07-30.
+Last verified against `npm view react-router-dom versions` on 2026-08-03.
 7.18.2 is the latest published release as of that check; there is no
 patched version to move to yet. Patch releases within 7.x don't change
 this exemption's reasoning — the vulnerable range (7.12.0–8.2.0) covers
