@@ -248,6 +248,14 @@ will try to build the wrong package.json and fail before it ever reads
 dashboard's origin to `INKCACHE_CORS_ORIGIN` on the node side (see
 [docs/api.md](docs/api.md#eviction-policy) for the full env var table).
 
+**Marketing landing page** (`docs/index.html`) — a separate, standalone
+ASCII-themed page (no build step, no framework) for GitHub Pages: **Settings
+→ Pages → Deploy from branch `main`, folder `/docs`**. This is _not_ the
+live console — it's a static pitch page pointing visitors at this repo and
+the [Getting Started](#getting-started) instructions, with its own copy of
+the ASCII design tokens (kept in sync by hand since it can't import from
+the Vite build).
+
 ## Project Structure
 
 ```
@@ -268,8 +276,10 @@ InkCache/
 │       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)
 ├── tests/                # node:test + supertest: core cache logic + REST routes
 └── docs/
-    ├── api.md            # full endpoint + config reference
-    └── security-notes.md # why react-router-dom stays on the 7.18.x line
+    ├── api.md             # full endpoint + config reference
+    ├── security-notes.md  # why react-router-dom stays on the 7.18.x line
+    ├── index.html         # standalone GitHub Pages landing page (no build step)
+    └── ascii-art.gif      # its background asset
 ```
 
 Planned additions per roadmap: `src/intelligence/` (adaptive layer) and
