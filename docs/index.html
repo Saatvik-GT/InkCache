@@ -13,8 +13,11 @@
 
     <!-- Open Graph / Twitter card: this page exists to be linked/shared, so
      it needs its own preview rather than showing up blank in a chat/social
-     unfurl. og:image points at the same background gif already shipped
-     here -- no separate asset to keep in sync. -->
+     unfurl. No og:image/twitter:image -- ascii-art.gif is 37MB, several
+     times over every major platform's image-preview limit (Twitter/X and
+     LinkedIn ~5MB, Facebook ~8MB), so pointing at it would just fail
+     silently on every crawler. A broken image reference is worse than
+     none; same reasoning already applied in src/dashboard/index.html. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="InkCache — access-pattern-aware caching" />
     <meta
@@ -22,14 +25,12 @@
       content="A single-node key-value cache with access-aware eviction, on its way to scaling horizontally across nodes."
     />
     <meta property="og:url" content="https://saatvik-gt.github.io/InkCache/" />
-    <meta property="og:image" content="https://saatvik-gt.github.io/InkCache/ascii-art.gif" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="InkCache — access-pattern-aware caching" />
     <meta
       name="twitter:description"
       content="A single-node key-value cache with access-aware eviction, on its way to scaling horizontally across nodes."
     />
-    <meta name="twitter:image" content="https://saatvik-gt.github.io/InkCache/ascii-art.gif" />
 
     <!-- GitHub Pages entry point for this repo's landing page. Standalone —
      no build step, nothing to compile. Deployed via GitHub Pages:
