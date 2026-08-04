@@ -462,8 +462,18 @@
   </head>
   <body>
     <!-- Background: ASCII-art solar-system gif, loops natively. Decorative
-       only -- no content here a screen reader would need. -->
-    <img class="bg-media" id="bg-media" src="ascii-art.gif" alt="" aria-hidden="true" />
+       only -- no content here a screen reader would need. onerror hides it
+       outright if the gif ever fails to load (e.g. a fork without the
+       file) -- without this a fixed, full-bleed <img> shows the browser's
+       broken-image icon, not a clean fallback to the plain black field. -->
+    <img
+      class="bg-media"
+      id="bg-media"
+      src="ascii-art.gif"
+      alt=""
+      aria-hidden="true"
+      onerror="this.style.display = 'none'"
+    />
     <div class="bg-overlay" aria-hidden="true"></div>
     <div class="bg-scanlines" aria-hidden="true"></div>
 
