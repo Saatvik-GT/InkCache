@@ -647,8 +647,15 @@
       // keyframes reveal in brief clipped slices (see .glitch-slice above).
       const accentLine = headline.querySelector(".line.accent");
       if (accentLine) {
+        // Snapshot the pristine (childless) line once, before either layer
+        // is appended -- cloning accentLine directly inside the loop below
+        // would make the second clone (g2) include the first layer (g1) as
+        // a nested child, since cloneNode(true) captures whatever's in the
+        // DOM at call time, including anything the previous iteration just
+        // appended.
+        const pristine = accentLine.cloneNode(true);
         ["g1", "g2"].forEach((cls) => {
-          const layer = accentLine.cloneNode(true);
+          const layer = pristine.cloneNode(true);
           layer.classList.remove("accent");
           layer.classList.add("glitch-slice", cls);
           layer.setAttribute("aria-hidden", "true");
