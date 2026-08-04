@@ -63,6 +63,18 @@ export function stopSimulator(): void {
   listeners.forEach((fn) => fn());
 }
 
+// Module-level (not returned as an inline arrow from the hook below) so its
+// identity is permanently stable across renders -- it reads the always-
+// current module-level `timer` directly, so it doesn't need to close over
+// per-render state. A fresh `() => ...` returned from useSimulator() every
+// render was a useEffect dependency in Dashboard.tsx's keydown listener,
+// which meant that effect tore down and re-attached its window listener on
+// every metrics poll (~1/s) instead of once per mount.
+export function toggleSimulator(): void {
+  if (timer) stopSimulator();
+  else startSimulator();
+}
+
 export function useSimulator(): { running: boolean; toggle: () => void } {
   const running = useSyncExternalStore(
     (fn) => {
@@ -79,5 +91,5 @@ export function useSimulator(): { running: boolean; toggle: () => void } {
   // home page to show it or turn it off.
   useEffect(() => stopSimulator, []);
 
-  return { running, toggle: () => (timer ? stopSimulator() : startSimulator()) };
+  return { running, toggle: toggleSimulator };
 }
