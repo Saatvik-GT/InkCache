@@ -6,3 +6,11 @@ dist
 .git
 .env
 InkCachemain
+# docs/ is the GitHub Pages landing page (docs/index.html + a 37MB gif) --
+# the Dockerfile never COPYs it, but without this every `docker build`
+# still tars and sends it as part of the build context.
+docs
+ascii-scene.html
+CHANGELOG.md
+CONTRIBUTING.md
+readme.md
