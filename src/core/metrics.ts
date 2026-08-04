@@ -61,9 +61,14 @@ export class MetricsCollector {
     const reads = this.hits + this.misses;
     const sorted = [...this.latenciesUs].sort((a, b) => a - b);
     const avg = sorted.length > 0 ? sorted.reduce((s, v) => s + v, 0) / sorted.length : null;
+    // Nearest-rank percentile: rank = ceil(p * N), 1-indexed. The previous
+    // Math.floor(N * 0.95) undercounts the rank by one whenever N * 0.95 is
+    // already an integer (any N that's a multiple of 20) -- e.g. for 20
+    // samples it picked index 19, the single largest sample (the 100th
+    // percentile), not the 95th.
     const p95 =
       sorted.length > 0
-        ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]!
+        ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * 0.95) - 1))]!
         : null;
 
     const now = Date.now();

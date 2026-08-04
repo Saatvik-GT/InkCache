@@ -26,7 +26,20 @@ describe("MetricsCollector", () => {
     const snap = m.snapshot();
     assert.equal(snap.latency.samples, 100);
     assert.ok(snap.latency.avgUs !== null && Math.abs(snap.latency.avgUs - 50.5) < 0.5);
-    assert.equal(snap.latency.p95Us, 96);
+    // Nearest-rank p95 of 1..100 is the 95th-smallest value: 95, not 96
+    // (100 * 0.95 = 95 is already an integer -- the exact case the
+    // previous Math.floor formula got wrong, picking index 95 instead of
+    // the correct rank-95 index 94).
+    assert.equal(snap.latency.p95Us, 95);
+  });
+
+  it("picks the 95th-smallest value, not the max, when N is a multiple of 20", () => {
+    const m = new MetricsCollector();
+    for (let i = 1; i <= 20; i++) m.record("get", i, true);
+    // Regression test for the off-by-one: N=20 is exactly the boundary
+    // where floor(20 * 0.95) === 19 (the max) instead of the correct
+    // rank-19 index 18 (value 19).
+    assert.equal(m.snapshot().latency.p95Us, 19);
   });
 
   it("computes avg and p95 correctly from a single sample", () => {
