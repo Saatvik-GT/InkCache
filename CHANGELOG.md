@@ -100,7 +100,20 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   static pitch page with its own hand-ported copy of the design tokens
   and 5×7 bitmap headline font, a full-bleed looping background gif, a
   glitch effect on the headline, and a locked single-viewport layout
-  (no scrollbar) sized against `min(vw, vh)`.
+  (no scrollbar) sized against `min(vw, vh)`. Its nav points at
+  [Getting Started](#getting-started) rather than the repo root — a
+  visitor deciding whether to try this locally wants the install
+  steps, not another way to land on the page they're already on.
+  Own favicon (amber, matching the page's own accent rather than the
+  dashboard's teal) and `theme-color`, since neither existed before.
+  Open Graph/Twitter card tags so the URL doesn't unfurl blank when
+  shared — deliberately no `og:image`/`twitter:image`: the background
+  gif is 37MB, several times over every major platform's preview-image
+  limit (Twitter/X and LinkedIn ~5MB, Facebook ~8MB), and a broken
+  image reference in a social preview is worse than none. The
+  background `<img>` also fails gracefully (`onerror` hides it) rather
+  than showing a broken-image icon if the gif is ever missing, e.g. on
+  a fork that doesn't carry the large file.
 
 ### Testing & CI
 
