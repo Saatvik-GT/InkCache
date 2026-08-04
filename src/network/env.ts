@@ -10,12 +10,13 @@ export function parsePositiveInt(
   envValue: string | undefined,
   fallback: number,
   varName: string,
+  max?: number,
 ): number {
   if (envValue === undefined) return fallback;
   const n = Number(envValue);
-  if (!Number.isInteger(n) || n <= 0) {
+  if (!Number.isInteger(n) || n <= 0 || (max !== undefined && n > max)) {
     console.warn(
-      `[inkcache] ${varName}="${envValue}" is not a positive integer — using default ${fallback}`,
+      `[inkcache] ${varName}="${envValue}" is not a positive integer${max !== undefined ? ` <= ${max}` : ""} — using default ${fallback}`,
     );
     return fallback;
   }

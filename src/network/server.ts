@@ -12,7 +12,11 @@ import { parsePositiveInt } from "./env.js";
 // log line ended up printing "maxEntries=NaN" while the store itself
 // correctly fell back, and how a NODE_ID default change in app.ts could
 // silently stop matching what this file logs.
-const PORT = parsePositiveInt(process.env.INKCACHE_PORT, 8080, "INKCACHE_PORT");
+// max 65535: app.listen() throws a synchronous, uncaught RangeError for
+// anything past the valid TCP port range -- an unvalidated upper bound
+// meant e.g. INKCACHE_PORT=99999999 crashed the process at startup
+// instead of falling back with a warning like every other garbage value.
+const PORT = parsePositiveInt(process.env.INKCACHE_PORT, 8080, "INKCACHE_PORT", 65535);
 
 store.startSweeper();
 
