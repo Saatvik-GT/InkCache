@@ -21,9 +21,25 @@ const SHORT_TTL_MIN_S = 6;
 const SHORT_TTL_RANGE_S = 20; // short TTL is SHORT_TTL_MIN_S..+RANGE-1 seconds
 
 let timer: ReturnType<typeof setInterval> | undefined;
+let inFlight = false;
 const listeners = new Set<() => void>();
 
 async function fire(): Promise<void> {
+  // setInterval doesn't wait for the previous tick's promise to settle --
+  // if a request ever takes longer than TICK_MS (a slow node, real network
+  // latency), the next tick fired anyway, stacking up concurrent requests
+  // instead of one steady stream. Skipping a tick while one is still in
+  // flight keeps it to one at a time.
+  if (inFlight) return;
+  inFlight = true;
+  try {
+    await fireOnce();
+  } finally {
+    inFlight = false;
+  }
+}
+
+async function fireOnce(): Promise<void> {
   const roll = Math.random();
   const key = skewedKey();
   try {
