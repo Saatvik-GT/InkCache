@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege default: this job only reads the repo, installs deps, and
+# runs tests/lint/build -- it never comments on PRs, creates releases, or
+# pushes anywhere, so it has no legitimate use for GITHUB_TOKEN write access.
+# Without this, GITHUB_TOKEN gets whatever the repo's default token
+# permissions are (read/write on many repos), which a compromised or
+# tampered third-party action would inherit for no reason. The Docker
+# layer cache (cache-to: type=gha) uses its own separately-provisioned
+# runtime token, not GITHUB_TOKEN, so this doesn't affect it.
+permissions:
+  contents: read
+
 # Cancel a still-running CI run for the same branch/PR when a newer push
 # arrives -- without this, pushing three commits in a row runs the whole
 # job (including the Docker build + smoke test) three times to completion.
