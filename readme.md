@@ -13,6 +13,7 @@
 
 - [Overview](#overview)
 - [Problem Statement](#problem-statement)
+- [Current Status](#current-status)
 - [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
