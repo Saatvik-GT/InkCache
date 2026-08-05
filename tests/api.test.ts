@@ -155,9 +155,14 @@ describe("REST API", () => {
   });
 
   it("reports the eviction policy and sample size on /metrics", async () => {
+    // Asserting against store.evictionPolicy itself would be tautological --
+    // it'd pass even if the store's own default were wrong, or /metrics
+    // silently reported some other (still string-typed) policy. Assert the
+    // concrete defaults instead (no INKCACHE_EVICTION_POLICY/_SAMPLE env
+    // vars are set for this test run, so app.ts falls back to these).
     const res = await request(app).get("/metrics").expect(200);
-    assert.equal(res.body.evictionPolicy, store.evictionPolicy);
-    assert.equal(typeof res.body.evictionSampleSize, "number");
+    assert.equal(res.body.evictionPolicy, "access-aware");
+    assert.equal(res.body.evictionSampleSize, 5);
   });
 
   it("reflects real operations in /metrics' own counters, not just /keys/stats'", async () => {
