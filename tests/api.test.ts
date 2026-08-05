@@ -61,6 +61,19 @@ describe("REST API", () => {
     assert.match(negative.body.error, /ttl/);
   });
 
+  it("rejects a ttl so large it would overflow to a never-expiring entry", async () => {
+    // ttl: 1e306 is finite on its own, but Date.now() + ttl * 1000 overflows
+    // to Infinity -- the entry would never expire, and JSON.stringify(Infinity)
+    // serializes as null, making it indistinguishable on the wire from a key
+    // that was never given a TTL. Must be rejected outright, not silently
+    // accepted with a broken expiry.
+    const res = await request(app)
+      .post("/set")
+      .send({ key: "a", value: "1", ttl: 1e306 })
+      .expect(400);
+    assert.match(res.body.error, /ttl/);
+  });
+
   it("rejects a non-string value", async () => {
     const res = await request(app).post("/set").send({ key: "a", value: 42 }).expect(400);
     assert.match(res.body.error, /value must be a string/);

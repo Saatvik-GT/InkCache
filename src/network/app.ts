@@ -139,7 +139,20 @@ app.post("/set", (req, res) => {
   if (typeof value !== "string") {
     return res.status(400).json({ error: "value must be a string" });
   }
-  if (ttl !== undefined && (typeof ttl !== "number" || !Number.isFinite(ttl) || ttl <= 0)) {
+  if (
+    ttl !== undefined &&
+    (typeof ttl !== "number" ||
+      !Number.isFinite(ttl) ||
+      ttl <= 0 ||
+      // A ttl that's finite on its own (e.g. 1e306) can still overflow to
+      // Infinity once converted to an absolute expiry timestamp below --
+      // isExpired() then compares against Infinity forever, so the entry
+      // never expires, but JSON.stringify(Infinity) serializes as null,
+      // making a "TTL silently ignored" key indistinguishable on the wire
+      // from one that was never given a TTL at all. Reject it outright
+      // instead of accepting a request whose expiry silently never happens.
+      !Number.isFinite(Date.now() + ttl * 1000))
+  ) {
     return res.status(400).json({ error: "ttl must be a positive number of seconds" });
   }
   const { latencyUs } = timed(() => store.set(key, value, { ttl }));
