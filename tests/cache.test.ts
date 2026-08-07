@@ -10,6 +10,20 @@ describe("CacheStore basics", () => {
     assert.equal(store.size, 1);
   });
 
+  it("defaults maxEntries to 512, matching app.ts's INKCACHE_MAX_ENTRIES fallback", () => {
+    // Regression: this default silently drifted to 1000 at some point,
+    // diverging from the documented/actual server default (512) that
+    // app.ts always passes explicitly in production -- only visible to a
+    // caller that constructs CacheStore with no options, like this one.
+    const store = new CacheStore();
+    for (let i = 0; i < 512; i++) store.set(`k${i}`, "v");
+    assert.equal(store.size, 512);
+    assert.equal(store.evictions, 0);
+    store.set("k512", "v"); // the 513th unique key should trigger eviction
+    assert.equal(store.size, 512);
+    assert.equal(store.evictions, 1);
+  });
+
   it("treats an empty string as a real stored value, not a miss", () => {
     // get()/has() must key off presence in the map, not truthiness of the
     // value -- a falsy-value check here would make "" indistinguishable

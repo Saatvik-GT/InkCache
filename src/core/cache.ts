@@ -21,7 +21,8 @@ export interface SetOptions {
 export type EvictionPolicy = "lru" | "access-aware";
 
 export interface CacheStoreOptions {
-  /** Max number of entries before eviction kicks in. Default 1000. */
+  /** Max number of entries before eviction kicks in. Default 512, matching
+      app.ts's own INKCACHE_MAX_ENTRIES fallback and docs/api.md. */
   maxEntries?: number;
   /** Called whenever a key is evicted to make room (not on TTL expiry). */
   onEvict?: (key: string) => void;
@@ -49,7 +50,7 @@ export class CacheStore {
   private evictionCount = 0;
 
   constructor(opts: CacheStoreOptions = {}) {
-    this.maxEntries = opts.maxEntries ?? 1000;
+    this.maxEntries = opts.maxEntries ?? 512;
     this.onEvict = opts.onEvict;
     this.policy = opts.policy ?? "access-aware";
     this.evictionSampleSize = opts.evictionSampleSize ?? 5;
