@@ -18,7 +18,7 @@ export interface SetOptions {
   ttl?: number;
 }
 
-export type EvictionPolicy = "lru" | "access-aware";
+export type EvictionPolicy = "lru" | "access-aware" | "lfu";
 
 export interface CacheStoreOptions {
   /** Max number of entries before eviction kicks in. Default 512, matching
@@ -34,6 +34,12 @@ export interface CacheStoreOptions {
    * instant something newer edges it out of MRU position. This is a
    * frequency-over-a-recency-window heuristic (in the spirit of window-based
    * LFU admission policies like W-TinyLFU), not a learned/trained model.
+   * "lfu" evicts whichever *live* key has been read the fewest times, full
+   * stop — scanning every entry rather than just a recency-bounded window,
+   * so it can correctly evict a truly cold key even when something more
+   * recently touched (but still barely-read) sits ahead of it in recency
+   * order. O(n) per eviction instead of the other two policies' bounded
+   * scans — the cost of actually finding the global minimum.
    */
   policy?: EvictionPolicy;
   /** Candidate pool size for "access-aware" eviction. Default 5. */
@@ -198,6 +204,8 @@ export class CacheStore {
     if (this.sweep() > 0) return;
     if (this.policy === "lru") {
       this.evictOldest();
+    } else if (this.policy === "lfu") {
+      this.evictLFU();
     } else {
       this.evictLeastAccessed();
     }
@@ -226,6 +234,28 @@ export class CacheStore {
         worstKey = key;
       }
       seen++;
+    }
+    if (worstKey !== undefined) this.doEvict(worstKey);
+  }
+
+  /**
+   * Strict LFU: scan every live entry and evict whichever has been read
+   * the fewest times, ignoring recency entirely — unlike evictLeastAccessed
+   * above, which only ever looks at the `evictionSampleSize` least-
+   * recently-used candidates. Ties keep the first-encountered key, which
+   * (since Map iteration order is insertion/recency order) biases toward
+   * the older of two equally-cold entries — the same tie-break family as
+   * evictLeastAccessed, just applied across the whole store instead of a
+   * window.
+   */
+  private evictLFU(): void {
+    let worstKey: string | undefined;
+    let worstHits = Infinity;
+    for (const [key, entry] of this.entries) {
+      if (entry.hits < worstHits) {
+        worstHits = entry.hits;
+        worstKey = key;
+      }
     }
     if (worstKey !== undefined) this.doEvict(worstKey);
   }
