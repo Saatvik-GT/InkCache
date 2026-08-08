@@ -43,3 +43,36 @@ grep -rn "createBrowserRouter\|RSC\|action:" src/dashboard/src
 
 If that grep ever starts matching, this exemption is void and the version
 needs re-evaluating immediately.
+
+## autocannon (devDependency) drags in a moderate uuid advisory
+
+`npm audit` reports **GHSA-w5hq-g745-h8pq** — "Missing buffer bounds check
+in v3/v5/v6 when buf is provided" — against `uuid` &lt;11.1.1, reached via
+`autocannon` → `hyperid` → `uuid`, and suggests `npm audit fix --force`.
+
+**Do not run that.** It downgrades to `autocannon@2.0.1`, a five-major-
+version regression to an ancient, unmaintained release for a benchmarking
+tool that's a devDependency only — never installed in the production
+Docker image, never runs against untrusted input, only ever invoked
+locally by a developer running `npm run benchmark` against their own node.
+
+### Why the advisory doesn't apply here
+
+The advisory requires **`v3`, `v5`, or `v6`** of `uuid` **with a `buf`
+parameter explicitly passed** (the missing bounds check is on writing into
+that caller-supplied buffer). Read `node_modules/hyperid/hyperid.js`
+directly: it calls `uuidv4()` — a different function, `v4`, not `v3`/`v5`/
+`v6` — with **zero arguments**, no `buf` anywhere. Both conditions the
+advisory requires are absent in how this dependency actually calls `uuid`.
+
+### When to revisit
+
+Re-check whenever `autocannon` gets updated (`npm outdated` in this repo):
+
+```bash
+npm ls hyperid uuid
+grep -n "uuidv4\|uuid\.v[0-9]" node_modules/hyperid/hyperid.js
+```
+
+If hyperid's own `uuid` call site ever changes to pass a `buf` argument,
+or to use `v3`/`v5`/`v6`, this exemption is void.
