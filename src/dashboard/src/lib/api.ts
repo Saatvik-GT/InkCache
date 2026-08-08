@@ -23,7 +23,7 @@ export interface NodeMetrics {
   keys: number;
   maxEntries: number;
   evictions: number;
-  evictionPolicy: "lru" | "access-aware";
+  evictionPolicy: "lru" | "access-aware" | "lfu";
   evictionSampleSize: number;
   uptimeSec: number;
   hits: number;
