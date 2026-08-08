@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parsePositiveInt } from "../src/network/env.js";
+import { parsePositiveInt, resolveEvictionPolicy } from "../src/network/env.js";
 
 describe("parsePositiveInt()", () => {
   it("returns the fallback when unset", () => {
@@ -40,5 +40,26 @@ describe("parsePositiveInt()", () => {
 
   it("has no upper bound when max is omitted", () => {
     assert.equal(parsePositiveInt("999999", 512, "TEST"), 999999);
+  });
+});
+
+describe("resolveEvictionPolicy()", () => {
+  it("defaults to access-aware when unset", () => {
+    assert.equal(resolveEvictionPolicy(undefined), "access-aware");
+  });
+
+  it("accepts all three known policies verbatim", () => {
+    assert.equal(resolveEvictionPolicy("lru"), "lru");
+    assert.equal(resolveEvictionPolicy("access-aware"), "access-aware");
+    assert.equal(resolveEvictionPolicy("lfu"), "lfu");
+  });
+
+  it("falls back to access-aware on an unknown value, with a warning", () => {
+    assert.equal(resolveEvictionPolicy("lfru"), "access-aware");
+    assert.equal(resolveEvictionPolicy(""), "access-aware");
+    // Case-sensitive on purpose -- silently accepting "LRU" as "lru" would
+    // make the accepted value set fuzzier than the three it actually
+    // dispatches on in CacheStore's evict().
+    assert.equal(resolveEvictionPolicy("LRU"), "access-aware");
   });
 });
