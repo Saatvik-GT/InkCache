@@ -214,6 +214,84 @@ describe("access-aware eviction", () => {
   });
 });
 
+describe("strict LFU eviction", () => {
+  it("evicts the least-read live key regardless of recency", () => {
+    const store = new CacheStore({ maxEntries: 3, policy: "lfu" });
+    store.set("a", "1");
+    store.get("a");
+    store.get("a"); // a: 2 hits, and touched most recently
+    store.set("b", "2"); // b: 0 hits
+    store.set("c", "3"); // c: 0 hits
+    // Plain LRU would evict "a" (least recently touched at insert time);
+    // strict LFU must evict "b" or "c" instead since both are colder.
+    store.set("d", "4");
+    assert.equal(store.get("a"), "1");
+  });
+
+  it("breaks ties by keeping the first-encountered (older) of equally-cold keys", () => {
+    const store = new CacheStore({ maxEntries: 3, policy: "lfu" });
+    store.set("a", "1"); // 0 hits
+    store.set("b", "2"); // 0 hits
+    store.set("c", "3"); // 0 hits -- all three tied
+    store.set("d", "4");
+    assert.equal(store.get("a"), undefined, "the oldest of the tied-coldest keys should go first");
+    assert.equal(store.get("b"), "2");
+    assert.equal(store.get("c"), "3");
+  });
+
+  it("scans the whole store, not just a recency window -- genuinely differs from access-aware", () => {
+    // Same operations against both policies: access-aware only samples the
+    // 2 least-recently-used keys, so it never even considers "c"/"d" (both
+    // colder than anything in its window) once "a" and "b" have been
+    // touched enough to sit behind them in recency order.
+    const ops = (store: CacheStore) => {
+      store.set("a", "1");
+      store.get("a");
+      store.get("a"); // a: 2 hits
+      store.set("b", "1");
+      store.get("b");
+      store.get("b");
+      store.get("b"); // b: 3 hits
+      store.set("c", "1"); // c: 0 hits
+      store.set("d", "1"); // d: 0 hits
+      store.set("e", "1"); // triggers eviction at capacity 4
+    };
+
+    const accessAware = new CacheStore({
+      maxEntries: 4,
+      evictionSampleSize: 2,
+      policy: "access-aware",
+    });
+    ops(accessAware);
+    assert.deepEqual(
+      accessAware.keys().sort(),
+      ["b", "c", "d", "e"],
+      "access-aware's window never sees c/d",
+    );
+
+    const lfu = new CacheStore({ maxEntries: 4, policy: "lfu" });
+    ops(lfu);
+    assert.deepEqual(
+      lfu.keys().sort(),
+      ["a", "b", "d", "e"],
+      "lfu finds the true global minimum (c)",
+    );
+  });
+
+  it("does not evict expired entries before live ones, same as the other policies", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore({ maxEntries: 2, policy: "lfu" });
+    store.set("dead", "x", { ttl: 1 });
+    store.set("live", "y");
+    mock.timers.tick(1_001);
+    store.set("new", "z"); // capacity hit: expired "dead" should go, not "live"
+    assert.equal(store.get("live"), "y");
+    assert.equal(store.get("new"), "z");
+    assert.equal(store.evictions, 0);
+    mock.timers.reset();
+  });
+});
+
 describe("has() and keys()", () => {
   it("has() reports false for an expired key without throwing", () => {
     mock.timers.enable({ apis: ["Date"] });
