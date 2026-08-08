@@ -35,7 +35,8 @@
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run format:check && npm test",
     "docker:build": "docker build -t inkcache-node .",
-    "docker:run": "docker run --rm -p 8080:8080 inkcache-node"
+    "docker:run": "docker run --rm -p 8080:8080 inkcache-node",
+    "benchmark": "tsx scripts/benchmark.ts"
   },
   "license": "MIT",
   "devDependencies": {

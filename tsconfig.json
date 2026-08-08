@@ -20,6 +20,6 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src/core/**/*", "src/network/**/*", "tests/**/*"],
+  "include": ["src/core/**/*", "src/network/**/*", "tests/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist", "src/dashboard"]
 }
