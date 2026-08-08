@@ -94,7 +94,7 @@ are not reset by this.
 }
 ```
 
-`evictionPolicy` is `"access-aware"` (default) or `"lru"` — see
+`evictionPolicy` is `"access-aware"` (default), `"lru"`, or `"lfu"` — see
 [Eviction policy](#eviction-policy) below.
 
 `opsPerSec` is throughput over a rolling 10-second window (all op types:
@@ -154,7 +154,7 @@ the node (`npm run dev:node` / `npm run start:node`):
 | `INKCACHE_PORT`            | `8080`         | HTTP port the node listens on            |
 | `INKCACHE_NODE_ID`         | `node-1`       | label reported in `/health`/`/metrics`   |
 | `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
-| `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware` or `lru`                  |
+| `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware`, `lru`, or `lfu`          |
 | `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
 | `INKCACHE_MAX_KEY_LENGTH`  | `256`          | longest key `/set` will accept           |
 | `INKCACHE_CORS_ORIGIN`     | _(none)_       | comma-separated extra allowed origins    |
@@ -170,8 +170,8 @@ The four numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`,
 something else (a typo, an empty string, a negative number) and the node
 logs a warning and falls back to its default instead of silently
 misbehaving. `EVICTION_POLICY` gets the same treatment: anything other
-than exactly `lru` or `access-aware` logs a warning and falls back to
-`access-aware` rather than silently accepting a typo.
+than exactly `lru`, `access-aware`, or `lfu` logs a warning and falls back
+to `access-aware` rather than silently accepting a typo.
 
 **`access-aware`** samples the `INKCACHE_EVICTION_SAMPLE` least-recently-used
 keys and evicts whichever of _those_ was read the fewest times, instead of
@@ -184,3 +184,11 @@ sample size, never the whole store.
 
 **`lru`** is the original strict behavior: always evict the single
 least-recently-used key, full stop.
+
+**`lfu`** is strict frequency-only eviction: scan every live entry and evict
+whichever has been read the fewest times, ignoring recency entirely — unlike
+`access-aware`, which only ever considers the `INKCACHE_EVICTION_SAMPLE`
+least-recently-used candidates. This means `lfu` can correctly evict a truly
+cold key even when something more recently touched (but still barely-read)
+sits ahead of it in recency order, at the cost of an O(n) scan per eviction
+instead of the other two policies' bounded scans.
