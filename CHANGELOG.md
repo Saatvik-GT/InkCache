@@ -153,6 +153,17 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   install step was moved ahead of both the typecheck and test steps.
   Local `npm ci` runs never caught this because dashboard's
   `node_modules` was already on disk from earlier work.
+- `npm run benchmark` (`scripts/benchmark.ts`): spins up a real, separate
+  node per eviction policy (`lru`/`access-aware`/`lfu`), seeds an 800-key
+  skewed population against a deliberately undersized 200-entry cache to
+  force real eviction pressure, runs a mixed 85%-read/15%-write HTTP load
+  with `autocannon` for 8s per policy, and reports hit rate + evictions
+  from the node's own `/metrics` alongside autocannon's raw
+  throughput/latency — hit rate under memory pressure is the interesting
+  comparison, since all three policies run the same request-handling
+  code path. Not a CI step; meant to be read, not just passed/failed.
+  Closes the `npm run benchmark` promise the README had been carrying
+  since before this tool existed.
 
 ### Accessibility
 
@@ -237,6 +248,15 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   would have "fixed." Rationale, the grep used to confirm the flagged
   advisory's code path is unreachable here, and what would invalidate
   the exemption are in `docs/security-notes.md`.
+- `autocannon` (a devDependency, added for `npm run benchmark`) pulls in
+  a moderate `uuid` advisory transitively via `hyperid`. Verified by
+  reading `hyperid`'s actual source that it calls `uuid.v4()` with no
+  arguments — the advisory requires `v3`/`v5`/`v6` with an explicit `buf`
+  argument, neither of which applies — rather than following
+  `npm audit fix --force` onto `autocannon@2.0.1`, a five-major-version
+  regression for a tool that's never installed in the production image.
+  Same reasoning discipline as the `react-router-dom` exemption; details
+  in `docs/security-notes.md`.
 - Express's default `X-Powered-By: Express` header — announcing the
   stack to every client for no benefit — was being sent on every
   response and is now disabled, alongside the three headers already
