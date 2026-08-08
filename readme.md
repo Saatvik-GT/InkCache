@@ -50,7 +50,7 @@ InkCache addresses this by combining:
 
 **Implemented and working today (single-node demo):**
 
-- In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, configurable eviction — `access-aware` (default: samples the least-recently-used keys and evicts whichever was read the fewest times, a window-LFU-style heuristic) or strict `lru`; expired entries are always reclaimed before live ones either way
+- In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, configurable eviction — `access-aware` (default: samples the least-recently-used keys and evicts whichever was read the fewest times, a window-LFU-style heuristic), strict `lru`, or strict `lfu` (scans every live entry for the true global-coldest key, no recency window); expired entries are always reclaimed before live ones regardless of policy
 - REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
 - ASCII-terminal dashboard (React + Vite + Tailwind + react-router-dom), two routes:
   - `/` — a single-screen hero: a **rotating ASCII moon** (a real 3D sphere — spherical sampling, per-cell depth buffer, diffuse lighting against a fixed world-space light, limb darkening, and an object-space crater field — rasterized to characters instead of pixels, with rotation speed driven by live ops/sec) beside a hand-built 5×7 bitmap-font headline, a live node readout as a dot-leader manifest, and a link into the console, all in front of a deterministic ASCII starfield
@@ -62,7 +62,7 @@ InkCache addresses this by combining:
 
 ## Key Features
 
-- **Core Cache Engine** — configurable eviction (access-aware frequency/recency hybrid, or strict LRU), TTL support, single-threaded so there's no locking to get wrong
+- **Core Cache Engine** — configurable eviction (access-aware frequency/recency hybrid, strict LRU, or strict LFU), TTL support, single-threaded so there's no locking to get wrong
 - **Distributed Architecture** — consistent hashing for key distribution across nodes
 - **Replication & Fault Tolerance** — primary-replica model with automatic failover
 - **Adaptive Intelligence** — access-pattern-based eviction and predictive prefetching
@@ -122,7 +122,7 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter I — Engineering Foundation
 
-- [x] Sprint 1: Single-node cache core (TTL, web console + API) — _LFU-as-a-standalone-policy still pending, superseded in practice by the access-aware hybrid below_
+- [x] Sprint 1: Single-node cache core (TTL, web console + API), including strict LFU as a standalone policy (`INKCACHE_EVICTION_POLICY=lfu`) alongside the access-aware hybrid below
 - [ ] Sprint 2: Benchmarking baseline, cache invalidation strategies, basic metrics logging
 
 ### Quarter II — Product Engineering
