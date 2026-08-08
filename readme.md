@@ -57,8 +57,9 @@ InkCache addresses this by combining:
   - `/dashboard` — a dense tiled ops-console grid: hits-vs-misses and latency (avg/p95) line charts plotted on a character grid, a node-counters table, a hottest-keys bar chart, a store-capacity meter, a keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`), a KEYS access-frequency heat map using shade glyphs (`░▒▓█`) sorted hottest-first, a colour-coded op stream where every line also carries its kind as text, optional synthesized sound cues (Web Audio, off by default), a glyph + label node status, synthetic traffic simulator (fires real requests), and a POST-style boot screen
   - No WebGL anywhere — the sphere is pure math over a character grid, which is why the whole dashboard ships in a single ~273 KB JS bundle plus ~50 KB CSS. Both routes respect `prefers-reduced-motion` (the moon holds a static lit frame rather than just slowing down)
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
+- A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency
 
-**Not yet implemented (roadmap):** multi-node replication, consistent hashing, failover, and the benchmarking suite. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** multi-node replication, consistent hashing, and failover. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -123,7 +124,10 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 ### Quarter I — Engineering Foundation
 
 - [x] Sprint 1: Single-node cache core (TTL, web console + API), including strict LFU as a standalone policy (`INKCACHE_EVICTION_POLICY=lfu`) alongside the access-aware hybrid below
-- [ ] Sprint 2: Benchmarking baseline, cache invalidation strategies, basic metrics logging
+- [x] Sprint 2 (partial): Benchmarking baseline (`npm run benchmark`,
+      comparing `lru`/`access-aware`/`lfu` under real HTTP load). Cache
+      invalidation strategies beyond TTL expiry and basic metrics logging
+      (persisted, not just `/metrics`' in-memory snapshot) are still open.
 
 ### Quarter II — Product Engineering
 
@@ -133,7 +137,9 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter III — Production & Leadership
 
-- [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early), load testing, benchmarking vs. Redis/Memcached
+- [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early),
+      load testing ✔ (`npm run benchmark`, see Sprint 2) — benchmarking
+      against actual Redis/Memcached instances is still open
 - [ ] Sprint 7: Deployment, final documentation, demo preparation
 
 > Full milestone tracking is maintained via GitHub Issues and Milestones.
@@ -216,7 +222,19 @@ CI also runs backend typecheck, `prettier --check`, the dashboard's
 `oxlint`, the dashboard build, and a Docker build-and-run smoke test
 against `/health` on every push/PR — see
 [CONTRIBUTING.md](CONTRIBUTING.md) for the full local pre-PR checklist.
-Load/benchmark tooling (`npm run benchmark`) is planned for Quarter III.
+
+```bash
+# Compares lru / access-aware / lfu under real HTTP load: spins up a
+# separate node per policy, seeds an 800-key skewed population against a
+# deliberately small 200-entry cache to force real eviction pressure, and
+# reports hit rate + evictions alongside autocannon's throughput/latency.
+npm run benchmark
+```
+
+Not a CI step (it takes ~30-60s and is meaningful to read, not just
+pass/fail) — run it locally when comparing eviction policies. See
+[`scripts/benchmark.ts`](scripts/benchmark.ts) for the exact workload
+shape and parameters.
 
 ## Deployment
 
@@ -276,6 +294,8 @@ InkCache/
 │       ├── vercel.json   # SPA rewrites for static hosting
 │       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)
 ├── tests/                # node:test + supertest: core cache logic + REST routes
+├── scripts/
+│   └── benchmark.ts      # npm run benchmark: lru/access-aware/lfu under real HTTP load
 └── docs/
     ├── api.md             # full endpoint + config reference
     ├── security-notes.md  # why react-router-dom stays on the 7.18.x line
@@ -283,8 +303,7 @@ InkCache/
     └── ascii-art.gif      # its background asset
 ```
 
-Planned additions per roadmap: `src/intelligence/` (adaptive layer) and
-benchmarking scripts.
+Planned additions per roadmap: `src/intelligence/` (the adaptive layer).
 
 ## Documentation
 
