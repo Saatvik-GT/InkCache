@@ -13,7 +13,11 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 - Configurable eviction: `access-aware` (default) samples the
   least-recently-used keys and evicts whichever was read the fewest
   times — a bounded-window frequency heuristic, not a trained model —
-  or strict `lru` as an explicit opt-out.
+  strict `lru` as an explicit opt-out, or strict `lfu`
+  (`INKCACHE_EVICTION_POLICY=lfu`) which scans every live entry for the
+  true global-coldest key instead of a recency-bounded window. Closes
+  the "LFU-as-a-standalone-policy" item the roadmap had flagged as
+  pending since early on.
 - `detailedKeys()` for per-key hit-count/TTL introspection (backs the
   dashboard's heat map).
 
@@ -125,7 +129,11 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   Pure functions with a real dependency on `lib/api.ts` (which throws at
   module load outside Vite) get split into their own dependency-free
   file rather than left untestable — `lib/errors.ts` and
-  `lib/skewedKey.ts` both exist for exactly that reason.
+  `lib/skewedKey.ts` both exist for exactly that reason. Backend config
+  validation follows the same instinct: `resolveEvictionPolicy()` was
+  pulled out of `app.ts`'s inline validate-and-warn block into `env.ts`
+  as a pure function (same reason `resolveCorsOrigins` exists), directly
+  unit-testable without spinning up the whole Express app.
 - GitHub Actions workflow running backend typecheck, `prettier --check`,
   tests, the dashboard's `oxlint`, the dashboard build, and a Docker
   build-and-run smoke test on every push/PR. A `concurrency` group
