@@ -167,6 +167,29 @@ export class CacheStore {
     return result;
   }
 
+  /** Every live key with its value and remaining TTL, for snapshot/restore.
+      Deliberately its own read-only pass rather than detailedKeys() + get()
+      per key: get() mutates hits and recency order as a side effect, which
+      an export must not do -- reading a snapshot shouldn't perturb the very
+      state it's reading. Omits hits on purpose too: a restored key should
+      start fresh rather than inherit stale popularity from a previous run. */
+  exportEntries(): Array<{ key: string; value: string; ttl: number | null }> {
+    const now = Date.now();
+    const result: Array<{ key: string; value: string; ttl: number | null }> = [];
+    for (const [key, entry] of this.entries) {
+      if (entry.expiresAt !== undefined && now >= entry.expiresAt) {
+        this.entries.delete(key);
+        continue;
+      }
+      result.push({
+        key,
+        value: entry.value,
+        ttl: entry.expiresAt === undefined ? null : Math.max(0, (entry.expiresAt - now) / 1000),
+      });
+    }
+    return result;
+  }
+
   get size(): number {
     return this.entries.size;
   }

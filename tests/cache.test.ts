@@ -347,6 +347,57 @@ describe("detailedKeys()", () => {
   });
 });
 
+describe("exportEntries()", () => {
+  it("reports value and ttl (not hits) per live key", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    store.set("b", "2", { ttl: 30 });
+    const rows = store.exportEntries().sort((x, y) => x.key.localeCompare(y.key));
+    assert.deepEqual(rows[0], { key: "a", value: "1", ttl: null });
+    assert.equal(rows[1]!.key, "b");
+    assert.equal(rows[1]!.value, "2");
+    assert.ok(rows[1]!.ttl !== null && rows[1]!.ttl > 29 && rows[1]!.ttl <= 30);
+    assert.ok(!("hits" in rows[0]!), "exportEntries() rows should not include hits");
+  });
+
+  it("excludes and cleans up expired entries, same as detailedKeys()", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore();
+    store.set("dead", "x", { ttl: 1 });
+    store.set("live", "y");
+    mock.timers.tick(1_001);
+    const rows = store.exportEntries();
+    assert.deepEqual(
+      rows.map((r) => r.key),
+      ["live"],
+    );
+    assert.equal(store.size, 1);
+    mock.timers.reset();
+  });
+
+  it("does not mutate hit counts as a side effect of exporting", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    store.get("a"); // hits: 1
+    store.exportEntries();
+    store.exportEntries(); // calling it again shouldn't matter either
+    assert.equal(store.accessCount("a"), 1, "exportEntries() must not touch hits, unlike get()");
+  });
+
+  it("does not mutate recency order as a side effect of exporting", () => {
+    // If exportEntries() re-touched keys the way get() does, "a" would move
+    // to the back and survive; LRU eviction should still pick "a" as if the
+    // export never happened.
+    const store = new CacheStore({ maxEntries: 2, policy: "lru" });
+    store.set("a", "1");
+    store.set("b", "2");
+    store.exportEntries();
+    store.set("c", "3");
+    assert.equal(store.get("a"), undefined, "exportEntries() must not refresh recency");
+    assert.equal(store.get("b"), "2");
+  });
+});
+
 describe("deleteByPrefix()", () => {
   it("deletes only keys starting with the prefix", () => {
     const store = new CacheStore();
