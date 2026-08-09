@@ -5,6 +5,7 @@
  *   POST   /set          { key, value, ttl? }
  *   GET    /get/:key
  *   DELETE /delete/:key
+ *   POST   /invalidate   { prefix }
  *   GET    /metrics
  *   GET    /health
  *   GET    /keys
@@ -162,6 +163,18 @@ app.delete("/delete/:key", (req, res) => {
   const { result: deleted, latencyUs } = timed(() => store.delete(key));
   metrics.record("delete", latencyUs);
   return res.json({ ok: true, key, deleted });
+});
+
+app.post("/invalidate", (req, res) => {
+  const { prefix } = req.body ?? {};
+  if (typeof prefix !== "string") {
+    return res.status(400).json({ error: "prefix must be a string" });
+  }
+  if (prefix.length > MAX_KEY_LENGTH) {
+    return res.status(400).json({ error: `prefix must be at most ${MAX_KEY_LENGTH} characters` });
+  }
+  const dropped = store.deleteByPrefix(prefix);
+  return res.json({ ok: true, prefix, dropped });
 });
 
 app.get("/keys", (_req, res) => {
