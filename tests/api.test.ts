@@ -203,6 +203,66 @@ describe("REST API", () => {
     assert.match(res.body.error, /256 characters/);
   });
 
+  it("round-trips real data through GET /snapshot and POST /restore", async () => {
+    await request(app).post("/set").send({ key: "a", value: "1" }).expect(200);
+    await request(app).post("/set").send({ key: "b", value: "2", ttl: 300 }).expect(200);
+
+    const snap = await request(app).get("/snapshot").expect(200);
+    assert.equal(snap.body.count, 2);
+
+    await request(app).post("/flush").expect(200);
+    await request(app).get("/get/a").expect(404);
+
+    const restore = await request(app).post("/restore").send({ keys: snap.body.keys }).expect(200);
+    assert.equal(restore.body.loaded, 2);
+
+    const a = await request(app).get("/get/a").expect(200);
+    assert.equal(a.body.value, "1");
+    const b = await request(app).get("/get/b").expect(200);
+    assert.equal(b.body.value, "2");
+    assert.ok(b.body.ttl > 0 && b.body.ttl <= 300, "restored key should keep its remaining ttl");
+  });
+
+  it("accepts a snapshotted no-expiry key's ttl:null on restore", async () => {
+    // Regression: GET /snapshot reports a no-expiry key as ttl: null (same
+    // convention as /get and /keys/stats), but the first version of
+    // validateEntry() only treated ttl: undefined as "no ttl" -- restoring
+    // an exported permanent key was rejected outright with "ttl must be a
+    // positive number of seconds". Caught by live-testing the actual
+    // roundtrip against a running server, not by a hand-written unit test.
+    const res = await request(app)
+      .post("/restore")
+      .send({ keys: [{ key: "permanent", value: "x", ttl: null }] })
+      .expect(200);
+    assert.equal(res.body.loaded, 1);
+    const got = await request(app).get("/get/permanent").expect(200);
+    assert.equal(got.body.ttl, null);
+  });
+
+  it("rejects /restore atomically -- one bad entry loads none of them", async () => {
+    await request(app)
+      .post("/restore")
+      .send({
+        keys: [
+          { key: "good", value: "1" },
+          { key: "", value: "bad" },
+        ],
+      })
+      .expect(400);
+    await request(app).get("/get/good").expect(404);
+  });
+
+  it("rejects a /restore body whose keys field isn't an array", async () => {
+    const res = await request(app).post("/restore").send({ keys: "nope" }).expect(400);
+    assert.match(res.body.error, /array/);
+  });
+
+  it("reports loaded:0 restoring an empty keys array, not an error", async () => {
+    const res = await request(app).post("/restore").send({ keys: [] }).expect(200);
+    assert.equal(res.body.loaded, 0);
+    assert.equal(res.body.ok, true);
+  });
+
   it("reports the eviction policy and sample size on /metrics", async () => {
     // Asserting against store.evictionPolicy itself would be tautological --
     // it'd pass even if the store's own default were wrong, or /metrics
