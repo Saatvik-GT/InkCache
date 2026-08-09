@@ -117,16 +117,26 @@ app.use(
   },
 );
 
-app.post("/set", (req, res) => {
-  const { key, value, ttl } = req.body ?? {};
+interface ValidatedEntry {
+  key: string;
+  value: string;
+  ttl?: number;
+}
+
+/** Validates a { key, value, ttl? } shape -- shared by /set and /restore's
+    per-entry validation, so a client gets identical rules and error
+    messages from either endpoint instead of two hand-maintained copies
+    silently drifting apart. */
+function validateEntry(input: unknown): ValidatedEntry | { error: string } {
+  const { key, value, ttl } = (input ?? {}) as Record<string, unknown>;
   if (typeof key !== "string" || key.trim().length === 0) {
-    return res.status(400).json({ error: "key must be a non-empty string" });
+    return { error: "key must be a non-empty string" };
   }
   if (key.length > MAX_KEY_LENGTH) {
-    return res.status(400).json({ error: `key must be at most ${MAX_KEY_LENGTH} characters` });
+    return { error: `key must be at most ${MAX_KEY_LENGTH} characters` };
   }
   if (typeof value !== "string") {
-    return res.status(400).json({ error: "value must be a string" });
+    return { error: "value must be a string" };
   }
   if (
     ttl !== undefined &&
@@ -142,8 +152,15 @@ app.post("/set", (req, res) => {
       // instead of accepting a request whose expiry silently never happens.
       !Number.isFinite(Date.now() + ttl * 1000))
   ) {
-    return res.status(400).json({ error: "ttl must be a positive number of seconds" });
+    return { error: "ttl must be a positive number of seconds" };
   }
+  return { key, value, ttl: ttl as number | undefined };
+}
+
+app.post("/set", (req, res) => {
+  const validated = validateEntry(req.body ?? {});
+  if ("error" in validated) return res.status(400).json({ error: validated.error });
+  const { key, value, ttl } = validated;
   const { latencyUs } = timed(() => store.set(key, value, { ttl }));
   metrics.record("set", latencyUs);
   return res.json({ ok: true, key, ttl: ttl ?? null });
