@@ -102,3 +102,82 @@ describe("MetricsCollector", () => {
     assert.equal(snap.hits + snap.misses, 0);
   });
 });
+
+describe("startHistory()/stopHistory()", () => {
+  it("is empty until the first interval tick", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      const m = new MetricsCollector();
+      m.startHistory(1000);
+      assert.deepEqual(m.history, []);
+      m.stopHistory();
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("appends one snapshot per interval, with a timestamp", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      const m = new MetricsCollector();
+      m.record("set", 1);
+      m.startHistory(1000);
+      mock.timers.tick(1000);
+      assert.equal(m.history.length, 1);
+      assert.equal(m.history[0]!.sets, 1);
+      assert.equal(typeof m.history[0]!.at, "number");
+      mock.timers.tick(2000); // two more ticks
+      assert.equal(m.history.length, 3);
+      m.stopHistory();
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("caps history at HISTORY_CAP instead of growing forever", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      const m = new MetricsCollector();
+      m.startHistory(1000);
+      mock.timers.tick(400_000); // 400 ticks -- past the 360-entry cap
+      assert.equal(m.history.length, 360);
+      m.stopHistory();
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("stops appending once stopped", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      const m = new MetricsCollector();
+      m.startHistory(1000);
+      mock.timers.tick(1000);
+      assert.equal(m.history.length, 1);
+      m.stopHistory();
+      mock.timers.tick(5000);
+      assert.equal(m.history.length, 1);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("restarting is safe and doesn't leak a second interval", () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      const m = new MetricsCollector();
+      m.startHistory(1000);
+      m.startHistory(1000); // restart, not a second concurrent timer
+      mock.timers.tick(1000);
+      assert.equal(m.history.length, 1); // would be 2 if the first timer leaked
+      m.stopHistory();
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("stopHistory() is safe to call without a running history timer", () => {
+    const m = new MetricsCollector();
+    assert.doesNotThrow(() => m.stopHistory());
+  });
+});
