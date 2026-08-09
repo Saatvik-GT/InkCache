@@ -124,6 +124,37 @@ lull within seconds rather than smoothing over the whole uptime.
 buffer), also for the same reason: percentiles that reflect recent
 behaviour, not history from hours ago.
 
+## GET /metrics/history
+
+A periodic history of `/metrics`' own snapshot, so hit-rate/evictions/
+latency trend over time is visible instead of only ever showing the
+current instant. Sampled every 10s (in-memory only, not persisted —
+restarting the node resets it), capped at the last 360 samples (1 hour).
+
+**200**
+
+```json
+{
+  "samples": [
+    {
+      "at": 1717000000000,
+      "uptimeSec": 10.0,
+      "hits": 4,
+      "misses": 1,
+      "hitRate": 0.8,
+      "sets": 2,
+      "deletes": 0,
+      "opsPerSec": 0.7,
+      "latency": { "avgUs": 41.2, "p95Us": 88.0, "samples": 7 }
+    }
+  ]
+}
+```
+
+`samples` is empty immediately after startup and stays empty until the
+first 10s interval has actually elapsed. Each entry has the exact same
+shape as `/metrics` itself, plus `at` (epoch ms).
+
 ## GET /health
 
 **200** `{ "status": "ok", "node": "node-1", "uptimeSec": 84.2, "keys": 12, "timestamp": "..." }`
