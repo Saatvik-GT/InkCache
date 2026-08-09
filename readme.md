@@ -54,7 +54,7 @@ InkCache addresses this by combining:
 - REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
 - ASCII-terminal dashboard (React + Vite + Tailwind + react-router-dom), two routes:
   - `/` — a single-screen hero: a **rotating ASCII moon** (a real 3D sphere — spherical sampling, per-cell depth buffer, diffuse lighting against a fixed world-space light, limb darkening, and an object-space crater field — rasterized to characters instead of pixels, with rotation speed driven by live ops/sec) beside a hand-built 5×7 bitmap-font headline, a live node readout as a dot-leader manifest, and a link into the console, all in front of a deterministic ASCII starfield
-  - `/dashboard` — a dense tiled ops-console grid: hits-vs-misses and latency (avg/p95) line charts plotted on a character grid, a node-counters table, a hottest-keys bar chart, a store-capacity meter, a keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `flush`), a KEYS access-frequency heat map using shade glyphs (`░▒▓█`) sorted hottest-first, a colour-coded op stream where every line also carries its kind as text, optional synthesized sound cues (Web Audio, off by default), a glyph + label node status, synthetic traffic simulator (fires real requests), and a POST-style boot screen
+  - `/dashboard` — a dense tiled ops-console grid: hits-vs-misses and latency (avg/p95) line charts plotted on a character grid, a node-counters table, a hottest-keys bar chart, a store-capacity meter, a keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `invalidate prefix`, `flush`), a KEYS access-frequency heat map using shade glyphs (`░▒▓█`) sorted hottest-first, a colour-coded op stream where every line also carries its kind as text, optional synthesized sound cues (Web Audio, off by default), a glyph + label node status, synthetic traffic simulator (fires real requests), and a POST-style boot screen
   - No WebGL anywhere — the sphere is pure math over a character grid, which is why the whole dashboard ships in a single ~273 KB JS bundle plus ~50 KB CSS. Both routes respect `prefers-reduced-motion` (the moon holds a static lit frame rather than just slowing down)
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 - A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency
@@ -125,9 +125,10 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 - [x] Sprint 1: Single-node cache core (TTL, web console + API), including strict LFU as a standalone policy (`INKCACHE_EVICTION_POLICY=lfu`) alongside the access-aware hybrid below
 - [x] Sprint 2 (partial): Benchmarking baseline (`npm run benchmark`,
-      comparing `lru`/`access-aware`/`lfu` under real HTTP load). Cache
-      invalidation strategies beyond TTL expiry and basic metrics logging
-      (persisted, not just `/metrics`' in-memory snapshot) are still open.
+      comparing `lru`/`access-aware`/`lfu` under real HTTP load) and cache
+      invalidation strategies beyond TTL expiry (`POST /invalidate`,
+      bulk-removes every key matching a prefix). Basic metrics logging
+      (persisted, not just `/metrics`' in-memory snapshot) is still open.
 
 ### Quarter II — Product Engineering
 
@@ -201,6 +202,7 @@ curl -X DELETE http://localhost:8080/delete/user:1
 | POST   | `/set`         | Store a key-value pair with optional TTL |
 | GET    | `/get/:key`    | Retrieve a value by key                  |
 | DELETE | `/delete/:key` | Remove a key from the cache              |
+| POST   | `/invalidate`  | Bulk-remove every key matching a prefix  |
 | GET    | `/keys`        | List active (non-expired) keys           |
 | GET    | `/keys/stats`  | Per-key hit counts + TTL (one pass)      |
 | POST   | `/flush`       | Clear the entire store (dev/demo)        |
