@@ -11,6 +11,8 @@
  *   GET    /health
  *   GET    /keys
  *   GET    /keys/stats
+ *   GET    /snapshot
+ *   POST   /restore      { keys: [{ key, value, ttl? }] }
  *   POST   /flush
  *   GET    /version
  *
@@ -128,7 +130,13 @@ interface ValidatedEntry {
     messages from either endpoint instead of two hand-maintained copies
     silently drifting apart. */
 function validateEntry(input: unknown): ValidatedEntry | { error: string } {
-  const { key, value, ttl } = (input ?? {}) as Record<string, unknown>;
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const { key, value } = raw;
+  // null and undefined both mean "no ttl" -- GET /snapshot (and /get,
+  // /keys/stats) all report a no-expiry key as ttl: null, not an omitted
+  // field, so a POST /restore of that exact snapshot must accept null
+  // too or every permanent key would fail to round-trip.
+  const ttl = raw.ttl === null ? undefined : raw.ttl;
   if (typeof key !== "string" || key.trim().length === 0) {
     return { error: "key must be a non-empty string" };
   }
@@ -201,6 +209,33 @@ app.get("/keys", (_req, res) => {
 
 app.get("/keys/stats", (_req, res) => {
   res.json({ keys: store.detailedKeys(), count: store.size });
+});
+
+app.get("/snapshot", (_req, res) => {
+  const keys = store.exportEntries();
+  res.json({ keys, count: keys.length });
+});
+
+app.post("/restore", (req, res) => {
+  const { keys } = req.body ?? {};
+  if (!Array.isArray(keys)) {
+    return res.status(400).json({ error: "keys must be an array" });
+  }
+  // Validate every entry before loading any of them -- an all-or-nothing
+  // restore is far less surprising than a partial one where entry #3 of 10
+  // silently never made it in because entry #7 turned out to be malformed.
+  const validated: ValidatedEntry[] = [];
+  for (let i = 0; i < keys.length; i++) {
+    const result = validateEntry(keys[i]);
+    if ("error" in result) {
+      return res.status(400).json({ error: `keys[${i}]: ${result.error}` });
+    }
+    validated.push(result);
+  }
+  for (const entry of validated) {
+    store.set(entry.key, entry.value, { ttl: entry.ttl });
+  }
+  res.json({ ok: true, loaded: validated.length });
 });
 
 app.post("/flush", (_req, res) => {
