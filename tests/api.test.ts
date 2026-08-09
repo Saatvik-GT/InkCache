@@ -167,6 +167,42 @@ describe("REST API", () => {
     assert.equal(res.body.ok, true);
   });
 
+  it("invalidates only keys matching the given prefix", async () => {
+    await request(app).post("/set").send({ key: "user:1:profile", value: "a" }).expect(200);
+    await request(app).post("/set").send({ key: "user:1:session", value: "b" }).expect(200);
+    await request(app).post("/set").send({ key: "user:2:profile", value: "c" }).expect(200);
+    const res = await request(app).post("/invalidate").send({ prefix: "user:1:" }).expect(200);
+    assert.equal(res.body.dropped, 2);
+    assert.equal(res.body.prefix, "user:1:");
+    await request(app).get("/get/user:1:profile").expect(404);
+    await request(app).get("/get/user:1:session").expect(404);
+    await request(app).get("/get/user:2:profile").expect(200);
+  });
+
+  it("reports dropped:0 invalidating a prefix that matches nothing, not an error", async () => {
+    const res = await request(app).post("/invalidate").send({ prefix: "nope:" }).expect(200);
+    assert.equal(res.body.dropped, 0);
+    assert.equal(res.body.ok, true);
+  });
+
+  it("rejects a non-string prefix", async () => {
+    const res = await request(app).post("/invalidate").send({ prefix: 123 }).expect(400);
+    assert.match(res.body.error, /prefix/);
+  });
+
+  it("rejects a missing prefix", async () => {
+    const res = await request(app).post("/invalidate").send({}).expect(400);
+    assert.match(res.body.error, /prefix/);
+  });
+
+  it("rejects a prefix over the max key length", async () => {
+    const res = await request(app)
+      .post("/invalidate")
+      .send({ prefix: "x".repeat(257) })
+      .expect(400);
+    assert.match(res.body.error, /256 characters/);
+  });
+
   it("reports the eviction policy and sample size on /metrics", async () => {
     // Asserting against store.evictionPolicy itself would be tautological --
     // it'd pass even if the store's own default were wrong, or /metrics
