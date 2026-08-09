@@ -38,6 +38,26 @@ response if you omit it in the request — it never expires)
 **200** `{ "ok": true, "key": "user:1", "deleted": true }` (`deleted` is
 `false`, still **200**, if the key never existed — this is not an error)
 
+## POST /invalidate
+
+Delete every key starting with a given prefix — bulk invalidation without
+knowing the exact key set in advance (e.g. dropping every cache entry for
+one user: `user:42:*`).
+
+```bash
+curl -X POST http://localhost:8080/invalidate \
+  -H "Content-Type: application/json" \
+  -d '{"prefix":"user:42:"}'
+```
+
+| Field  | Type   | Required | Notes                                                        |
+| ------ | ------ | -------- | ------------------------------------------------------------ |
+| prefix | string | yes      | max 256 characters; `""` matches every key, same as `/flush` |
+
+**200** `{ "ok": true, "prefix": "user:42:", "dropped": 3 }` (`dropped` is
+`0`, still **200**, if nothing matched — this is not an error)
+**400** `{ "error": "<reason>" }`
+
 ## GET /keys
 
 List every currently active (non-expired) key.
