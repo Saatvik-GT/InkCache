@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { deleteKey, flush, getKey, setKey } from "../lib/api";
+import { deleteKey, flush, getKey, invalidatePrefix, setKey } from "../lib/api";
 import { describeFetchError } from "../lib/errors";
 import { logEvent } from "../lib/log";
 import { Button } from "./Button";
@@ -32,6 +32,7 @@ const HELP: string[] = [
   "set <key> <value> [ttlSec]   store a value (quote values with spaces)",
   "get <key>                    read a value",
   "del <key>                    remove a key (alias: delete)",
+  "invalidate <prefix>          remove every key starting with prefix",
   "flush                        clear every key in the store",
   "clear                        clear this console",
 ];
@@ -52,7 +53,11 @@ export function KVConsole({
   onOp,
 }: {
   /** Fired after every completed cache operation so siblings can refresh/log. */
-  onOp?: (event: { op: "set" | "get" | "del" | "flush"; key: string; outcome: string }) => void;
+  onOp?: (event: {
+    op: "set" | "get" | "del" | "flush" | "invalidate";
+    key: string;
+    outcome: string;
+  }) => void;
 }) {
   const [lines, setLines] = useState<Line[]>([
     { text: "inkcache kv console — type `help` or press / to focus", tone: "plain" },
@@ -136,6 +141,21 @@ export function KVConsole({
             `flushed store — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
           );
           onOp?.({ op: "flush", key: "*", outcome: "flushed" });
+          break;
+        }
+        case "invalidate": {
+          const [prefix] = args;
+          if (prefix === undefined) return print("usage: invalidate <prefix>", "err");
+          const res = await invalidatePrefix(prefix);
+          print(
+            `OK  invalidated "${prefix}" — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+            "ok",
+          );
+          logEvent(
+            "del",
+            `invalidated "${prefix}" — dropped ${res.dropped} key${res.dropped === 1 ? "" : "s"}`,
+          );
+          onOp?.({ op: "invalidate", key: prefix, outcome: "invalidated" });
           break;
         }
         case "del":

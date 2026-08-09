@@ -115,3 +115,18 @@ export async function flush(): Promise<{ ok: boolean; dropped: number }> {
   if (!res.ok) throw new Error(`flush failed (${res.status})`);
   return res.json();
 }
+
+export async function invalidatePrefix(
+  prefix: string,
+): Promise<{ ok: boolean; prefix: string; dropped: number }> {
+  const res = await request("/invalidate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prefix }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `invalidate failed (${res.status})`);
+  }
+  return res.json();
+}
