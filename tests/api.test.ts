@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { app, store } from "../src/network/app.js";
+import { app, store, metrics } from "../src/network/app.js";
 
 describe("REST API", () => {
   beforeEach(() => {
@@ -233,6 +233,30 @@ describe("REST API", () => {
     assert.equal(after.misses - before.misses, 1);
     assert.equal(after.sets - before.sets, 2);
     assert.equal(after.deletes - before.deletes, 1);
+  });
+
+  it("reports an empty samples array on /metrics/history before startHistory() runs", async () => {
+    // app.ts's own metrics singleton never calls startHistory() itself --
+    // only server.ts does, alongside app.listen() -- so under supertest
+    // (which never binds a real port) this stays empty unless a test
+    // starts it explicitly, like the next test does.
+    const res = await request(app).get("/metrics/history").expect(200);
+    assert.deepEqual(res.body.samples, []);
+  });
+
+  it("reports history samples once startHistory() has ticked", async () => {
+    mock.timers.enable({ apis: ["Date", "setInterval"] });
+    try {
+      metrics.startHistory(1000);
+      mock.timers.tick(1000);
+      const res = await request(app).get("/metrics/history").expect(200);
+      assert.equal(res.body.samples.length, 1);
+      assert.equal(typeof res.body.samples[0].at, "number");
+      assert.equal(typeof res.body.samples[0].uptimeSec, "number");
+    } finally {
+      metrics.stopHistory();
+      mock.timers.reset();
+    }
   });
 
   it("reports health and version", async () => {
