@@ -24,13 +24,20 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### REST API
 
 - `/set`, `/get/:key`, `/delete/:key`, `/invalidate`, `/keys`,
-  `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`.
+  `/keys/stats`, `/flush`, `/metrics`, `/metrics/history`, `/health`,
+  `/version`.
 - `POST /invalidate`: bulk-delete every key starting with a given
   prefix (`CacheStore.deleteByPrefix()`), for invalidating a whole
   group of related keys (e.g. `user:42:*`) without knowing the exact
   key set in advance. Same "empty string matches everything, still not
   an error" semantics as `/flush`. Wired into the KV console too
   (`invalidate <prefix>`).
+- `GET /metrics/history`: a rolling 1-hour, 360-entry in-memory window
+  of periodic `/metrics` snapshots (`MetricsCollector.startHistory()`,
+  same unref'd-interval/restart-safe pattern as `CacheStore`'s
+  sweeper), so hit-rate/evictions/latency trend over time is visible
+  instead of only ever showing the current instant. Not persisted to
+  disk — resets on restart.
 - Per-op latency instrumentation (avg/p95), hit-rate, rolling
   throughput, eviction-policy reporting.
 - JSON error responses for every error case (malformed body, oversized
