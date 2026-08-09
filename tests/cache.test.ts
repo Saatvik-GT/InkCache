@@ -347,6 +347,43 @@ describe("detailedKeys()", () => {
   });
 });
 
+describe("deleteByPrefix()", () => {
+  it("deletes only keys starting with the prefix", () => {
+    const store = new CacheStore();
+    store.set("user:1:profile", "a");
+    store.set("user:1:session", "b");
+    store.set("user:2:profile", "c");
+    assert.equal(store.deleteByPrefix("user:1:"), 2);
+    assert.equal(store.get("user:1:profile"), undefined);
+    assert.equal(store.get("user:1:session"), undefined);
+    assert.equal(store.get("user:2:profile"), "c");
+  });
+
+  it("returns 0 and touches nothing when no key matches", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    assert.equal(store.deleteByPrefix("nope:"), 0);
+    assert.equal(store.get("a"), "1");
+  });
+
+  it("an empty prefix matches (and drops) every key, same as flush()", () => {
+    const store = new CacheStore();
+    store.set("a", "1");
+    store.set("b", "2");
+    assert.equal(store.deleteByPrefix(""), 2);
+    assert.equal(store.size, 0);
+  });
+
+  it("counts an expired-but-unswept entry as dropped, same as flush()'s size-based count", () => {
+    mock.timers.enable({ apis: ["Date"] });
+    const store = new CacheStore();
+    store.set("temp:a", "x", { ttl: 1 });
+    mock.timers.tick(1_001);
+    assert.equal(store.deleteByPrefix("temp:"), 1);
+    mock.timers.reset();
+  });
+});
+
 describe("clear()", () => {
   it("empties the store and resets size to zero", () => {
     const store = new CacheStore();

@@ -96,6 +96,23 @@ export class CacheStore {
     return this.entries.delete(key);
   }
 
+  /** Delete every key starting with `prefix`; returns how many were
+      dropped. Matches raw entries regardless of expiry, same as
+      flush()'s dropped count -- an expired-but-not-yet-swept entry is
+      removed either way, so it counts. Safe to delete from the Map
+      while iterating its keys() (same pattern sweep() already relies
+      on). An empty prefix matches every key, same as flush(). */
+  deleteByPrefix(prefix: string): number {
+    let dropped = 0;
+    for (const key of this.entries.keys()) {
+      if (key.startsWith(prefix)) {
+        this.entries.delete(key);
+        dropped++;
+      }
+    }
+    return dropped;
+  }
+
   has(key: string): boolean {
     const entry = this.entries.get(key);
     if (!entry) return false;
