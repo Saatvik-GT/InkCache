@@ -51,7 +51,7 @@ InkCache addresses this by combining:
 **Implemented and working today (single-node demo):**
 
 - In-memory cache core: get/set/delete, TTL with lazy expiry + background sweep, configurable eviction — `access-aware` (default: samples the least-recently-used keys and evicts whichever was read the fewest times, a window-LFU-style heuristic), strict `lru`, or strict `lfu` (scans every live entry for the true global-coldest key, no recency window); expired entries are always reclaimed before live ones regardless of policy
-- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
+- REST API (Express): `/set`, `/get/:key`, `/delete/:key`, `/invalidate`, `/keys`, `/keys/stats`, `/flush`, `/metrics`, `/metrics/history`, `/health`, `/version`, with real per-op latency instrumentation (avg/p95), hit-rate and rolling throughput, JSON error responses (400/404) instead of Express's default HTML pages, and graceful shutdown on SIGINT/SIGTERM
 - ASCII-terminal dashboard (React + Vite + Tailwind + react-router-dom), two routes:
   - `/` — a single-screen hero: a **rotating ASCII moon** (a real 3D sphere — spherical sampling, per-cell depth buffer, diffuse lighting against a fixed world-space light, limb darkening, and an object-space crater field — rasterized to characters instead of pixels, with rotation speed driven by live ops/sec) beside a hand-built 5×7 bitmap-font headline, a live node readout as a dot-leader manifest, and a link into the console, all in front of a deterministic ASCII starfield
   - `/dashboard` — a dense tiled ops-console grid: hits-vs-misses and latency (avg/p95) line charts plotted on a character grid, a node-counters table, a hottest-keys bar chart, a store-capacity meter, a keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `invalidate prefix`, `flush`), a KEYS access-frequency heat map using shade glyphs (`░▒▓█`) sorted hottest-first, a colour-coded op stream where every line also carries its kind as text, optional synthesized sound cues (Web Audio, off by default), a glyph + label node status, synthetic traffic simulator (fires real requests), and a POST-style boot screen
@@ -125,10 +125,13 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 - [x] Sprint 1: Single-node cache core (TTL, web console + API), including strict LFU as a standalone policy (`INKCACHE_EVICTION_POLICY=lfu`) alongside the access-aware hybrid below
 - [x] Sprint 2 (partial): Benchmarking baseline (`npm run benchmark`,
-      comparing `lru`/`access-aware`/`lfu` under real HTTP load) and cache
+      comparing `lru`/`access-aware`/`lfu` under real HTTP load), cache
       invalidation strategies beyond TTL expiry (`POST /invalidate`,
-      bulk-removes every key matching a prefix). Basic metrics logging
-      (persisted, not just `/metrics`' in-memory snapshot) is still open.
+      bulk-removes every key matching a prefix), and basic metrics
+      logging (`GET /metrics/history`, a rolling 1-hour in-memory
+      window sampled every 10s) — trend visibility beyond the single
+      instantaneous `/metrics` snapshot, though not yet persisted to
+      disk across restarts.
 
 ### Quarter II — Product Engineering
 
@@ -197,18 +200,19 @@ curl -X DELETE http://localhost:8080/delete/user:1
 
 ## API Reference
 
-| Method | Endpoint       | Description                              |
-| ------ | -------------- | ---------------------------------------- |
-| POST   | `/set`         | Store a key-value pair with optional TTL |
-| GET    | `/get/:key`    | Retrieve a value by key                  |
-| DELETE | `/delete/:key` | Remove a key from the cache              |
-| POST   | `/invalidate`  | Bulk-remove every key matching a prefix  |
-| GET    | `/keys`        | List active (non-expired) keys           |
-| GET    | `/keys/stats`  | Per-key hit counts + TTL (one pass)      |
-| POST   | `/flush`       | Clear the entire store (dev/demo)        |
-| GET    | `/metrics`     | Retrieve this node's metrics             |
-| GET    | `/health`      | Node health check                        |
-| GET    | `/version`     | Package name + version                   |
+| Method | Endpoint           | Description                                            |
+| ------ | ------------------ | ------------------------------------------------------ |
+| POST   | `/set`             | Store a key-value pair with optional TTL               |
+| GET    | `/get/:key`        | Retrieve a value by key                                |
+| DELETE | `/delete/:key`     | Remove a key from the cache                            |
+| POST   | `/invalidate`      | Bulk-remove every key matching a prefix                |
+| GET    | `/keys`            | List active (non-expired) keys                         |
+| GET    | `/keys/stats`      | Per-key hit counts + TTL (one pass)                    |
+| POST   | `/flush`           | Clear the entire store (dev/demo)                      |
+| GET    | `/metrics`         | Retrieve this node's metrics                           |
+| GET    | `/metrics/history` | Last hour of periodic metrics snapshots (10s interval) |
+| GET    | `/health`          | Node health check                                      |
+| GET    | `/version`         | Package name + version                                 |
 
 > Full API documentation available in [`docs/api.md`](docs/api.md).
 
