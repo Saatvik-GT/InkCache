@@ -6,8 +6,25 @@
 
 export type OpType = "get" | "set" | "delete";
 
+export interface MetricsSnapshot {
+  uptimeSec: number;
+  hits: number;
+  misses: number;
+  hitRate: number | null;
+  sets: number;
+  deletes: number;
+  opsPerSec: number;
+  latency: { avgUs: number | null; p95Us: number | null; samples: number };
+}
+
+/** One snapshot() call plus when it was taken -- what /metrics/history hands back. */
+export interface MetricsHistoryEntry extends MetricsSnapshot {
+  at: number; // epoch ms
+}
+
 const LATENCY_SAMPLE_CAP = 512; // ring buffer size for percentile estimation
 const THROUGHPUT_WINDOW_MS = 10_000;
+const HISTORY_CAP = 360; // 1 hour of history at the default 10s sampling interval
 
 export class MetricsCollector {
   hits = 0;
@@ -19,6 +36,8 @@ export class MetricsCollector {
   private latenciesUs: number[] = [];
   private latencyIdx = 0;
   private opTimestamps: number[] = [];
+  private historyTimer?: NodeJS.Timeout;
+  private historyEntries: MetricsHistoryEntry[] = [];
 
   /** Record one completed operation and how long it took (microseconds). */
   record(op: OpType, latencyUs: number, hit?: boolean): void {
@@ -48,16 +67,7 @@ export class MetricsCollector {
     return (Date.now() - this.startedAt) / 1000;
   }
 
-  snapshot(): {
-    uptimeSec: number;
-    hits: number;
-    misses: number;
-    hitRate: number | null;
-    sets: number;
-    deletes: number;
-    opsPerSec: number;
-    latency: { avgUs: number | null; p95Us: number | null; samples: number };
-  } {
+  snapshot(): MetricsSnapshot {
     const reads = this.hits + this.misses;
     const sorted = [...this.latenciesUs].sort((a, b) => a - b);
     const avg = sorted.length > 0 ? sorted.reduce((s, v) => s + v, 0) / sorted.length : null;
@@ -88,5 +98,34 @@ export class MetricsCollector {
         samples: sorted.length,
       },
     };
+  }
+
+  /** Start periodically appending a snapshot() to the bounded history ring
+      buffer. Same start/stop/unref pattern as CacheStore's sweeper -- a
+      background timer here shouldn't keep the process alive on its own,
+      and calling this twice restarts cleanly instead of leaking a second
+      interval. */
+  startHistory(intervalMs = 10_000): void {
+    this.stopHistory();
+    this.historyTimer = setInterval(() => {
+      this.historyEntries = [
+        ...this.historyEntries.slice(-(HISTORY_CAP - 1)),
+        { at: Date.now(), ...this.snapshot() },
+      ];
+    }, intervalMs);
+    this.historyTimer.unref?.();
+  }
+
+  stopHistory(): void {
+    if (this.historyTimer) {
+      clearInterval(this.historyTimer);
+      this.historyTimer = undefined;
+    }
+  }
+
+  /** Up to the last HISTORY_CAP periodic snapshots, oldest first. Empty
+      until startHistory() has been running for at least one interval. */
+  get history(): MetricsHistoryEntry[] {
+    return this.historyEntries;
   }
 }
