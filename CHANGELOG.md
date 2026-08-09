@@ -23,8 +23,14 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### REST API
 
-- `/set`, `/get/:key`, `/delete/:key`, `/keys`, `/keys/stats`,
-  `/flush`, `/metrics`, `/health`, `/version`.
+- `/set`, `/get/:key`, `/delete/:key`, `/invalidate`, `/keys`,
+  `/keys/stats`, `/flush`, `/metrics`, `/health`, `/version`.
+- `POST /invalidate`: bulk-delete every key starting with a given
+  prefix (`CacheStore.deleteByPrefix()`), for invalidating a whole
+  group of related keys (e.g. `user:42:*`) without knowing the exact
+  key set in advance. Same "empty string matches everything, still not
+  an error" semantics as `/flush`. Wired into the KV console too
+  (`invalidate <prefix>`).
 - Per-op latency instrumentation (avg/p95), hit-rate, rolling
   throughput, eviction-policy reporting.
 - JSON error responses for every error case (malformed body, oversized
