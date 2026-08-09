@@ -81,6 +81,49 @@ one pass over the store, not N calls. Backs the dashboard's heat map.
 }
 ```
 
+## GET /snapshot
+
+Every live key's value and remaining TTL — one pass over the store, not
+N calls. Pair with `POST /restore` to save/reload the cache's contents,
+e.g. across a restart or between environments.
+
+**200**
+
+```json
+{
+  "keys": [
+    { "key": "user:1", "value": "Saatvik", "ttl": null },
+    { "key": "user:2", "value": "temp", "ttl": 284.7 }
+  ],
+  "count": 2
+}
+```
+
+Unlike `/keys/stats`, hit counts are deliberately omitted — a restored
+key starts fresh rather than inheriting stale popularity from a previous
+run.
+
+## POST /restore
+
+Load a `keys` array (the exact shape `GET /snapshot` returns) back into
+the store via the same validation `/set` uses per entry.
+
+```bash
+curl -X POST http://localhost:8080/restore \
+  -H "Content-Type: application/json" \
+  -d '{"keys":[{"key":"user:1","value":"Saatvik","ttl":null}]}'
+```
+
+| Field | Type  | Required | Notes                                                    |
+| ----- | ----- | -------- | -------------------------------------------------------- |
+| keys  | array | yes      | each entry: `{ key, value, ttl? }`, same rules as `/set` |
+
+**200** `{ "ok": true, "loaded": 1 }`
+**400** `{ "error": "<reason>" }` — the whole request is rejected if **any**
+entry fails validation; nothing is loaded partially. `ttl: null` (what
+`/snapshot` reports for a no-expiry key) and an omitted `ttl` are both
+accepted as "no expiry".
+
 ## POST /flush
 
 Clear the entire store. Intended for local dev/demo use.
