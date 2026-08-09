@@ -7,6 +7,7 @@
  *   DELETE /delete/:key
  *   POST   /invalidate   { prefix }
  *   GET    /metrics
+ *   GET    /metrics/history
  *   GET    /health
  *   GET    /keys
  *   GET    /keys/stats
@@ -52,7 +53,7 @@ const EVICTION_SAMPLE_SIZE = parsePositiveInt(
 // static Vercel deploy talking to this node via VITE_API_BASE.
 const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
 
-const metrics = new MetricsCollector();
+export const metrics = new MetricsCollector();
 export const store = new CacheStore({
   maxEntries: MAX_ENTRIES,
   policy: EVICTION_POLICY,
@@ -201,6 +202,10 @@ app.get("/metrics", (_req, res) => {
     evictionSampleSize: EVICTION_SAMPLE_SIZE,
     ...metrics.snapshot(),
   });
+});
+
+app.get("/metrics/history", (_req, res) => {
+  res.json({ samples: metrics.history });
 });
 
 app.get("/version", (_req, res) => {

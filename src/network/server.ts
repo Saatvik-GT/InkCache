@@ -3,7 +3,7 @@
  * up the TTL sweeper and graceful shutdown.
  */
 
-import { app, store, MAX_ENTRIES, NODE_ID } from "./app.js";
+import { app, store, metrics, MAX_ENTRIES, NODE_ID } from "./app.js";
 import { parsePositiveInt } from "./env.js";
 
 // PORT only matters here (app.ts never binds a port), but MAX_ENTRIES and
@@ -19,6 +19,7 @@ import { parsePositiveInt } from "./env.js";
 const PORT = parsePositiveInt(process.env.INKCACHE_PORT, 8080, "INKCACHE_PORT", 65535);
 
 store.startSweeper();
+metrics.startHistory();
 
 const server = app.listen(PORT, () => {
   console.log(
@@ -30,6 +31,7 @@ const server = app.listen(PORT, () => {
 function shutdown(signal: string): void {
   console.log(`[inkcache] received ${signal}, shutting down`);
   store.stopSweeper();
+  metrics.stopHistory();
   server.close(() => process.exit(0));
   // server.close() waits for in-flight connections to end on their own,
   // which can hang indefinitely on a lingering keep-alive socket. Force
