@@ -24,8 +24,20 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### REST API
 
 - `/set`, `/get/:key`, `/delete/:key`, `/invalidate`, `/keys`,
-  `/keys/stats`, `/flush`, `/metrics`, `/metrics/history`, `/health`,
-  `/version`.
+  `/keys/stats`, `/snapshot`, `/restore`, `/flush`, `/metrics`,
+  `/metrics/history`, `/health`, `/version`.
+- `GET /snapshot` + `POST /restore`: dump every live key's value and
+  remaining TTL, and load one back (`CacheStore.exportEntries()`, a
+  deliberately non-mutating read-only pass -- unlike `detailedKeys()` +
+  `get()` per key, which would perturb hit counts and recency order as
+  a side effect of exporting). `/restore` validates every entry before
+  loading any of them (all-or-nothing, via a `validateEntry()` helper
+  extracted from `/set` so both endpoints share identical rules).
+  Caught and fixed a real bug via live end-to-end testing rather than
+  unit tests alone: `/snapshot` reports a no-expiry key as `ttl: null`
+  (matching `/get` and `/keys/stats`' own convention), but the
+  extracted validator only treated `ttl: undefined` as "no ttl" --
+  restoring an exported permanent key was rejected outright.
 - `POST /invalidate`: bulk-delete every key starting with a given
   prefix (`CacheStore.deleteByPrefix()`), for invalidating a whole
   group of related keys (e.g. `user:42:*`) without knowing the exact
