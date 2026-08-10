@@ -11,3 +11,12 @@ services:
       INKCACHE_PORT: 8080
       INKCACHE_NODE_ID: node-1
       # INKCACHE_CORS_ORIGIN: https://your-dashboard.example.com
+      # INKCACHE_PERSIST_PATH: /data/inkcache.json
+    # Only meaningful together with INKCACHE_PERSIST_PATH above -- a
+    # container's own filesystem is wiped on `docker compose down` (not
+    # just a restart), so persistence needs a real volume to actually
+    # survive that, not just the container's ephemeral layer.
+    # volumes:
+    #   - inkcache-data:/data
+# volumes:
+#   inkcache-data:
