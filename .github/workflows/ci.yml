@@ -97,16 +97,43 @@ jobs:
 
       - name: Smoke-test the Docker image
         run: |
-          docker run -d --name inkcache-smoke -p 8080:8080 inkcache-node
+          docker run -d --name inkcache-smoke -p 8080:8080 \
+            -e INKCACHE_PERSIST_PATH=/tmp/inkcache.json \
+            inkcache-node
           for i in $(seq 1 10); do
             if curl -sf http://localhost:8080/health; then break; fi
             [ "$i" -eq 10 ] && { echo "node never came up"; docker logs inkcache-smoke; exit 1; }
             sleep 1
           done
 
-      # Runs even if the smoke test above failed (if: always()) — a failed
-      # health check would otherwise leave the container running for the
-      # rest of the job instead of exiting cleanly.
+      # `docker stop` sends a real SIGTERM (SIGKILL only after a grace
+      # period) on a real POSIX target -- the one code path that could
+      # never be verified from a Windows dev machine, where neither
+      # Stop-Process nor taskkill deliver a signal server.ts's own
+      # process.on("SIGTERM") can actually catch. Also checks that CMD's
+      # `npx tsx ...` (npx is PID 1 in the container) actually forwards
+      # the signal to the real node process instead of swallowing it.
+      - name: Verify graceful shutdown and the persistence final-save
+        run: |
+          curl -sf -X POST http://localhost:8080/set \
+            -H "Content-Type: application/json" \
+            -d '{"key":"smoke-test","value":"1"}'
+          docker stop inkcache-smoke
+          docker logs inkcache-smoke 2>&1 | grep -q "received SIGTERM, shutting down" || {
+            echo "graceful shutdown log line never appeared -- SIGTERM isn't reaching the process"
+            docker logs inkcache-smoke
+            exit 1
+          }
+          docker cp inkcache-smoke:/tmp/inkcache.json ./persisted-smoke-test.json
+          grep -q "smoke-test" ./persisted-smoke-test.json || {
+            echo "persisted file is missing the seeded key -- final save on shutdown didn't run"
+            cat ./persisted-smoke-test.json
+            exit 1
+          }
+
+      # Runs even if either step above failed (if: always()) — a failed
+      # health check or shutdown check would otherwise leave the container
+      # running for the rest of the job instead of exiting cleanly.
       - name: Stop the smoke-test container
         if: always()
         run: docker rm -f inkcache-smoke

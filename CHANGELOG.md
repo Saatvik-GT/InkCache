@@ -38,6 +38,27 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   (matching `/get` and `/keys/stats`' own convention), but the
   extracted validator only treated `ttl: undefined` as "no ttl" --
   restoring an exported permanent key was rejected outright.
+- Optional disk persistence (`INKCACHE_PERSIST_PATH`,
+  `INKCACHE_PERSIST_INTERVAL`, both unset/disabled by default): a new
+  `src/network/persistence.ts` (deliberately not in `src/core` --
+  `cache.ts`'s own header documents it as dependency-free, and file I/O
+  doesn't belong there) loads a snapshot on startup, auto-saves on an
+  interval, and does one best-effort final save on graceful shutdown.
+  Writes are atomic (temp file + rename); a missing or corrupt file
+  just starts the node empty with a warning rather than crashing --
+  same discipline the rest of this layer already applies to garbage
+  env-var input. Live-verified the startup-load and periodic-save
+  paths against a real running node. The graceful-shutdown final-save
+  path needed a real delivered `SIGTERM` to verify and couldn't be
+  tested from Windows at all -- `Stop-Process` and `taskkill` both
+  terminate the process unconditionally rather than deliver a
+  catchable signal, even to a plain (non-containerized) `node`
+  process. Verified for real against the actual Docker image instead:
+  `docker stop` (graceful, real `SIGTERM` on a real POSIX target)
+  against a running container correctly triggered the shutdown log
+  line and left the seeded key in the persisted file. That check is
+  now permanent, not just a one-off local run -- see the CI entry
+  below.
 - `POST /invalidate`: bulk-delete every key starting with a given
   prefix (`CacheStore.deleteByPrefix()`), for invalidating a whole
   group of related keys (e.g. `user:42:*`) without knowing the exact
@@ -167,7 +188,15 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   `npm ci` caching covers the dashboard's own (much larger) lockfile as
   well as the root's, and the Docker build itself is cached across runs
   via `docker/build-push-action` + the GHA cache backend rather than
-  rebuilding every layer from scratch on every push.
+  rebuilding every layer from scratch on every push. The smoke test now
+  also seeds a key, sends a real `docker stop` (graceful `SIGTERM`,
+  not the `docker rm -f` it used to go straight to), and checks both
+  that the shutdown log line appears and that the persistence final-
+  save (`INKCACHE_PERSIST_PATH`) actually wrote the seeded key to disk
+  before the container exits -- this is also the check that confirms
+  `CMD`'s `npx tsx ...` (`npx` is PID 1 in the container) genuinely
+  forwards the signal to the real `node` process instead of
+  swallowing it, which a plain `docker rm -f` never exercised.
 - Fixed a real ordering bug: "Typecheck backend" ran before "Install
   dashboard deps", but the root tsconfig's `tests/**/*` transitively
   type-checks dashboard lib code (`tests/log.test.ts` → `lib/log.ts` →
