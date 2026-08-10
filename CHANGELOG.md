@@ -218,6 +218,26 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   code path. Not a CI step; meant to be read, not just passed/failed.
   Closes the `npm run benchmark` promise the README had been carrying
   since before this tool existed.
+- `npm run benchmark:external` (`scripts/benchmark-external.ts`): the
+  same skewed-key, 85/15 read/write workload run against real
+  `redis:7-alpine` and `memcached:1.6-alpine` containers (via `ioredis`
+  and `memjs`, each backend's own native protocol -- not HTTP, since
+  fronting them with a REST shim just to reuse `autocannon` would
+  measure the shim, not them) alongside InkCache over real HTTP,
+  closing the "benchmarking vs. Redis/Memcached" item the roadmap had
+  listed as open since Sprint 6. A throughput/latency comparison, not
+  an eviction-effectiveness one -- Redis's memory-based `maxmemory` and
+  Memcached's slab-based `-m` don't evict the same way InkCache's
+  entry-count-based `maxEntries` does, so both are configured with
+  generous memory limits so no eviction happens during the run at all,
+  documented in the file's own header. Separate script/command from
+  `npm run benchmark` on purpose: this one needs Docker, and shouldn't
+  make the simpler, dependency-free comparison unusable without it.
+  Live-verified three times: real, varying (not fabricated) numbers
+  each run, Redis fastest and InkCache slowest (HTTP+JSON overhead on
+  top of the same underlying operations, against two binary-protocol
+  backends), and confirmed zero leftover Docker containers or
+  processes after every run.
 
 ### Accessibility
 
