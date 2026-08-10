@@ -243,21 +243,34 @@ reaching later middleware.
 All node configuration is via environment variables, set before starting
 the node (`npm run dev:node` / `npm run start:node`):
 
-| Variable                   | Default        | Notes                                    |
-| -------------------------- | -------------- | ---------------------------------------- |
-| `INKCACHE_PORT`            | `8080`         | HTTP port the node listens on            |
-| `INKCACHE_NODE_ID`         | `node-1`       | label reported in `/health`/`/metrics`   |
-| `INKCACHE_MAX_ENTRIES`     | `512`          | capacity before eviction kicks in        |
-| `INKCACHE_EVICTION_POLICY` | `access-aware` | `access-aware`, `lru`, or `lfu`          |
-| `INKCACHE_EVICTION_SAMPLE` | `5`            | candidate window size for `access-aware` |
-| `INKCACHE_MAX_KEY_LENGTH`  | `256`          | longest key `/set` will accept           |
-| `INKCACHE_CORS_ORIGIN`     | _(none)_       | comma-separated extra allowed origins    |
+| Variable                    | Default        | Notes                                                                    |
+| --------------------------- | -------------- | ------------------------------------------------------------------------ |
+| `INKCACHE_PORT`             | `8080`         | HTTP port the node listens on                                            |
+| `INKCACHE_NODE_ID`          | `node-1`       | label reported in `/health`/`/metrics`                                   |
+| `INKCACHE_MAX_ENTRIES`      | `512`          | capacity before eviction kicks in                                        |
+| `INKCACHE_EVICTION_POLICY`  | `access-aware` | `access-aware`, `lru`, or `lfu`                                          |
+| `INKCACHE_EVICTION_SAMPLE`  | `5`            | candidate window size for `access-aware`                                 |
+| `INKCACHE_MAX_KEY_LENGTH`   | `256`          | longest key `/set` will accept                                           |
+| `INKCACHE_CORS_ORIGIN`      | _(none)_       | comma-separated extra allowed origins                                    |
+| `INKCACHE_PERSIST_PATH`     | _(none)_       | file path to save/load the cache's contents across restarts              |
+| `INKCACHE_PERSIST_INTERVAL` | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set) |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
 [`src/dashboard/.env.example`](../src/dashboard/.env.example)) — local dev
 origins (`localhost:5173` and `127.0.0.1:5173`) are always allowed
 regardless.
+
+`INKCACHE_PERSIST_PATH` is unset (disabled) by default — the cache is
+in-memory only and restarting the process loses everything, same as
+without this variable at all. Set it to a file path to opt in: the node
+loads that file on startup (if it exists), saves to it every
+`INKCACHE_PERSIST_INTERVAL` seconds, and does one final best-effort save
+on a graceful `SIGINT`/`SIGTERM` shutdown. Writes are atomic (a temp file
+
+- rename, not a direct write), so a process killed mid-save never leaves
+  a corrupt file — a missing or unparseable file just starts the node
+  empty, with a warning, rather than crashing.
 
 The four numeric variables (`PORT`, `MAX_ENTRIES`, `EVICTION_SAMPLE`,
 `MAX_KEY_LENGTH`) are validated as positive integers — set one to
