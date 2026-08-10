@@ -57,7 +57,7 @@ InkCache addresses this by combining:
   - `/dashboard` — a dense tiled ops-console grid: hits-vs-misses and latency (avg/p95) line charts plotted on a character grid, a node-counters table, a hottest-keys bar chart, a store-capacity meter, a keyboard-driven KV console (`set k v [ttl]`, `get k`, `del k`, `invalidate prefix`, `flush`), a KEYS access-frequency heat map using shade glyphs (`░▒▓█`) sorted hottest-first, a colour-coded op stream where every line also carries its kind as text, optional synthesized sound cues (Web Audio, off by default), a glyph + label node status, synthetic traffic simulator (fires real requests), and a POST-style boot screen
   - No WebGL anywhere — the sphere is pure math over a character grid, which is why the whole dashboard ships in a single ~273 KB JS bundle plus ~50 KB CSS. Both routes respect `prefers-reduced-motion` (the moon holds a static lit frame rather than just slowing down)
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
-- A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency
+- A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency, plus `npm run benchmark:external` comparing InkCache against real Redis and Memcached containers over each backend's own native protocol
 
 **Not yet implemented (roadmap):** multi-node replication, consistent hashing, and failover. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
@@ -141,9 +141,12 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 
 ### Quarter III — Production & Leadership
 
-- [ ] Sprint 6: Metrics dashboard ✔ (single-node version done early),
-      load testing ✔ (`npm run benchmark`, see Sprint 2) — benchmarking
-      against actual Redis/Memcached instances is still open
+- [x] Sprint 6: Metrics dashboard (single-node version done early), load
+      testing (`npm run benchmark`, see Sprint 2), and benchmarking
+      against actual Redis/Memcached instances (`npm run benchmark:external`,
+      real containers over each backend's own protocol — a
+      throughput/latency comparison, not an eviction one; see the file
+      header for why the two aren't equivalent to compare)
 - [ ] Sprint 7: Deployment, final documentation, demo preparation
 
 > Full milestone tracking is maintained via GitHub Issues and Milestones.
@@ -244,6 +247,18 @@ pass/fail) — run it locally when comparing eviction policies. See
 [`scripts/benchmark.ts`](scripts/benchmark.ts) for the exact workload
 shape and parameters.
 
+```bash
+# Compares InkCache against real Redis and Memcached containers, each
+# talked to over its own native protocol -- a throughput/latency
+# comparison, not an eviction one (see the file header for why).
+# Requires Docker running locally.
+npm run benchmark:external
+```
+
+See [`scripts/benchmark-external.ts`](scripts/benchmark-external.ts) for
+the exact workload and why eviction effectiveness isn't part of this
+particular comparison.
+
 ## Deployment
 
 The cache node and the dashboard are deployed separately — the node needs
@@ -303,7 +318,8 @@ InkCache/
 │       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)
 ├── tests/                # node:test + supertest: core cache logic + REST routes
 ├── scripts/
-│   └── benchmark.ts      # npm run benchmark: lru/access-aware/lfu under real HTTP load
+│   ├── benchmark.ts      # npm run benchmark: lru/access-aware/lfu under real HTTP load
+│   └── benchmark-external.ts # npm run benchmark:external: vs. real Redis/Memcached
 └── docs/
     ├── api.md             # full endpoint + config reference
     ├── security-notes.md  # why react-router-dom stays on the 7.18.x line
