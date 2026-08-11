@@ -336,6 +336,17 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   to filter out expired keys. Rewritten as a single pass over
   `entries`' `[key, value]` pairs, checking expiry inline, matching the
   pattern `detailedKeys()`/`exportEntries()` already used.
+- `Dockerfile` transpiled TypeScript through `tsx` on every container
+  start; now a multi-stage build compiles once with `tsc`
+  (`tsconfig.build.json`, `src/core` + `src/network` only) and the
+  runtime stage runs the plain compiled JS with the bare `node` binary
+  as PID 1. `tsx` moved back to `devDependencies` — it's no longer
+  needed at runtime — and the runtime image no longer needs a
+  TypeScript toolchain at all. Also removes the `npx` layer that used
+  to sit between PID 1 and the actual `node` process, so there's one
+  fewer thing that could swallow a shutdown signal instead of
+  forwarding it (re-verified against a real `docker stop`: graceful
+  shutdown and the final persistence save both still fire correctly).
 
 ### Security
 

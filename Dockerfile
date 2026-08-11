@@ -1,21 +1,35 @@
-# InkCache cache node — runs the TypeScript source directly via tsx (same
-# as `npm run start:node` locally), no separate compile step to drift out
-# of sync with the source. Single stage: this is a small demo backend, not
-# a project that benefits from a multi-stage build/runtime split yet.
+# InkCache cache node — multi-stage build: compile TypeScript to plain JS
+# once at build time (tsconfig.build.json, src/core + src/network only),
+# then run it with the bare `node` binary. Replaces transpiling via tsx on
+# every container start, which cost real startup latency and meant tsx had
+# to ship as a production dependency purely to exist at runtime.
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Full install here (not --omit=dev) -- typescript itself is a devDependency
+# and this stage's only job is to compile, never to run the server.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY tsconfig.json tsconfig.build.json ./
+COPY src/core ./src/core
+COPY src/network ./src/network
+RUN npx tsc -p tsconfig.build.json
+
+
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Only the backend's manifest — the dashboard has its own package.json and
+# Only the backend's manifest -- the dashboard has its own package.json and
 # isn't part of this image at all. --omit=dev skips concurrently/prettier/
-# typescript/supertest entirely — tsx lives in "dependencies" specifically
-# so it's still installed (it's the actual runtime, not a dev tool here).
+# typescript/tsx/supertest entirely: none of them are needed to run
+# already-compiled JS.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY tsconfig.json ./
-COPY src/core ./src/core
-COPY src/network ./src/network
+COPY --from=build /app/dist ./dist
 
 ENV NODE_ENV=production
 EXPOSE 8080
@@ -35,4 +49,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
 # only thing it needs is read access to files root already copied in.
 USER node
 
-CMD ["npx", "tsx", "src/network/server.ts"]
+CMD ["node", "dist/network/server.js"]

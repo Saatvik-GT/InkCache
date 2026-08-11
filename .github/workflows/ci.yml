@@ -110,9 +110,10 @@ jobs:
       # period) on a real POSIX target -- the one code path that could
       # never be verified from a Windows dev machine, where neither
       # Stop-Process nor taskkill deliver a signal server.ts's own
-      # process.on("SIGTERM") can actually catch. Also checks that CMD's
-      # `npx tsx ...` (npx is PID 1 in the container) actually forwards
-      # the signal to the real node process instead of swallowing it.
+      # process.on("SIGTERM") can actually catch. `node` is PID 1 in the
+      # container directly (no npx wrapper since the multi-stage build
+      # ships precompiled JS), so there's no intermediary that could
+      # swallow the signal instead of forwarding it.
       - name: Verify graceful shutdown and the persistence final-save
         run: |
           curl -sf -X POST http://localhost:8080/set \

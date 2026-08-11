@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Only src/core and src/network are ever shipped -- narrow rootDir so
+    // dist/ mirrors just those two folders instead of an empty dist/tests,
+    // dist/scripts sitting alongside them.
+    "rootDir": "src"
+  },
+  // Deliberately excludes tests/**/* and scripts/**/*: this is what the
+  // Docker image actually compiles and runs, and tests/**/* transitively
+  // needs @types/react (see tsconfig.json's comment) -- pulling that in
+  // here would mean the production build depends on dashboard tooling
+  // that has nothing to do with what ships.
+  "include": ["src/core/**/*", "src/network/**/*"]
+}
