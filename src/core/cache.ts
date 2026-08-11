@@ -143,8 +143,21 @@ export class CacheStore {
     return entry.hits;
   }
 
+  /** Every live key -- single pass over entries, checking expiry inline
+      instead of has()'s second Map lookup per key (the iteration already
+      hands us the entry; no need to look it up again). Same pattern as
+      detailedKeys()/exportEntries() below. */
   keys(): string[] {
-    return [...this.entries.keys()].filter((k) => this.has(k));
+    const now = Date.now();
+    const result: string[] = [];
+    for (const [key, entry] of this.entries) {
+      if (entry.expiresAt !== undefined && now >= entry.expiresAt) {
+        this.entries.delete(key);
+        continue;
+      }
+      result.push(key);
+    }
+    return result;
   }
 
   /** Every live key with its access count and remaining TTL — one pass,

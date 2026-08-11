@@ -314,6 +314,29 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   running under plain Node ESM without a bundler. Surfaced by testing
   `log.ts` for the first time.
 
+### Performance
+
+- `MetricsCollector.record()` pruned its rolling throughput window with
+  `Array.shift()` in a loop — O(n) per call because it re-indexes every
+  remaining element — on every single cache operation (`record()` runs
+  on the request hot path, not just on `/metrics` polls). Replaced with
+  a head-index pointer plus periodic compaction, so pruning is amortized
+  O(1) instead of scaling with request rate.
+- `MetricsCollector.snapshot()` sorted the full latency sample buffer
+  (up to 512 entries) on every `/metrics` read just to compute the
+  average, which only needs an O(1) running sum — now tracked
+  incrementally in `record()`, adjusted for whichever sample the ring
+  buffer overwrites. The sort is kept for p95, which genuinely needs
+  order statistics. `snapshot()` also re-scanned the whole timestamp
+  array a second time to correct for staleness between throughput-window
+  prunes; replaced with a binary search, since timestamps are pushed in
+  increasing order.
+- `CacheStore.keys()` did two Map lookups per key — one implicit in
+  iterating `entries.keys()`, one explicit inside the `has()` call used
+  to filter out expired keys. Rewritten as a single pass over
+  `entries`' `[key, value]` pairs, checking expiry inline, matching the
+  pattern `detailedKeys()`/`exportEntries()` already used.
+
 ### Security
 
 - `react-router-dom` stays on the 7.18.x line rather than following
