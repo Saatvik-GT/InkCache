@@ -176,12 +176,12 @@ app.post("/set", (req, res) => {
 
 app.get("/get/:key", (req, res) => {
   const key = req.params.key;
-  const { result: value, latencyUs } = timed(() => store.get(key));
-  metrics.record("get", latencyUs, value !== undefined);
-  if (value === undefined) {
+  const { result, latencyUs } = timed(() => store.getWithTtl(key));
+  metrics.record("get", latencyUs, result !== undefined);
+  if (result === undefined) {
     return res.status(404).json({ error: "miss", key });
   }
-  return res.json({ key, value, ttl: store.ttl(key) ?? null });
+  return res.json({ key, value: result.value, ttl: result.ttl });
 });
 
 app.delete("/delete/:key", (req, res) => {

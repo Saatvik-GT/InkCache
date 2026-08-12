@@ -376,7 +376,7 @@ describe("REST API", () => {
   });
 
   it("returns a JSON 500 for a genuinely unexpected error, not Express's default HTML page", async () => {
-    const getMock = mock.method(store, "get", () => {
+    const getMock = mock.method(store, "getWithTtl", () => {
       throw new Error("simulated unexpected failure");
     });
     try {

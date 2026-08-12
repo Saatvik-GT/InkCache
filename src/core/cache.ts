@@ -92,6 +92,28 @@ export class CacheStore {
     return entry.value;
   }
 
+  /** Like get(), but also returns the remaining TTL in the same pass —
+      GET /get/:key needs both on every request (its hot path), and
+      calling get() then ttl() separately would mean two Map lookups
+      (plus ttl()'s own expiry check re-doing work get() just did) for
+      a key we already have the live entry for. */
+  getWithTtl(key: string): { value: string; ttl: number | null } | undefined {
+    const entry = this.entries.get(key);
+    if (!entry) return undefined;
+    if (this.isExpired(entry)) {
+      this.entries.delete(key);
+      return undefined;
+    }
+    entry.hits++;
+    this.entries.delete(key);
+    this.entries.set(key, entry);
+    return {
+      value: entry.value,
+      ttl:
+        entry.expiresAt === undefined ? null : Math.max(0, (entry.expiresAt - Date.now()) / 1000),
+    };
+  }
+
   delete(key: string): boolean {
     return this.entries.delete(key);
   }

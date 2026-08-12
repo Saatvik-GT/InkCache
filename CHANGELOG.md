@@ -347,6 +347,12 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   fewer thing that could swallow a shutdown signal instead of
   forwarding it (re-verified against a real `docker stop`: graceful
   shutdown and the final persistence save both still fire correctly).
+- `GET /get/:key` — the single hottest endpoint — called `store.get(key)`
+  then `store.ttl(key)` separately, a second Map lookup (plus a second
+  expiry check re-doing work `get()` already did) for a key it already
+  had the live entry for on every request. Added `CacheStore.getWithTtl()`,
+  returning both in one pass; the route uses it instead of chaining the
+  two standalone methods, which stay as-is for their other callers.
 
 ### Security
 

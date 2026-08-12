@@ -89,6 +89,39 @@ describe("TTL expiry", () => {
     assert.equal(store.ttl("p"), undefined);
     assert.equal(store.ttl("never-existed"), undefined);
   });
+
+  it("getWithTtl reports the same value and ttl as get()+ttl() combined", () => {
+    const store = new CacheStore();
+    store.set("t", "x", { ttl: 30 });
+    store.set("p", "y");
+    const withTtl = store.getWithTtl("t");
+    assert.equal(withTtl?.value, "x");
+    assert.ok(withTtl && withTtl.ttl !== null && withTtl.ttl > 29 && withTtl.ttl <= 30);
+    assert.deepEqual(store.getWithTtl("p"), { value: "y", ttl: null });
+    assert.equal(store.getWithTtl("never-existed"), undefined);
+  });
+
+  it("getWithTtl bumps hits and recency the same way get() does", () => {
+    const store = new CacheStore({ maxEntries: 2 });
+    store.set("a", "1");
+    store.set("b", "2");
+    store.getWithTtl("a"); // touch "a" so it's no longer the LRU candidate
+    store.set("c", "3"); // forces an eviction at capacity
+    assert.equal(store.accessCount("a"), 1);
+    assert.equal(store.get("b"), undefined); // "b" was LRU, evicted
+    assert.equal(store.get("a"), "1");
+  });
+
+  it("getWithTtl expires lazily, same as get()", () => {
+    const store = new CacheStore();
+    store.set("t", "x", { ttl: 0.01 });
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        assert.equal(store.getWithTtl("t"), undefined);
+        resolve();
+      }, 30);
+    });
+  });
 });
 
 describe("LRU eviction", () => {
