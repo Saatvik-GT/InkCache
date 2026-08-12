@@ -10,6 +10,7 @@ import { TopKeysChart } from "../components/TopKeysChart";
 import { LatencyChart, TrafficChart } from "../components/TrafficChart";
 import { Toggle } from "../components/Toggle";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useKeyStats } from "../hooks/useKeyStats";
 import { useNode, type NodeStatus } from "../hooks/useNode";
 import { flush } from "../lib/api";
 import { describeFetchError } from "../lib/errors";
@@ -59,6 +60,10 @@ export function Dashboard() {
   // Any write-ish op invalidates the key views; recomputing off the
   // counters means they refetch on real change rather than on a timer.
   const keyRefreshToken = metrics ? metrics.sets + metrics.deletes + metrics.evictions : 0;
+  // Fetched once here and passed to both TopKeysChart and KeysPanel below --
+  // they used to each call useKeyStats() independently, which meant every
+  // refresh fired two identical GET /keys/stats requests for the same data.
+  const keyStats = useKeyStats(keyRefreshToken);
 
   return (
     <div className="ascii-scanlines relative min-h-screen overflow-hidden bg-void">
@@ -176,7 +181,7 @@ export function Dashboard() {
             )}
           </div>
           <div className="lg:col-span-4">
-            <TopKeysChart refreshToken={keyRefreshToken} />
+            <TopKeysChart stats={keyStats} />
           </div>
           <div className="flex flex-col gap-3 lg:col-span-4">
             {metrics ? (
@@ -199,7 +204,7 @@ export function Dashboard() {
             <KVConsole onOp={refreshNow} />
           </div>
           <div className={`${STREAM_PANEL_HEIGHT} lg:col-span-4`}>
-            <KeysPanel refreshToken={keyRefreshToken} />
+            <KeysPanel stats={keyStats} />
           </div>
           <div className={`${STREAM_PANEL_HEIGHT} lg:col-span-4`}>
             <LogStream />

@@ -353,6 +353,14 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   had the live entry for on every request. Added `CacheStore.getWithTtl()`,
   returning both in one pass; the route uses it instead of chaining the
   two standalone methods, which stay as-is for their other callers.
+- Dashboard: `TopKeysChart` and `KeysPanel` each called `useKeyStats()`
+  independently, even though both always render together on the
+  Dashboard page with the identical `refreshToken` — every real change
+  (set/delete/eviction) fired two identical `GET /keys/stats` requests
+  instead of one. `useKeyStats()` is now called once in `Dashboard.tsx`
+  and passed down as a `stats` prop to both. Verified against a live
+  dev server with Playwright: exactly one request fires per real write,
+  both panels still render the same live data as before.
 
 ### Security
 

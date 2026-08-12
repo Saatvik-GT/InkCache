@@ -1,4 +1,4 @@
-import { useKeyStats } from "../hooks/useKeyStats";
+import type { KeyStat } from "../lib/api.js";
 import { AsciiPanel } from "./AsciiPanel";
 
 /** Shade ramp for access frequency — colourless, so it survives being read
@@ -16,9 +16,9 @@ function heatGlyph(hits: number, max: number): string {
  * than a background tint, so the ranking is legible in a screenshot, in
  * monochrome, and to anyone who can't separate the hue steps.
  */
-export function KeysPanel({ refreshToken }: { refreshToken: number }) {
-  const stats = useKeyStats(refreshToken);
-
+/** Takes stats as a prop rather than fetching its own -- see TopKeysChart's
+    header comment, which renders alongside this from the same shared fetch. */
+export function KeysPanel({ stats }: { stats: KeyStat[] | null }) {
   const maxHits = stats ? Math.max(0, ...stats.map((s) => s.hits)) : 0;
   const sorted = stats ? [...stats].sort((a, b) => b.hits - a.hits) : null;
 

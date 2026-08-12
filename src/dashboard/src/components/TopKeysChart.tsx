@@ -1,4 +1,4 @@
-import { useKeyStats } from "../hooks/useKeyStats";
+import type { KeyStat } from "../lib/api.js";
 import { AsciiPanel } from "./AsciiPanel";
 import { BarChart } from "./BarChart";
 
@@ -6,10 +6,13 @@ import { BarChart } from "./BarChart";
  * The hottest keys by read count — the direct visual answer to "what is
  * access-aware eviction protecting right now?", which a flat key list
  * can't give you at a glance.
+ *
+ * Takes stats as a prop rather than fetching its own -- KeysPanel renders
+ * alongside this on the same page and needs the identical list, so a
+ * shared fetch lifted to the parent (Dashboard.tsx) means one /keys/stats
+ * request per refresh instead of two.
  */
-export function TopKeysChart({ refreshToken, top = 6 }: { refreshToken: number; top?: number }) {
-  const stats = useKeyStats(refreshToken);
-
+export function TopKeysChart({ stats, top = 6 }: { stats: KeyStat[] | null; top?: number }) {
   const bars = (stats ?? [])
     .slice()
     .sort((a, b) => b.hits - a.hits)
