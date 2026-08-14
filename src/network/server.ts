@@ -4,7 +4,16 @@
  * graceful shutdown.
  */
 
-import { app, store, metrics, MAX_ENTRIES, NODE_ID } from "./app.js";
+import {
+  app,
+  store,
+  metrics,
+  MAX_ENTRIES,
+  NODE_ID,
+  ROLE,
+  PRIMARY_URL,
+  REPLICA_URLS,
+} from "./app.js";
 import { parsePositiveInt } from "./env.js";
 import {
   loadSnapshot,
@@ -12,6 +21,7 @@ import {
   startAutoPersist,
   type AutoPersistHandle,
 } from "./persistence.js";
+import { syncFromPrimary } from "./replication.js";
 
 // PORT only matters here (app.ts never binds a port), but MAX_ENTRIES and
 // NODE_ID are imported rather than recomputed — a second, independently
@@ -45,13 +55,23 @@ async function start(): Promise<void> {
     persistHandle = startAutoPersist(store, PERSIST_PATH, PERSIST_INTERVAL_MS);
   }
 
+  // A replica pulls its primary's full snapshot once at startup so it
+  // isn't serving empty/stale data before the first replicated write
+  // arrives. Runs before listen() so nothing is exposed mid-sync. Bounded
+  // retries inside syncFromPrimary() -- see its own comment for why.
+  if (ROLE === "replica" && PRIMARY_URL) {
+    const loaded = await syncFromPrimary(store, PRIMARY_URL);
+    console.log(`[inkcache] synced ${loaded} key(s) from primary ${PRIMARY_URL}`);
+  }
+
   store.startSweeper();
   metrics.startHistory();
 
   server = app.listen(PORT, () => {
     console.log(
       `[inkcache] ${NODE_ID} listening on http://localhost:${PORT} ` +
-        `(maxEntries=${MAX_ENTRIES}, evictionPolicy=${store.evictionPolicy})`,
+        `(maxEntries=${MAX_ENTRIES}, evictionPolicy=${store.evictionPolicy}, role=${ROLE}` +
+        `${ROLE === "primary" && REPLICA_URLS.length > 0 ? `, replicas=${REPLICA_URLS.length}` : ""})`,
     );
   });
 }

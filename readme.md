@@ -58,8 +58,9 @@ InkCache addresses this by combining:
   - No WebGL anywhere — the sphere is pure math over a character grid, which is why the whole dashboard ships in a single ~273 KB JS bundle plus ~50 KB CSS. Both routes respect `prefers-reduced-motion` (the moon holds a static lit frame rather than just slowing down)
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 - A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency, plus `npm run benchmark:external` comparing InkCache against real Redis and Memcached containers over each backend's own native protocol
+- Single-primary replication (`INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`): a primary forwards every write to its replicas over HTTP, and a replica pulls a full snapshot from its primary once at startup — see [docs/api.md#replication](docs/api.md#replication)
 
-**Not yet implemented (roadmap):** multi-node replication, consistent hashing, and failover. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** consistent hashing, node discovery, and automatic failover — today's replication is a fixed, manually-configured primary and replica set, not a self-healing cluster. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -124,18 +125,22 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
 ### Quarter I — Engineering Foundation
 
 - [x] Sprint 1: Single-node cache core (TTL, web console + API), including strict LFU as a standalone policy (`INKCACHE_EVICTION_POLICY=lfu`) alongside the access-aware hybrid below
-- [x] Sprint 2 (partial): Benchmarking baseline (`npm run benchmark`,
+- [x] Sprint 2: Benchmarking baseline (`npm run benchmark`,
       comparing `lru`/`access-aware`/`lfu` under real HTTP load), cache
       invalidation strategies beyond TTL expiry (`POST /invalidate`,
-      bulk-removes every key matching a prefix), and basic metrics
+      bulk-removes every key matching a prefix), basic metrics
       logging (`GET /metrics/history`, a rolling 1-hour in-memory
       window sampled every 10s) — trend visibility beyond the single
-      instantaneous `/metrics` snapshot, though not yet persisted to
-      disk across restarts.
+      instantaneous `/metrics` snapshot — and opt-in disk persistence
+      (`INKCACHE_PERSIST_PATH`) so the store survives a restart instead
+      of always starting empty.
 
 ### Quarter II — Product Engineering
 
-- [ ] Sprint 3: Multi-node replication (primary-replica model)
+- [x] Sprint 3: Multi-node replication (primary-replica model) —
+      `INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`, see
+      [docs/api.md#replication](docs/api.md#replication). Single fixed
+      primary, best-effort/asynchronous, not consensus-based.
 - [ ] Sprint 4: Consistent hashing, node discovery, failure handling
 - [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
 
@@ -203,21 +208,22 @@ curl -X DELETE http://localhost:8080/delete/user:1
 
 ## API Reference
 
-| Method | Endpoint           | Description                                            |
-| ------ | ------------------ | ------------------------------------------------------ |
-| POST   | `/set`             | Store a key-value pair with optional TTL               |
-| GET    | `/get/:key`        | Retrieve a value by key                                |
-| DELETE | `/delete/:key`     | Remove a key from the cache                            |
-| POST   | `/invalidate`      | Bulk-remove every key matching a prefix                |
-| GET    | `/keys`            | List active (non-expired) keys                         |
-| GET    | `/keys/stats`      | Per-key hit counts + TTL (one pass)                    |
-| GET    | `/snapshot`        | Every live key's value + TTL, for backup/restore       |
-| POST   | `/restore`         | Bulk-load a `/snapshot`-shaped keys array              |
-| POST   | `/flush`           | Clear the entire store (dev/demo)                      |
-| GET    | `/metrics`         | Retrieve this node's metrics                           |
-| GET    | `/metrics/history` | Last hour of periodic metrics snapshots (10s interval) |
-| GET    | `/health`          | Node health check                                      |
-| GET    | `/version`         | Package name + version                                 |
+| Method | Endpoint              | Description                                            |
+| ------ | --------------------- | ------------------------------------------------------ |
+| POST   | `/set`                | Store a key-value pair with optional TTL               |
+| GET    | `/get/:key`           | Retrieve a value by key                                |
+| DELETE | `/delete/:key`        | Remove a key from the cache                            |
+| POST   | `/invalidate`         | Bulk-remove every key matching a prefix                |
+| GET    | `/keys`               | List active (non-expired) keys                         |
+| GET    | `/keys/stats`         | Per-key hit counts + TTL (one pass)                    |
+| GET    | `/snapshot`           | Every live key's value + TTL, for backup/restore       |
+| POST   | `/restore`            | Bulk-load a `/snapshot`-shaped keys array              |
+| POST   | `/flush`              | Clear the entire store (dev/demo)                      |
+| GET    | `/metrics`            | Retrieve this node's metrics                           |
+| GET    | `/metrics/history`    | Last hour of periodic metrics snapshots (10s interval) |
+| GET    | `/health`             | Node health check                                      |
+| GET    | `/version`            | Package name + version                                 |
+| POST   | `/internal/replicate` | Internal — a primary pushes ops to its replicas here   |
 
 > Full API documentation available in [`docs/api.md`](docs/api.md).
 

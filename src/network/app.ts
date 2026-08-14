@@ -27,6 +27,12 @@ import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
 import { resolveCorsOrigins } from "./cors.js";
 import { parsePositiveInt, resolveEvictionPolicy } from "./env.js";
+import {
+  applyReplicationOp,
+  forwardToReplicas,
+  resolveReplicaUrls,
+  type ReplicationOp,
+} from "./replication.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -54,6 +60,17 @@ const EVICTION_SAMPLE_SIZE = parsePositiveInt(
 // (comma-separated) for a dashboard hosted somewhere else entirely, e.g. a
 // static Vercel deploy talking to this node via VITE_API_BASE.
 const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
+
+// Primary-replica replication (roadmap Sprint 3). Unset/default ("primary")
+// behaves exactly like a standalone node always has -- replication is
+// entirely opt-in, same as persistence above. A "replica" node rejects
+// direct client writes (its state comes only from /internal/replicate and
+// its one-time startup snapshot pull in server.ts) so it can't silently
+// drift from its primary.
+export const ROLE: "primary" | "replica" =
+  process.env.INKCACHE_ROLE === "replica" ? "replica" : "primary";
+export const REPLICA_URLS = resolveReplicaUrls(process.env.INKCACHE_REPLICA_URLS);
+export const PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
 
 export const metrics = new MetricsCollector();
 export const store = new CacheStore({
@@ -165,12 +182,27 @@ function validateEntry(input: unknown): ValidatedEntry | { error: string } {
   return { key, value, ttl: ttl as number | undefined };
 }
 
+/** A replica's state must only change via /internal/replicate (pushed by
+    its primary) and its one-time startup snapshot pull -- accepting
+    direct client writes too would let it silently drift from the
+    primary it's supposed to mirror. Every write route below checks this
+    first; /internal/replicate itself is exempt (see its own handler). */
+function rejectIfReplica(res: express.Response): boolean {
+  if (ROLE === "replica") {
+    res.status(409).json({ error: "this node is a read-only replica -- write to the primary" });
+    return true;
+  }
+  return false;
+}
+
 app.post("/set", (req, res) => {
+  if (rejectIfReplica(res)) return;
   const validated = validateEntry(req.body ?? {});
   if ("error" in validated) return res.status(400).json({ error: validated.error });
   const { key, value, ttl } = validated;
   const { latencyUs } = timed(() => store.set(key, value, { ttl }));
   metrics.record("set", latencyUs);
+  forwardToReplicas(REPLICA_URLS, { op: "set", key, value, ttl });
   return res.json({ ok: true, key, ttl: ttl ?? null });
 });
 
@@ -185,13 +217,16 @@ app.get("/get/:key", (req, res) => {
 });
 
 app.delete("/delete/:key", (req, res) => {
+  if (rejectIfReplica(res)) return;
   const key = req.params.key;
   const { result: deleted, latencyUs } = timed(() => store.delete(key));
   metrics.record("delete", latencyUs);
+  forwardToReplicas(REPLICA_URLS, { op: "delete", key });
   return res.json({ ok: true, key, deleted });
 });
 
 app.post("/invalidate", (req, res) => {
+  if (rejectIfReplica(res)) return;
   const { prefix } = req.body ?? {};
   if (typeof prefix !== "string") {
     return res.status(400).json({ error: "prefix must be a string" });
@@ -200,6 +235,7 @@ app.post("/invalidate", (req, res) => {
     return res.status(400).json({ error: `prefix must be at most ${MAX_KEY_LENGTH} characters` });
   }
   const dropped = store.deleteByPrefix(prefix);
+  forwardToReplicas(REPLICA_URLS, { op: "invalidate", prefix });
   return res.json({ ok: true, prefix, dropped });
 });
 
@@ -217,6 +253,7 @@ app.get("/snapshot", (_req, res) => {
 });
 
 app.post("/restore", (req, res) => {
+  if (rejectIfReplica(res)) return;
   const { keys } = req.body ?? {};
   if (!Array.isArray(keys)) {
     return res.status(400).json({ error: "keys must be an array" });
@@ -239,14 +276,34 @@ app.post("/restore", (req, res) => {
 });
 
 app.post("/flush", (_req, res) => {
+  if (rejectIfReplica(res)) return;
   const dropped = store.size;
   store.clear();
+  forwardToReplicas(REPLICA_URLS, { op: "flush" });
   res.json({ ok: true, dropped });
+});
+
+/** Internal endpoint a primary pushes ops to on each of its replicas.
+    Not part of the public API surface documented in docs/api.md's main
+    table -- applies directly to the store, bypassing /set's validation
+    (the primary already validated the op once) and the rejectIfReplica()
+    guard above (this is exactly how a replica's state is allowed to
+    change). No auth: same trust model as the rest of this demo node,
+    which has no auth on any route -- see docs/security-notes.md. */
+app.post("/internal/replicate", (req, res) => {
+  const op = req.body as ReplicationOp | undefined;
+  if (!op || typeof op !== "object" || typeof op.op !== "string") {
+    return res.status(400).json({ error: "malformed replication op" });
+  }
+  applyReplicationOp(store, op);
+  return res.json({ ok: true });
 });
 
 app.get("/metrics", (_req, res) => {
   res.json({
     node: NODE_ID,
+    role: ROLE,
+    ...(ROLE === "primary" ? { replicaCount: REPLICA_URLS.length } : { primaryUrl: PRIMARY_URL }),
     keys: store.size,
     maxEntries: MAX_ENTRIES,
     evictions: store.evictions,
@@ -268,6 +325,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     node: NODE_ID,
+    role: ROLE,
     uptimeSec: metrics.uptimeSec,
     keys: store.size,
     timestamp: new Date().toISOString(),

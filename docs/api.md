@@ -141,6 +141,8 @@ are not reset by this.
 ```json
 {
   "node": "node-1",
+  "role": "primary",
+  "replicaCount": 0,
   "keys": 12,
   "maxEntries": 512,
   "evictions": 0,
@@ -158,7 +160,9 @@ are not reset by this.
 ```
 
 `evictionPolicy` is `"access-aware"` (default), `"lru"`, or `"lfu"` — see
-[Eviction policy](#eviction-policy) below.
+[Eviction policy](#eviction-policy) below. `role` is `"primary"` or
+`"replica"` — a primary node reports `replicaCount`, a replica reports
+`primaryUrl` instead. See [Replication](#replication).
 
 `opsPerSec` is throughput over a rolling 10-second window (all op types:
 get/set/delete), not a lifetime average — it responds to a burst or a
@@ -200,7 +204,9 @@ shape as `/metrics` itself, plus `at` (epoch ms).
 
 ## GET /health
 
-**200** `{ "status": "ok", "node": "node-1", "uptimeSec": 84.2, "keys": 12, "timestamp": "..." }`
+**200** `{ "status": "ok", "node": "node-1", "role": "primary", "uptimeSec": 84.2, "keys": 12, "timestamp": "..." }`
+
+`role` is `"primary"` (default) or `"replica"` — see [Replication](#replication) below.
 
 ## GET /version
 
@@ -208,13 +214,14 @@ shape as `/metrics` itself, plus `at` (epoch ms).
 
 ## Errors
 
-| Status | When                              | Body                                               |
-| ------ | --------------------------------- | -------------------------------------------------- |
-| 400    | malformed JSON body               | `{ "error": "malformed JSON body" }`               |
-| 413    | request body over 64kb            | `{ "error": "request body too large (max 64kb)" }` |
-| 404    | `GET /get/:key` on a missing key  | `{ "error": "miss", "key": "..." }`                |
-| 404    | unknown route                     | `{ "error": "not found", "path": "..." }`          |
-| 500    | genuinely unexpected server error | `{ "error": "internal server error" }`             |
+| Status | When                                    | Body                                                                      |
+| ------ | --------------------------------------- | ------------------------------------------------------------------------- |
+| 400    | malformed JSON body                     | `{ "error": "malformed JSON body" }`                                      |
+| 413    | request body over 64kb                  | `{ "error": "request body too large (max 64kb)" }`                        |
+| 404    | `GET /get/:key` on a missing key        | `{ "error": "miss", "key": "..." }`                                       |
+| 404    | unknown route                           | `{ "error": "not found", "path": "..." }`                                 |
+| 409    | a write sent directly to a replica node | `{ "error": "this node is a read-only replica -- write to the primary" }` |
+| 500    | genuinely unexpected server error       | `{ "error": "internal server error" }`                                    |
 
 None of these fall through to Express's default HTML error page — every
 error case, expected or not, is caught and returned as JSON with no
@@ -254,6 +261,9 @@ the node (`npm run dev:node` / `npm run start:node`):
 | `INKCACHE_CORS_ORIGIN`      | _(none)_       | comma-separated extra allowed origins                                    |
 | `INKCACHE_PERSIST_PATH`     | _(none)_       | file path to save/load the cache's contents across restarts              |
 | `INKCACHE_PERSIST_INTERVAL` | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set) |
+| `INKCACHE_ROLE`             | `primary`      | `primary` or `replica` — see [Replication](#replication)                 |
+| `INKCACHE_REPLICA_URLS`     | _(none)_       | comma-separated replica base URLs (primary only)                         |
+| `INKCACHE_PRIMARY_URL`      | _(none)_       | this node's primary's base URL (replica only)                            |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
@@ -299,3 +309,47 @@ least-recently-used candidates. This means `lfu` can correctly evict a truly
 cold key even when something more recently touched (but still barely-read)
 sits ahead of it in recency order, at the cost of an O(n) scan per eviction
 instead of the other two policies' bounded scans.
+
+## Replication
+
+A single-primary, best-effort replication model — one primary node, zero
+or more replicas, no consensus and no strong consistency guarantee. This
+is the same trade-off Redis's own default (non-Sentinel/Cluster)
+replication makes: a replica can lag behind or miss an update if it's
+briefly unreachable when a write happens.
+
+**Primary** (default role, `INKCACHE_ROLE` unset or `primary`): every
+successful `/set`, `/delete`, `/invalidate`, or `/flush` is forwarded,
+fire-and-forget, to every URL in `INKCACHE_REPLICA_URLS` (comma-separated)
+via `POST <replica-url>/internal/replicate`. Forwarding never blocks or
+slows down the primary's own response — a replica that's down or slow
+doesn't affect write latency, and a failed forward is only logged, not
+retried (a replica that missed an op catches up on its next restart's
+snapshot pull, described below). `POST /restore` is **not** forwarded —
+it's a bulk local-dev/migration operation, not treated as live traffic.
+
+**Replica** (`INKCACHE_ROLE=replica`, with `INKCACHE_PRIMARY_URL` set to
+its primary's base URL): pulls a full `GET /snapshot` from its primary
+once at startup (before it starts listening, with a few retries in case
+the primary isn't answering yet), then applies whatever
+`/internal/replicate` sends it as it arrives. A replica **rejects direct
+client writes** with **409** (see [Errors](#errors)) — its state is only
+supposed to change via replication, so accepting a direct write would let
+it silently drift from its primary. Reads (`GET /get/:key`, `/keys`,
+`/keys/stats`, `/snapshot`, `/metrics`, `/health`) all work normally on a
+replica.
+
+```bash
+# terminal 1 — primary
+INKCACHE_PORT=8080 INKCACHE_REPLICA_URLS=http://localhost:8081 npm run start:node
+
+# terminal 2 — replica
+INKCACHE_PORT=8081 INKCACHE_ROLE=replica INKCACHE_PRIMARY_URL=http://localhost:8080 npm run start:node
+```
+
+`POST /internal/replicate` is not part of the public API surface above —
+it exists only for a primary to push ops to its replicas, applies
+directly to the store (skipping `/set`'s own validation, since the
+primary already validated the op once), and has no authentication, same
+as every other route on this demo node (see
+[docs/security-notes.md](security-notes.md)).

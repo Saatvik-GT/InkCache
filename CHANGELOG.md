@@ -87,6 +87,30 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   real bug where an unvalidated `Number("garbage")` (`NaN`) silently
   disabled eviction entirely (`size >= NaN` is always `false`).
 
+### Replication
+
+- Single-primary, best-effort replication (roadmap Sprint 3):
+  `INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL` turns a node into a
+  read-only replica of another node. A primary forwards every
+  `/set`/`/delete`/`/invalidate`/`/flush` to each URL in
+  `INKCACHE_REPLICA_URLS` (fire-and-forget, over HTTP, via a new
+  internal `POST /internal/replicate` endpoint) without blocking its
+  own response on any replica being reachable. A replica pulls a full
+  `GET /snapshot` from its primary once at startup (bounded retries, in
+  case the primary isn't up yet) before it starts listening, then
+  applies replicated ops as they arrive. A replica rejects direct
+  client writes with **409**, so its state can only change via
+  replication -- it can't silently drift from its primary.
+  `POST /restore` is deliberately not forwarded (bulk/local-dev only,
+  not live traffic). `/health` and `/metrics` both report `role`, and a
+  primary reports `replicaCount` where a replica reports `primaryUrl`.
+  See [docs/api.md#replication](docs/api.md#replication).
+- Verified with a real end-to-end test that spawns two actual server
+  processes (a primary and a replica pointed at it) and drives them
+  over real HTTP -- not mocked -- covering the startup snapshot pull,
+  live op forwarding for set/delete, the replica's write rejection, and
+  both nodes' reported `role`.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor
