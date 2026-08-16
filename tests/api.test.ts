@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { app, store, metrics, electionState } from "../src/network/app.js";
+import { app, store, metrics, electionState, ROLE } from "../src/network/app.js";
 
 describe("REST API", () => {
   beforeEach(() => {
@@ -376,24 +376,57 @@ describe("REST API", () => {
   });
 
   it("POST /election/request-vote grants a vote for a term/candidate it hasn't seen", async () => {
-    const res = await request(app)
-      .post("/election/request-vote")
-      .send({ term: electionState.term + 1, candidateId: "candidate-x" })
-      .expect(200);
-    assert.equal(res.body.voteGranted, true);
+    // Granting a vote for a newer term demotes this node if it was a
+    // primary (see the dedicated step-down test below for why) --
+    // restore afterward so later tests in this shared-singleton file
+    // aren't affected.
+    try {
+      const res = await request(app)
+        .post("/election/request-vote")
+        .send({ term: electionState.term + 1, candidateId: "candidate-x" })
+        .expect(200);
+      assert.equal(res.body.voteGranted, true);
+    } finally {
+      await request(app).post("/promote");
+    }
   });
 
   it("POST /election/request-vote refuses a second candidate in the same term", async () => {
     const term = electionState.term + 100; // a fresh term this test owns
-    await request(app)
-      .post("/election/request-vote")
-      .send({ term, candidateId: "first" })
-      .expect(200);
-    const res = await request(app)
-      .post("/election/request-vote")
-      .send({ term, candidateId: "second" })
-      .expect(200);
-    assert.equal(res.body.voteGranted, false);
+    try {
+      await request(app)
+        .post("/election/request-vote")
+        .send({ term, candidateId: "first" })
+        .expect(200);
+      const res = await request(app)
+        .post("/election/request-vote")
+        .send({ term, candidateId: "second" })
+        .expect(200);
+      assert.equal(res.body.voteGranted, false);
+    } finally {
+      await request(app).post("/promote");
+    }
+  });
+
+  it("POST /election/request-vote steps a primary down to a replica when it grants a newer-term vote (split-brain guard)", async () => {
+    // Regression test for a real bug caught via multi-replica e2e
+    // testing: without this step-down, a node that's currently primary
+    // could grant a vote for a later term (this route isn't gated by
+    // ROLE, on purpose) without ever demoting itself, letting a second
+    // node also win that later term -- two live primaries at once.
+    assert.equal(ROLE, "primary"); // this test file's app starts as primary
+    const term = electionState.term + 400;
+    try {
+      const res = await request(app)
+        .post("/election/request-vote")
+        .send({ term, candidateId: "some-other-node" })
+        .expect(200);
+      assert.equal(res.body.voteGranted, true);
+      assert.equal(ROLE, "replica", "granting a higher-term vote must demote a primary");
+    } finally {
+      // Restore for later tests in this shared-singleton file.
+      await request(app).post("/promote");
+    }
   });
 
   it("POST /election/request-vote rejects a malformed body", async () => {

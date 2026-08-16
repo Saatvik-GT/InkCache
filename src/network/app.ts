@@ -443,10 +443,29 @@ app.post("/promote", (req, res) => {
     **400** if `term`/`candidateId` are missing or malformed -- anything
     else is delegated straight to ElectionState.requestVote(), which
     can never throw. Not gated by ROLE: a node that's currently a
-    primary can still be asked to vote (e.g. it's about to be demoted
-    by a higher term from a genuine new election after a partition),
-    so this doesn't check ROLE at all -- the term comparison alone
-    decides. */
+    primary can still be asked to vote, and **must** be -- see the
+    step-down logic below for why refusing to participate would be a
+    real safety bug, not a simplification.
+
+    Critical correctness note (caught via real multi-replica testing,
+    not designed in from the start): granting a vote for a term higher
+    than any this node has seen must demote it to a replica
+    immediately, even before it knows who the new primary actually is.
+    Without this, a scenario like the following produces two live
+    primaries at once: node A wins an election in term 5 and becomes
+    primary. Node B, whose local election clock hadn't yet synced past
+    term 4, independently starts campaigning and reaches term 6 before
+    hearing about A's win. B asks A for a vote in term 6 -- if A (still
+    thinking of itself as primary, having never been told to step
+    down) simply granted the vote without demoting itself, A would
+    keep accepting writes as primary while B *also* wins term 6 and
+    becomes a second primary. Demoting on any granted higher-term vote
+    closes this: the instant A votes for B's term 6, A stops being a
+    primary, so at most one primary can exist once every voter that
+    matters has weighed in on the current term -- the same "convert to
+    follower on any higher term observed" rule real Raft implementations
+    use, applied here even though this project only borrows Raft's
+    election phase, not its full log-replication protocol. */
 app.post("/election/request-vote", (req, res) => {
   const { term, candidateId } = (req.body ?? {}) as { term?: unknown; candidateId?: unknown };
   if (typeof term !== "number" || !Number.isInteger(term) || term < 0) {
@@ -455,7 +474,14 @@ app.post("/election/request-vote", (req, res) => {
   if (typeof candidateId !== "string" || candidateId.length === 0) {
     return res.status(400).json({ error: "candidateId must be a non-empty string" });
   }
+  const previousTerm = electionState.term;
   const result = electionState.requestVote(term, candidateId);
+  if (result.voteGranted && term > previousTerm && ROLE === "primary") {
+    ROLE = "replica";
+    console.warn(
+      `[inkcache] ${NODE_ID} stepping down as primary -- voted for ${candidateId} in newer term ${term}`,
+    );
+  }
   return res.json(result);
 });
 
