@@ -117,9 +117,15 @@ describe("cluster gateway (real processes)", () => {
 
     // /cluster/nodes and /cluster/route/:key both reflect real state.
     const nodesRes = await fetch(`${GATEWAY_URL}/cluster/nodes`);
-    const nodesBody = (await nodesRes.json()) as { nodes: string[]; count: number };
+    const nodesBody = (await nodesRes.json()) as {
+      nodes: Array<{ url: string; healthy: boolean }>;
+      healthyCount: number;
+      count: number;
+    };
     assert.equal(nodesBody.count, 3);
-    assert.deepEqual(nodesBody.nodes.sort(), [...NODE_URLS].sort());
+    assert.equal(nodesBody.healthyCount, 3);
+    assert.deepEqual(nodesBody.nodes.map((n) => n.url).sort(), [...NODE_URLS].sort());
+    assert.ok(nodesBody.nodes.every((n) => n.healthy));
 
     const routeRes = await fetch(`${GATEWAY_URL}/cluster/route/${keys[0]}`);
     const routeBody = (await routeRes.json()) as { node: string };
@@ -129,6 +135,110 @@ describe("cluster gateway (real processes)", () => {
     await fetch(`${GATEWAY_URL}/delete/${keys[0]}`, { method: "DELETE" });
     const afterDelete = await fetch(`${GATEWAY_URL}/get/${keys[0]}`);
     assert.equal(afterDelete.status, 404);
+  });
+
+  it("detects a node going down, routes around it, and detects it coming back", async () => {
+    const failoverNodePorts = [8098, 8099] as const;
+    const failoverNodeUrls = failoverNodePorts.map((p) => `http://localhost:${p}`);
+    const failoverGatewayPort = 8100;
+    const failoverGatewayUrl = `http://localhost:${failoverGatewayPort}`;
+
+    const nodeProcs = new Map<string, ChildProcess>();
+    for (const port of failoverNodePorts) {
+      const proc = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+        env: { ...process.env, INKCACHE_PORT: String(port), INKCACHE_NODE_ID: `failover-${port}` },
+        stdio: "ignore",
+      });
+      nodeProcs.set(`http://localhost:${port}`, proc);
+      procs.push(proc);
+    }
+    await Promise.all(failoverNodeUrls.map((url) => waitForHealth(url)));
+
+    const gateway = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(failoverGatewayPort),
+        INKCACHE_CLUSTER_NODES: failoverNodeUrls.join(","),
+        // Fast interval so this test doesn't have to wait the 2s
+        // production default to observe a real detection.
+        INKCACHE_GATEWAY_HEALTH_INTERVAL: "300",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gateway);
+    await waitForHealth(failoverGatewayUrl);
+
+    // Find a key that actually hashes to the second node, so killing it
+    // is guaranteed to matter for this key -- not relying on luck.
+    const router = new ClusterRouter(failoverNodeUrls);
+    let targetKey = "";
+    for (let i = 0; i < 200; i++) {
+      const candidate = `failover-key:${i}`;
+      if (router.nodeFor(candidate) === failoverNodeUrls[1]) {
+        targetKey = candidate;
+        break;
+      }
+    }
+    assert.notEqual(targetKey, "", "no key in the sample hashed to the second node");
+
+    const victim = nodeProcs.get(failoverNodeUrls[1]!)!;
+    victim.kill();
+    await waitForExit(victim);
+
+    // Poll /cluster/nodes until the health checker notices the kill.
+    const start = Date.now();
+    let sawUnhealthy = false;
+    while (Date.now() - start < 5000) {
+      const res = await fetch(`${failoverGatewayUrl}/cluster/nodes`);
+      const body = (await res.json()) as {
+        nodes: Array<{ url: string; healthy: boolean }>;
+        healthyCount: number;
+      };
+      const victimStatus = body.nodes.find((n) => n.url === failoverNodeUrls[1]);
+      if (victimStatus && !victimStatus.healthy && body.healthyCount === 1) {
+        sawUnhealthy = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(sawUnhealthy, "gateway never marked the killed node unhealthy");
+
+    // A key that used to hash to the dead node must now route to the
+    // survivor instead of 502ing forever.
+    const setRes = await fetch(`${failoverGatewayUrl}/set`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: targetKey, value: "rerouted" }),
+    });
+    assert.equal(setRes.status, 200);
+    const survivorRes = await fetch(`${failoverNodeUrls[0]}/get/${targetKey}`);
+    assert.equal(survivorRes.status, 200, "the rerouted write did not land on the surviving node");
+
+    // Restart the killed node on the same port and confirm the gateway
+    // notices it's back.
+    const revived = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(failoverNodePorts[1]),
+        INKCACHE_NODE_ID: "failover-revived",
+      },
+      stdio: "ignore",
+    });
+    procs.push(revived);
+    await waitForHealth(failoverNodeUrls[1]!);
+
+    const recoverStart = Date.now();
+    let sawRecovered = false;
+    while (Date.now() - recoverStart < 5000) {
+      const res = await fetch(`${failoverGatewayUrl}/cluster/nodes`);
+      const body = (await res.json()) as { healthyCount: number };
+      if (body.healthyCount === 2) {
+        sawRecovered = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(sawRecovered, "gateway never marked the revived node healthy again");
   });
 
   it("returns 503 from the gateway when no cluster nodes are configured", async () => {

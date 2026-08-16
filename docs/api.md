@@ -333,11 +333,12 @@ curl -X POST http://localhost:8090/set -H "Content-Type: application/json" \
 curl http://localhost:8090/get/user:1
 ```
 
-| Variable                 | Default  | Notes                                                  |
-| ------------------------ | -------- | ------------------------------------------------------ |
-| `INKCACHE_GATEWAY_PORT`  | `8090`   | HTTP port the gateway listens on                       |
-| `INKCACHE_CLUSTER_NODES` | _(none)_ | comma-separated base URLs of the nodes to route across |
-| `INKCACHE_CORS_ORIGIN`   | _(none)_ | same meaning as on a cache node                        |
+| Variable                           | Default  | Notes                                                  |
+| ---------------------------------- | -------- | ------------------------------------------------------ |
+| `INKCACHE_GATEWAY_PORT`            | `8090`   | HTTP port the gateway listens on                       |
+| `INKCACHE_CLUSTER_NODES`           | _(none)_ | comma-separated base URLs of the nodes to route across |
+| `INKCACHE_GATEWAY_HEALTH_INTERVAL` | `2000`   | ms between health checks against every cluster node    |
+| `INKCACHE_CORS_ORIGIN`             | _(none)_ | same meaning as on a cache node                        |
 
 Routes:
 
@@ -347,22 +348,48 @@ Routes:
 | GET    | `/get/:key`           | Proxies to the node `key` hashes to                      |
 | DELETE | `/delete/:key`        | Proxies to the node `key` hashes to                      |
 | GET    | `/cluster/route/:key` | Which node owns `key`, without performing the read/write |
-| GET    | `/cluster/nodes`      | The gateway's current node list                          |
+| GET    | `/cluster/nodes`      | Every configured node and its current health             |
 | GET    | `/health`             | The gateway's own health (not proxied)                   |
 
 **503** `{ "error": "no cluster nodes configured" }` from any routed
-endpoint if `INKCACHE_CLUSTER_NODES` is unset or empty. **502**
+endpoint if `INKCACHE_CLUSTER_NODES` is unset or empty (or every
+configured node is currently unhealthy). **502**
 `{ "error": "node <url> unreachable: <reason>" }` if the node a key
 hashes to doesn't answer.
 
+`GET /cluster/nodes` response shape:
+
+```json
+{
+  "nodes": [
+    { "url": "http://localhost:8080", "healthy": true },
+    { "url": "http://localhost:8081", "healthy": false }
+  ],
+  "healthyCount": 1,
+  "count": 2
+}
+```
+
 Consistent hashing (`src/core/hashring.ts`, MD5 into a sorted ring with
-150 virtual points per node) means adding or removing a node from
-`INKCACHE_CLUSTER_NODES` only remaps the keys that were on that node,
-not the whole keyspace — unlike `hash(key) % nodeCount`, where every key
-remaps the moment the node count changes. The gateway builds its ring
-once at startup from `INKCACHE_CLUSTER_NODES`; it does not currently
-detect a node joining or leaving at runtime (no health checking or
-automatic failover yet — that's the rest of Sprint 4).
+150 virtual points per node) means adding or removing a node only
+remaps the keys that were on that node, not the whole keyspace —
+unlike `hash(key) % nodeCount`, where every key remaps the moment the
+node count changes.
+
+**Failure handling** (roadmap Sprint 4, part 4): the gateway actively
+polls every node in `INKCACHE_CLUSTER_NODES`'s own `/health` on
+`INKCACHE_GATEWAY_HEALTH_INTERVAL` (default 2s, 1s request timeout per
+check). A node that fails a check is immediately pulled out of the
+hashing ring — new requests for keys that used to route to it land on
+the next node clockwise instead of 502ing against a dead node — and put
+back the moment it starts answering again. This is deliberately simple
+and not flap-damped: one failed check removes a node, one successful
+check restores it, with no failure-count threshold or backoff. What's
+still missing from Sprint 4: dynamic **node discovery** — the gateway's
+node _list_ itself (as opposed to which of those nodes is currently
+healthy) is still fixed at `INKCACHE_CLUSTER_NODES`'s value from
+gateway startup; scaling the cluster in or out means restarting the
+gateway with a new list, not something it notices on its own.
 
 ## Replication
 

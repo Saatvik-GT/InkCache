@@ -141,9 +141,28 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   (proving the hashing is deterministic across process boundaries, not
   just within one). Also manually verified live against three real
   running nodes with curl.
-- Node discovery and automatic failure handling (detecting a node
-  join/leave at runtime, rather than only at gateway startup) are still
-  open -- the rest of Sprint 4.
+- Failure handling (part 4): `src/network/health-check.ts`'s
+  `startHealthChecks()` actively polls every configured node's
+  `/health` on `INKCACHE_GATEWAY_HEALTH_INTERVAL` (default 2s, 1s
+  per-check timeout via `AbortController`) and keeps the gateway's
+  `ClusterRouter` in sync -- a node that fails a check is pulled out of
+  the hashing ring immediately (so new requests reroute to the next
+  node instead of 502ing against a dead one), and put back the moment
+  it answers again. Deliberately simple and not flap-damped: one failed
+  check removes a node, one successful check restores it, no
+  failure-count threshold. `GET /cluster/nodes` now reports every
+  configured node's live health, not just the currently-routable set.
+- Verified with a real test that spawns two actual node processes plus
+  a gateway, kills one node outright, confirms the gateway detects it
+  (`/cluster/nodes` reports it unhealthy) and reroutes a write that
+  used to hash to it onto the survivor, then restarts the killed node
+  on the same port and confirms the gateway notices it's back. Also 5
+  unit tests against a toggleable local HTTP server covering the
+  up/down/up cycle, `stop()` actually halting further checks, and the
+  "every node starts assumed healthy" initial state.
+- Node **discovery** -- detecting a node joining the cluster that
+  wasn't in `INKCACHE_CLUSTER_NODES` at gateway startup -- is still
+  open; only already-configured nodes are health-checked.
 
 ### Dashboard
 

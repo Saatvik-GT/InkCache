@@ -19,9 +19,20 @@ import express from "express";
 import cors from "cors";
 import { ClusterRouter, resolveClusterNodes } from "./cluster.js";
 import { resolveCorsOrigins } from "./cors.js";
+import type { HealthCheckHandle } from "./health-check.js";
 
 export const CLUSTER_NODES = resolveClusterNodes(process.env.INKCACHE_CLUSTER_NODES);
 export const router = new ClusterRouter(CLUSTER_NODES);
+
+// Set by gateway-server.ts once health checking starts -- kept as an
+// external hook rather than started here so this module stays free of
+// background timers on import, same as app.ts leaving CacheStore's
+// sweeper for server.ts's start() to kick off rather than starting it
+// as a module-level side effect.
+let healthHandle: HealthCheckHandle | undefined;
+export function setHealthHandle(handle: HealthCheckHandle): void {
+  healthHandle = handle;
+}
 
 const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
 
@@ -103,8 +114,14 @@ app.get("/cluster/route/:key", (req, res) => {
   res.json({ key: req.params.key, node: nodeUrl });
 });
 
+/** Every *configured* node (INKCACHE_CLUSTER_NODES), each with its
+    current health -- not just the ones currently in the router. Without
+    a running health checker (setHealthHandle() never called), every
+    configured node is reported healthy, since nothing has ever marked
+    one otherwise. */
 app.get("/cluster/nodes", (_req, res) => {
-  res.json({ nodes: router.nodes, count: router.size });
+  const status = healthHandle?.status() ?? CLUSTER_NODES.map((url) => ({ url, healthy: true }));
+  res.json({ nodes: status, healthyCount: router.size, count: CLUSTER_NODES.length });
 });
 
 app.get("/health", (_req, res) => {

@@ -1,12 +1,14 @@
 /**
  * Process entrypoint for the cluster gateway -- binds gateway.ts's app to
- * a port. Deliberately as small as server.ts's own entrypoint: no
- * sweeper, no metrics history, no persistence -- a gateway holds no
+ * a port and starts active health checking against every configured
+ * node. Deliberately as small as server.ts's own entrypoint otherwise:
+ * no sweeper, no metrics history, no persistence -- a gateway holds no
  * cache state of its own, so none of that applies here.
  */
 
-import { app, CLUSTER_NODES } from "./gateway.js";
+import { app, router, CLUSTER_NODES, setHealthHandle } from "./gateway.js";
 import { parsePositiveInt } from "./env.js";
+import { startHealthChecks, type HealthCheckHandle } from "./health-check.js";
 
 const PORT = parsePositiveInt(
   process.env.INKCACHE_GATEWAY_PORT,
@@ -14,6 +16,17 @@ const PORT = parsePositiveInt(
   "INKCACHE_GATEWAY_PORT",
   65535,
 );
+const HEALTH_CHECK_INTERVAL_MS = parsePositiveInt(
+  process.env.INKCACHE_GATEWAY_HEALTH_INTERVAL,
+  2000,
+  "INKCACHE_GATEWAY_HEALTH_INTERVAL",
+);
+
+let healthCheckHandle: HealthCheckHandle | undefined;
+if (CLUSTER_NODES.length > 0) {
+  healthCheckHandle = startHealthChecks(router, CLUSTER_NODES, HEALTH_CHECK_INTERVAL_MS);
+  setHealthHandle(healthCheckHandle);
+}
 
 const server = app.listen(PORT, () => {
   console.log(
@@ -28,6 +41,7 @@ const server = app.listen(PORT, () => {
 
 async function shutdown(signal: string): Promise<void> {
   console.log(`[inkcache-gateway] received ${signal}, shutting down`);
+  healthCheckHandle?.stop();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 5000).unref();
 }
