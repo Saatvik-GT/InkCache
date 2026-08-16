@@ -194,6 +194,41 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   dynamically-registered node silently didn't show up in that response
   shape.
 
+### Predictive access-pattern hints
+
+- Roadmap Sprint 5's remaining item: `src/core/access-predictor.ts`'s
+  `AccessPredictor` learns a bigram frequency table over the live GET
+  stream ("of everything that's ever immediately followed key A, which
+  came up most often") and `GET /predict/:key` exposes it. Every `GET
+/get/:key` (hit or miss) feeds it. Deliberately framed as a
+  **statistical heuristic, not a trained/learned model** -- no neural
+  net, no training step -- same honesty this project already applies to
+  access-aware eviction. InkCache has no upstream store to prefetch
+  data _into_ (it _is_ the store), so this is a hint for a **client**
+  to proactively `GET` a key it's likely to need next, not something
+  InkCache fetches on its own. Bounded memory: at most 2000 distinct
+  "from" keys tracked (oldest evicted first), at most 20 candidates per
+  "from" key (least-observed evicted first). `?top=N` on the query
+  string controls how many predictions come back (default 3, capped at
+  20); always **200**, even for a never-seen key -- an empty
+  `predictions` array is a valid answer, not an error.
+- Documented limitation, stated plainly rather than glossed over: the
+  API has no client/session concept, so transitions are counted across
+  the _entire_ GET stream, not per caller -- real signal for a single
+  logical traffic source, degrading toward noise under many truly
+  independent concurrent clients. A property of the API's lack of a
+  session concept, not a bug in the counting.
+- Unit-tested the actual interesting behavior, not just happy-path
+  smoke: ranking by frequency, probability as a real share of observed
+  transitions, `topN`, no self-transition recorded, and both eviction
+  policies (oldest "from" key, least-observed candidate) verified
+  against the _real_ sequential chain `record()` produces -- caught and
+  fixed a wrong assumption in the first draft of the eviction test
+  about which transitions actually get recorded from an interleaved
+  key sequence. Also API-tested against the real Express app (learns
+  from real HTTP traffic, records misses too, `?top=` handling) and
+  live-verified against an actual running node with curl.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor

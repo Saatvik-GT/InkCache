@@ -263,6 +263,50 @@ describe("REST API", () => {
     assert.equal(res.body.ok, true);
   });
 
+  it("GET /predict/:key returns an empty list for a key with no observed pattern", async () => {
+    const res = await request(app).get("/predict/predict-never-seen-xyz").expect(200);
+    assert.deepEqual(res.body, { key: "predict-never-seen-xyz", predictions: [] });
+  });
+
+  it("GET /predict/:key learns from real GET traffic and predicts the next key", async () => {
+    // Unique key names so this test's signal can't be diluted by
+    // whatever other tests in this file did with "a"/"b"/etc -- the
+    // predictor is a process-lifetime singleton, same as metrics.
+    await request(app).post("/set").send({ key: "predict-x1", value: "1" }).expect(200);
+    await request(app).post("/set").send({ key: "predict-x2", value: "2" }).expect(200);
+
+    await request(app).get("/get/predict-x1").expect(200);
+    await request(app).get("/get/predict-x2").expect(200);
+    await request(app).get("/get/predict-x1").expect(200);
+    await request(app).get("/get/predict-x2").expect(200);
+
+    const res = await request(app).get("/predict/predict-x1").expect(200);
+    assert.equal(res.body.key, "predict-x1");
+    assert.equal(res.body.predictions.length, 1);
+    assert.equal(res.body.predictions[0].key, "predict-x2");
+    assert.equal(res.body.predictions[0].count, 2);
+    assert.equal(res.body.predictions[0].probability, 1);
+  });
+
+  it("GET /predict/:key records a miss too, not just a hit", async () => {
+    await request(app).get("/get/predict-miss-a").expect(404);
+    await request(app).get("/get/predict-miss-b").expect(404);
+    const res = await request(app).get("/predict/predict-miss-a").expect(200);
+    assert.equal(res.body.predictions[0].key, "predict-miss-b");
+  });
+
+  it("GET /predict/:key honours ?top=N, falling back to 3 for an invalid value", async () => {
+    for (const next of ["p1", "p2", "p3", "p4", "p5"]) {
+      await request(app).get("/get/predict-top-src").expect(404);
+      await request(app).get(`/get/${next}`).expect(404);
+    }
+    const top2 = await request(app).get("/predict/predict-top-src?top=2").expect(200);
+    assert.equal(top2.body.predictions.length, 2);
+
+    const invalid = await request(app).get("/predict/predict-top-src?top=notanumber").expect(200);
+    assert.equal(invalid.body.predictions.length, 3);
+  });
+
   it("reports the eviction policy and sample size on /metrics", async () => {
     // Asserting against store.evictionPolicy itself would be tautological --
     // it'd pass even if the store's own default were wrong, or /metrics

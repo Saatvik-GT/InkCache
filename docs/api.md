@@ -134,6 +134,57 @@ Only removes the stored keys — the cumulative counters in `/metrics`
 (`hits`, `misses`, `sets`, `deletes`, `evictions`) are lifetime stats and
 are not reset by this.
 
+## GET /predict/:key
+
+Which key is statistically likely to be requested next, given that
+`key` was just requested (roadmap Sprint 5: "predictive prefetching").
+Every `GET /get/:key` — hit or miss — feeds a bigram frequency table
+(`AccessPredictor`, `src/core/access-predictor.ts`): "of everything that
+has ever immediately followed `key`, which came up most often." This is
+a **statistical heuristic, not a trained/learned model** — no neural
+net, no training step — the same honesty this project already applies
+to access-aware eviction. InkCache has no upstream store to prefetch
+data _into_, so this is a hint for a **client** to proactively `GET` a
+key it's likely to need next, not something InkCache fetches on its
+own.
+
+```bash
+curl http://localhost:8080/predict/user:1?top=5
+```
+
+| Query param | Type   | Default | Notes                         |
+| ----------- | ------ | ------- | ----------------------------- |
+| `top`       | number | `3`     | max predictions, capped at 20 |
+
+**200**
+
+```json
+{
+  "key": "user:1",
+  "predictions": [
+    { "key": "user:2", "count": 14, "probability": 0.82 },
+    { "key": "user:7", "count": 3, "probability": 0.18 }
+  ]
+}
+```
+
+Always **200**, even for a key that's never been seen — an empty
+`predictions` array is a real, valid answer ("no pattern observed
+yet"), not an error. `count` is how many times that specific next-key
+followed `key`; `probability` is that count's share of every observed
+transition away from `key` (`count` / total transitions from `key`).
+
+Because the API has no client/session concept, transitions are counted
+across the _entire_ GET stream, not per caller — "key A then key B"
+from two unrelated concurrent clients looks identical to one client
+reading A then B. This captures real sequential structure for a single
+logical traffic source (a script, or the dashboard's own traffic
+simulator) but degrades toward noise under many truly independent
+concurrent clients hitting unrelated keys — a property of not having a
+session concept, not a bug in the counting. Memory is bounded: at most
+2000 distinct "from" keys tracked, evicting the oldest; at most 20
+candidates per "from" key, evicting the least-observed.
+
 ## GET /metrics
 
 **200**

@@ -14,6 +14,7 @@
  *   GET    /snapshot
  *   POST   /restore      { keys: [{ key, value, ttl? }] }
  *   POST   /flush
+ *   GET    /predict/:key
  *   GET    /version
  *
  * Builds the Express app without binding a port, so it can be started by
@@ -23,6 +24,7 @@
 import { createRequire } from "node:module";
 import express from "express";
 import cors from "cors";
+import { AccessPredictor } from "../core/access-predictor.js";
 import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
 import { resolveCorsOrigins } from "./cors.js";
@@ -78,6 +80,10 @@ export const store = new CacheStore({
   policy: EVICTION_POLICY,
   evictionSampleSize: EVICTION_SAMPLE_SIZE,
 });
+// Roadmap Sprint 5's "predictive prefetching" -- a statistical
+// (Markov-bigram) access-pattern predictor, not a trained model. See
+// access-predictor.ts's own header for what it is and isn't.
+export const predictor = new AccessPredictor();
 
 /** Run a cache op and record its core-level latency in microseconds. */
 function timed<T>(fn: () => T): { result: T; latencyUs: number } {
@@ -210,10 +216,28 @@ app.get("/get/:key", (req, res) => {
   const key = req.params.key;
   const { result, latencyUs } = timed(() => store.getWithTtl(key));
   metrics.record("get", latencyUs, result !== undefined);
+  // Recorded regardless of hit/miss -- what a client asks for is part
+  // of the access pattern even when the answer isn't cached yet.
+  predictor.record(key);
   if (result === undefined) {
     return res.status(404).json({ error: "miss", key });
   }
   return res.json({ key, value: result.value, ttl: result.ttl });
+});
+
+/** Keys statistically likely to be requested next, given that `key` was
+    just requested -- a hint for a client to proactively prefetch, not
+    a fetch InkCache performs itself (see access-predictor.ts's header
+    for why: there's no upstream store here to prefetch from). Always
+    200, even for a key that's never been seen -- an empty prediction
+    list is a real, valid answer ("no pattern observed yet"), not an
+    error. */
+app.get("/predict/:key", (req, res) => {
+  const key = req.params.key;
+  const topNRaw = req.query.top;
+  const topN =
+    typeof topNRaw === "string" && /^[1-9]\d*$/.test(topNRaw) ? Math.min(20, Number(topNRaw)) : 3;
+  res.json({ key, predictions: predictor.predict(key, topN) });
 });
 
 app.delete("/delete/:key", (req, res) => {

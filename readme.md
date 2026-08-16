@@ -60,8 +60,9 @@ InkCache addresses this by combining:
 - A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency, plus `npm run benchmark:external` comparing InkCache against real Redis and Memcached containers over each backend's own native protocol
 - Single-primary replication (`INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`): a primary forwards every write to its replicas over HTTP, and a replica pulls a full snapshot from its primary once at startup — see [docs/api.md#replication](docs/api.md#replication)
 - Consistent hashing + a cluster gateway (`npm run start:gateway`, `INKCACHE_CLUSTER_NODES`): shards keys across a set of nodes so a client can talk to one address instead of knowing which node owns which key, with active health checking that pulls a dead node out of rotation (and back in once it recovers), and node discovery via self-registration (`INKCACHE_GATEWAY_URL` + `INKCACHE_SELF_URL` on a cache node) — see [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway)
+- Predictive access-pattern hints (`GET /predict/:key`): a bigram frequency table learned from real GET traffic, statistical not machine-learned — see [docs/api.md#get-predictkey](docs/api.md#get-predictkey)
 
-**Not yet implemented (roadmap):** replication has no automatic promotion if the primary itself goes down — it's still a fixed, manually-configured primary/replica pair, not a self-healing one. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** replication has no automatic promotion if the primary itself goes down — it's still a fixed, manually-configured primary/replica pair, not a self-healing one. The "adaptive intelligence layer" in the architecture diagram is still aspirational as an actual _trained/learned_ model — what exists today (access-aware eviction, and now the access predictor above) is real statistical engineering, deliberately not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -154,7 +155,18 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
       gossip protocol or a service mesh — a node has to know its
       gateway's address up front, and the gateway forgets
       dynamically-registered nodes across its own restart.
-- [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
+- [x] Sprint 5: Access-pattern-aware eviction — bounded-window frequency
+      scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`,
+      see [docs/api.md](docs/api.md#eviction-policy)) — and predictive
+      prefetching: `GET /predict/:key` (`src/core/access-predictor.ts`)
+      learns a bigram frequency table from real GET traffic and returns
+      the keys statistically likely to be requested next, for a client
+      to proactively prefetch. Deliberately framed as a **statistical
+      heuristic, not a trained/learned model** — InkCache has no
+      upstream store to prefetch data into, and there's no neural net or
+      training step here, same honesty this project already applies to
+      the eviction heuristic above. See
+      [docs/api.md#get-predictkey](docs/api.md#get-predictkey).
 
 ### Quarter III — Production & Leadership
 
@@ -231,6 +243,7 @@ curl -X DELETE http://localhost:8080/delete/user:1
 | GET    | `/snapshot`           | Every live key's value + TTL, for backup/restore       |
 | POST   | `/restore`            | Bulk-load a `/snapshot`-shaped keys array              |
 | POST   | `/flush`              | Clear the entire store (dev/demo)                      |
+| GET    | `/predict/:key`       | Statistically likely next key(s), for client prefetch  |
 | GET    | `/metrics`            | Retrieve this node's metrics                           |
 | GET    | `/metrics/history`    | Last hour of periodic metrics snapshots (10s interval) |
 | GET    | `/health`             | Node health check                                      |
