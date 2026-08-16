@@ -68,3 +68,56 @@ describe("gateway node registration", () => {
     assert.ok(urls.includes("http://node-e:8080"));
   });
 });
+
+describe("gateway-to-gateway sync (POST /cluster/sync)", () => {
+  it("merges unknown node URLs from a peer's push into the router", async () => {
+    await request(app)
+      .post("/cluster/sync")
+      .send({ nodes: ["http://from-peer-1:8080", "http://from-peer-2:8080"] })
+      .expect(200);
+    assert.ok(router.nodes.includes("http://from-peer-1:8080"));
+    assert.ok(router.nodes.includes("http://from-peer-2:8080"));
+  });
+
+  it("normalizes a trailing slash the same way POST /cluster/nodes does", async () => {
+    await request(app)
+      .post("/cluster/sync")
+      .send({ nodes: ["http://from-peer-3:8080/"] })
+      .expect(200);
+    assert.ok(router.nodes.includes("http://from-peer-3:8080"));
+    assert.ok(!router.nodes.includes("http://from-peer-3:8080/"));
+  });
+
+  it("responds with this gateway's own known node list", async () => {
+    await request(app)
+      .post("/cluster/nodes")
+      .send({ url: "http://already-known:8080" })
+      .expect(200);
+    const res = await request(app).post("/cluster/sync").send({ nodes: [] }).expect(200);
+    assert.ok((res.body.nodes as string[]).includes("http://already-known:8080"));
+  });
+
+  it("does not error or duplicate on a node this gateway already knows -- unlike POST /cluster/nodes' 409", async () => {
+    await request(app).post("/cluster/nodes").send({ url: "http://steady-state:8080" }).expect(200);
+    // A second sync push with the same node is normal, repeated gossip
+    // traffic, not a conflict -- must stay 200, not 409.
+    await request(app)
+      .post("/cluster/sync")
+      .send({ nodes: ["http://steady-state:8080"] })
+      .expect(200);
+    assert.equal(router.nodes.filter((u) => u === "http://steady-state:8080").length, 1);
+  });
+
+  it("rejects a malformed body", async () => {
+    await request(app).post("/cluster/sync").send({}).expect(400);
+    await request(app).post("/cluster/sync").send({ nodes: "not-an-array" }).expect(400);
+    await request(app)
+      .post("/cluster/sync")
+      .send({ nodes: [42] })
+      .expect(400);
+  });
+
+  it("accepts an empty node list without error", async () => {
+    await request(app).post("/cluster/sync").send({ nodes: [] }).expect(200);
+  });
+});

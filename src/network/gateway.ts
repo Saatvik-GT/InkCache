@@ -196,6 +196,38 @@ app.delete("/cluster/nodes", (req, res) => {
   return res.json({ ok: true, url: normalized, count: router.size });
 });
 
+/** Gateway-to-gateway gossip endpoint (closing "the cluster gateway is
+    a single point of failure" -- the coordination half; see
+    gateway-sync.ts's own header for the full reasoning). A peer
+    gateway posts its own known node list here; any URL not already
+    known locally is merged in via the same addNode() path
+    POST /cluster/nodes uses (assumed healthy until this gateway's own
+    next health check verifies it -- a peer's health *opinion* is
+    never trusted, only its *existence* claim). Responds with this
+    gateway's own known node list so a single round trip merges
+    knowledge in both directions. **400** on a malformed body; no 409
+    for already-known nodes here (unlike POST /cluster/nodes) -- gossip
+    is expected to repeat the same nodes on every tick, that's normal
+    steady-state operation, not a conflict to report. */
+app.post("/cluster/sync", (req, res) => {
+  const { nodes } = (req.body ?? {}) as { nodes?: unknown };
+  if (!Array.isArray(nodes) || !nodes.every((n) => typeof n === "string")) {
+    return res.status(400).json({ error: "nodes must be an array of strings" });
+  }
+  const known = new Set(healthHandle?.status().map((n) => n.url) ?? router.nodes);
+  for (const url of nodes as string[]) {
+    const normalized = url.trim().replace(/\/$/, "");
+    if (known.has(normalized)) continue;
+    if (healthHandle) {
+      healthHandle.addNode(normalized);
+    } else {
+      router.addNode(normalized);
+    }
+    known.add(normalized);
+  }
+  return res.json({ nodes: [...known] });
+});
+
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
