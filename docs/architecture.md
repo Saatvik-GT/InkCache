@@ -122,16 +122,24 @@ is the honest starting line, not a finished first draft of it.
   `INKCACHE_PRIMARY_URL`/`INKCACHE_REPLICA_URLS`, restart). Replication
   gives you a live, low-lag copy of the data; it does not give you
   automatic failover for the primary itself.
-- **The cluster gateway is a single point of failure.** There's no
-  gateway-to-gateway replication or failover — one gateway process
-  routes for the whole cluster. Running two gateways behind a load
-  balancer would work (they're stateless and derive their view of the
-  cluster from the same node set), but that setup isn't built or
-  tested here.
-- **Node discovery requires each node to know its gateway's address up
-  front.** `INKCACHE_GATEWAY_URL` is set at node startup; there's no
-  service-discovery layer (DNS-SD, Consul, etc.) a node could use to
-  find a gateway it doesn't already have the address of.
+- **Running multiple gateways is supported, but not coordinated.**
+  `INKCACHE_GATEWAY_URL` accepts a comma-separated list, and every node
+  registers with (and deregisters from) each one independently — so two
+  gateways behind a client-side failover or a plain TCP load balancer
+  actually work end-to-end now (verified with a real test: two
+  independent gateway processes, a node registering with both, real
+  traffic routed correctly through either). What's still missing is any
+  coordination _between_ gateways themselves — there's no shared state,
+  no leader, nothing preventing two gateways from briefly disagreeing
+  about a node's health if one's check happens to land differently than
+  the other's at the same instant. Each gateway's view is independently
+  correct, not synchronized.
+- **Node discovery requires each node to know every gateway's address
+  up front.** `INKCACHE_GATEWAY_URL` is set at node startup (as one or
+  more comma-separated URLs); there's no service-discovery layer
+  (DNS-SD, Consul, etc.) a node could use to find a gateway it doesn't
+  already have the address of, and no way for a _gateway_ to discover
+  other gateways to fan a registration out to on its own.
 - **Authentication is opt-in, not on by default.** `INKCACHE_API_KEY`
   (one shared secret across the whole cluster) and `INKCACHE_RATE_LIMIT`
   gate every route except `GET /health` when set — see

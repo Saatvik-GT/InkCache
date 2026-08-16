@@ -341,6 +341,68 @@ describe("cluster gateway (real processes)", () => {
     );
   });
 
+  it("a node registers with multiple gateways at once, closing the single-gateway-SPOF gap", async () => {
+    const gateway1Port = 8109;
+    const gateway2Port = 8110;
+    const gateway1Url = `http://localhost:${gateway1Port}`;
+    const gateway2Url = `http://localhost:${gateway2Port}`;
+    const nodePort = 8111;
+    const nodeUrl = `http://localhost:${nodePort}`;
+
+    // Two independent gateways, neither aware the other exists --
+    // exactly the "no gateway-to-gateway coordination" model
+    // server.ts's own comment describes.
+    const gateway1 = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(gateway1Port),
+        INKCACHE_CLUSTER_NODES: "",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gateway1);
+    const gateway2 = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(gateway2Port),
+        INKCACHE_CLUSTER_NODES: "",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gateway2);
+    await Promise.all([waitForHealth(gateway1Url), waitForHealth(gateway2Url)]);
+
+    const node = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(nodePort),
+        INKCACHE_NODE_ID: "multi-gateway-node",
+        INKCACHE_GATEWAY_URL: `${gateway1Url},${gateway2Url}`,
+        INKCACHE_SELF_URL: nodeUrl,
+      },
+      stdio: "ignore",
+    });
+    procs.push(node);
+    await waitForHealth(nodeUrl);
+
+    await waitUntilGatewayLists(gateway1Url, nodeUrl, true, "node never registered with gateway 1");
+    await waitUntilGatewayLists(gateway2Url, nodeUrl, true, "node never registered with gateway 2");
+
+    // Both gateways can independently route real traffic to the node.
+    const via1 = await fetch(`${gateway1Url}/set`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: "via-gw1", value: "x" }),
+    });
+    assert.equal(via1.status, 200);
+    const via2 = await fetch(`${gateway2Url}/get/via-gw1`);
+    assert.equal(
+      via2.status,
+      200,
+      "gateway 2 couldn't reach the node registered through gateway 1",
+    );
+  });
+
   it("returns 503 from the gateway when no cluster nodes are configured", async () => {
     const gateway = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
       env: {

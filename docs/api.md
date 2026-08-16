@@ -357,25 +357,25 @@ bookkeeping instead of a sliding log per client.
 All node configuration is via environment variables, set before starting
 the node (`npm run dev:node` / `npm run start:node`):
 
-| Variable                     | Default        | Notes                                                                                        |
-| ---------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
-| `INKCACHE_PORT`              | `8080`         | HTTP port the node listens on                                                                |
-| `INKCACHE_NODE_ID`           | `node-1`       | label reported in `/health`/`/metrics`                                                       |
-| `INKCACHE_MAX_ENTRIES`       | `512`          | capacity before eviction kicks in                                                            |
-| `INKCACHE_EVICTION_POLICY`   | `access-aware` | `access-aware`, `lru`, or `lfu`                                                              |
-| `INKCACHE_EVICTION_SAMPLE`   | `5`            | candidate window size for `access-aware`                                                     |
-| `INKCACHE_MAX_KEY_LENGTH`    | `256`          | longest key `/set` will accept                                                               |
-| `INKCACHE_CORS_ORIGIN`       | _(none)_       | comma-separated extra allowed origins                                                        |
-| `INKCACHE_PERSIST_PATH`      | _(none)_       | file path to save/load the cache's contents across restarts                                  |
-| `INKCACHE_PERSIST_INTERVAL`  | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                     |
-| `INKCACHE_ROLE`              | `primary`      | `primary` or `replica` — see [Replication](#replication)                                     |
-| `INKCACHE_REPLICA_URLS`      | _(none)_       | comma-separated replica base URLs (primary only)                                             |
-| `INKCACHE_PRIMARY_URL`       | _(none)_       | this node's primary's base URL (replica only)                                                |
-| `INKCACHE_GATEWAY_URL`       | _(none)_       | a cluster gateway's base URL to self-register with — see [Cluster gateway](#cluster-gateway) |
-| `INKCACHE_SELF_URL`          | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)         |
-| `INKCACHE_API_KEY`           | _(none)_       | shared cluster secret — see [Authentication & rate limiting](#authentication--rate-limiting) |
-| `INKCACHE_RATE_LIMIT`        | _(none)_       | max requests per window per client IP                                                        |
-| `INKCACHE_RATE_LIMIT_WINDOW` | `10`           | rate-limit window length in seconds                                                          |
+| Variable                     | Default        | Notes                                                                                                                 |
+| ---------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `INKCACHE_PORT`              | `8080`         | HTTP port the node listens on                                                                                         |
+| `INKCACHE_NODE_ID`           | `node-1`       | label reported in `/health`/`/metrics`                                                                                |
+| `INKCACHE_MAX_ENTRIES`       | `512`          | capacity before eviction kicks in                                                                                     |
+| `INKCACHE_EVICTION_POLICY`   | `access-aware` | `access-aware`, `lru`, or `lfu`                                                                                       |
+| `INKCACHE_EVICTION_SAMPLE`   | `5`            | candidate window size for `access-aware`                                                                              |
+| `INKCACHE_MAX_KEY_LENGTH`    | `256`          | longest key `/set` will accept                                                                                        |
+| `INKCACHE_CORS_ORIGIN`       | _(none)_       | comma-separated extra allowed origins                                                                                 |
+| `INKCACHE_PERSIST_PATH`      | _(none)_       | file path to save/load the cache's contents across restarts                                                           |
+| `INKCACHE_PERSIST_INTERVAL`  | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                                              |
+| `INKCACHE_ROLE`              | `primary`      | `primary` or `replica` — see [Replication](#replication)                                                              |
+| `INKCACHE_REPLICA_URLS`      | _(none)_       | comma-separated replica base URLs (primary only)                                                                      |
+| `INKCACHE_PRIMARY_URL`       | _(none)_       | this node's primary's base URL (replica only)                                                                         |
+| `INKCACHE_GATEWAY_URL`       | _(none)_       | one or more comma-separated cluster gateway base URLs to self-register with — see [Cluster gateway](#cluster-gateway) |
+| `INKCACHE_SELF_URL`          | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)                                  |
+| `INKCACHE_API_KEY`           | _(none)_       | shared cluster secret — see [Authentication & rate limiting](#authentication--rate-limiting)                          |
+| `INKCACHE_RATE_LIMIT`        | _(none)_       | max requests per window per client IP                                                                                 |
+| `INKCACHE_RATE_LIMIT_WINDOW` | `10`           | rate-limit window length in seconds                                                                                   |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
@@ -512,27 +512,38 @@ immediately, so it starts receiving traffic and being monitored on the
 very next tick rather than requiring a gateway restart.
 
 A cache node can announce itself automatically instead of an operator
-curling the gateway by hand: set `INKCACHE_GATEWAY_URL` (the gateway's
-base URL) and `INKCACHE_SELF_URL` (this node's own externally-reachable
-base URL — not inferred from `INKCACHE_PORT`, since `localhost:PORT`
-would be wrong the moment the node and gateway aren't on the same host)
-on the cache node itself. It registers on startup and deregisters on a
-graceful `SIGINT`/`SIGTERM` shutdown, best-effort (a node that can't
-reach its gateway still starts and serves direct traffic rather than
-refusing to come up):
+curling the gateway by hand: set `INKCACHE_GATEWAY_URL` (one or more
+comma-separated gateway base URLs) and `INKCACHE_SELF_URL` (this node's
+own externally-reachable base URL — not inferred from `INKCACHE_PORT`,
+since `localhost:PORT` would be wrong the moment the node and gateway
+aren't on the same host) on the cache node itself. It registers with
+**every** listed gateway on startup and deregisters from each on a
+graceful `SIGINT`/`SIGTERM` shutdown, independently and best-effort per
+gateway — one being unreachable doesn't stop registration with the
+others, and a node that can't reach any of them still starts and serves
+direct traffic rather than refusing to come up:
 
 ```bash
-# gateway with zero nodes configured -- nothing to route to yet
-npm run start:gateway
+# two independent gateways with zero nodes configured -- neither is
+# aware the other exists
+npm run start:gateway  # INKCACHE_GATEWAY_PORT=8090 (default)
+INKCACHE_GATEWAY_PORT=8091 npm run start:gateway
 
-# a node discovers itself into the running gateway
-INKCACHE_PORT=8080 INKCACHE_GATEWAY_URL=http://localhost:8090 \
+# a node discovers itself into both at once
+INKCACHE_PORT=8080 INKCACHE_GATEWAY_URL=http://localhost:8090,http://localhost:8091 \
   INKCACHE_SELF_URL=http://localhost:8080 npm run start:node
 ```
 
-This is deliberately a self-registration model, not a gossip protocol
-or a service-mesh-style control plane — a node has to know its
-gateway's address up front, and a gateway restart forgets every
+Registering with multiple gateways is what actually closes "the cluster
+gateway is a single point of failure": each gateway is already fully
+stateless (it derives its whole view of the cluster from health checks
+and registrations, nothing shared between gateway processes), so two
+gateways behind a client-side failover or a plain TCP load balancer
+only needed every node to tell _both_ about itself — which this does.
+There's still no coordination _between_ gateways themselves; this is
+deliberately a self-registration model, not a gossip protocol or a
+service-mesh-style control plane — a node has to know every gateway's
+address up front, and a gateway restart forgets every
 dynamically-registered node (it starts fresh from
 `INKCACHE_CLUSTER_NODES` again, same as always).
 

@@ -306,6 +306,48 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   -- enabling `INKCACHE_API_KEY` breaks it against that node until it's
   updated to attach one.
 
+### Multi-gateway node discovery (closing the gateway-SPOF gap)
+
+- `INKCACHE_GATEWAY_URL` now accepts one or more comma-separated
+  gateway base URLs (parsed with the same trim/no-trailing-slash/
+  drop-blanks logic `replication.ts`'s `resolveReplicaUrls()` already
+  had, reused under a clearer local name rather than duplicated a
+  third time). `server.ts`'s `announceToGateway()` registers with (and
+  deregisters from) every listed gateway independently and
+  best-effort -- one being unreachable doesn't stop registration with
+  the others.
+- This is what actually closes `docs/architecture.md`'s "the cluster
+  gateway is a single point of failure" limitation: every gateway
+  process was already fully stateless (its whole view of the cluster
+  comes from health checks + registrations, nothing shared between
+  gateway processes), so the missing piece for running two behind a
+  failover/load balancer was just getting every node to tell _both_
+  about itself -- which this does. Updated the doc to be precise about
+  what's still missing: no coordination _between_ gateways (no shared
+  state, no leader), and no way for a gateway to discover _other_
+  gateways to fan a registration out to on its own.
+- Verified with a real end-to-end test: two independent gateway
+  processes (neither aware the other exists) with zero initial nodes,
+  one node registering with both via a comma-separated
+  `INKCACHE_GATEWAY_URL`, confirming both gateways' `/cluster/nodes`
+  list it and that real traffic routes correctly through _either_
+  gateway to the same node.
+- Caught and fixed a real, pre-existing flaky test while verifying this
+  under the full suite (not something this change introduced, but
+  found while running it repeatedly): `tests/replication.test.ts`'s
+  `forwardToReplicas()` tests shared one HTTP capture server across the
+  whole describe block via `before()`/`after()`, with a fixed 100ms
+  sleep to let a fire-and-forget request land. Under load, a slow
+  request from one test could still be in flight past that test's own
+  wait and land during a _later_ test's window on the same shared
+  server, corrupting its count regardless of how that later test
+  waited for its own requests. Fixed by giving each test its own
+  server (structurally impossible for a straggler to cross tests once
+  the port it targets is different) and replacing the fixed sleep with
+  a poll-until-count-reached helper. Confirmed fixed with 3 consecutive
+  clean full-suite runs after the change, where it had reproduced
+  within the first run before.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor

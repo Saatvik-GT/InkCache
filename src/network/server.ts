@@ -23,7 +23,13 @@ import {
   startAutoPersist,
   type AutoPersistHandle,
 } from "./persistence.js";
-import { syncFromPrimary } from "./replication.js";
+// resolveReplicaUrls does exactly the URL-list parsing this file also
+// needs for INKCACHE_GATEWAY_URL (comma-separated, trimmed, trailing
+// slash stripped, blanks dropped) -- reused under a clearer local name
+// rather than duplicating the same five lines a third time in this
+// codebase (cors.ts and cluster.ts each already have their own near-
+// identical version for their own env var).
+import { resolveReplicaUrls as resolveUrlList, syncFromPrimary } from "./replication.js";
 
 // PORT only matters here (app.ts never binds a port), but MAX_ENTRIES and
 // NODE_ID are imported rather than recomputed — a second, independently
@@ -46,50 +52,68 @@ const PERSIST_INTERVAL_MS =
   parsePositiveInt(process.env.INKCACHE_PERSIST_INTERVAL, 60, "INKCACHE_PERSIST_INTERVAL") * 1000;
 
 // Opt-in node discovery (roadmap Sprint 4's last piece): if both are
-// set, this node announces itself to a cluster gateway on startup and
-// deregisters on a graceful shutdown, instead of an operator having to
-// curl POST /cluster/nodes by hand every time a node joins. Requires an
-// explicit externally-reachable INKCACHE_SELF_URL rather than guessing
-// one from INKCACHE_PORT -- "localhost:PORT" would be wrong the moment
-// this node and the gateway aren't on the same host (Docker, a real
-// multi-machine cluster), and guessing wrong silently registers a URL
-// nothing can actually reach.
-const GATEWAY_URL = process.env.INKCACHE_GATEWAY_URL;
+// set, this node announces itself to one or more cluster gateways
+// (comma-separated) on startup and deregisters from each on a graceful
+// shutdown, instead of an operator having to curl POST /cluster/nodes
+// by hand every time a node joins. Requires an explicit externally-
+// reachable INKCACHE_SELF_URL rather than guessing one from
+// INKCACHE_PORT -- "localhost:PORT" would be wrong the moment this node
+// and a gateway aren't on the same host (Docker, a real multi-machine
+// cluster), and guessing wrong silently registers a URL nothing can
+// actually reach.
+//
+// Registering with *multiple* gateways (rather than one) is what
+// actually closes the "the cluster gateway is a single point of
+// failure" limitation docs/architecture.md documents: each gateway is
+// already independently stateless (it derives its whole view of the
+// cluster from health checks + registrations, nothing shared between
+// gateway processes), so running two behind a client-side failover or
+// a plain TCP load balancer only needed every node to tell *both* about
+// itself -- which is exactly what this does. Nothing here makes the
+// gateways aware of each other; there's still no gateway-to-gateway
+// coordination, just every node independently fanning out to all of
+// them.
+const GATEWAY_URLS = resolveUrlList(process.env.INKCACHE_GATEWAY_URL);
 const SELF_URL = process.env.INKCACHE_SELF_URL;
 
 let server: ReturnType<typeof app.listen> | undefined;
 let persistHandle: AutoPersistHandle | undefined;
 
-/** Best-effort registration/deregistration with a cluster gateway --
-    never throws. A node that can't reach its gateway should still come
-    up and serve direct traffic (or be picked up by a later health-check
-    retry loop an operator sets up), not refuse to start over a
-    discovery announcement failing. */
+/** Best-effort registration/deregistration with every configured
+    gateway, independently -- one gateway being unreachable must not
+    stop this node from registering with the others. Never throws: a
+    node that can't reach any gateway should still come up and serve
+    direct traffic, not refuse to start over a discovery announcement
+    failing. */
 async function announceToGateway(op: "register" | "deregister"): Promise<void> {
-  if (!GATEWAY_URL || !SELF_URL) return;
-  try {
-    // authHeader(API_KEY): this node's own INKCACHE_API_KEY, on the
-    // assumption every process in a cluster that has auth enabled
-    // shares the same one secret (see auth.ts's header comment) --
-    // there's no separate "gateway key" to configure.
-    const res = await fetch(`${GATEWAY_URL}/cluster/nodes`, {
-      method: op === "register" ? "POST" : "DELETE",
-      headers: { "content-type": "application/json", ...authHeader(API_KEY) },
-      body: JSON.stringify({ url: SELF_URL }),
-    });
-    // 409 (already registered) on a register call is expected on a
-    // restart racing the gateway's own stale-entry cleanup -- not worth
-    // warning about the way a genuine failure is.
-    if (!res.ok && !(op === "register" && res.status === 409)) {
-      console.warn(`[inkcache] ${op} with gateway ${GATEWAY_URL} returned HTTP ${res.status}`);
-    } else {
-      console.log(`[inkcache] ${op}ed with gateway ${GATEWAY_URL} as ${SELF_URL}`);
-    }
-  } catch (err) {
-    console.warn(
-      `[inkcache] failed to ${op} with gateway ${GATEWAY_URL}: ${(err as Error).message}`,
-    );
-  }
+  if (GATEWAY_URLS.length === 0 || !SELF_URL) return;
+  await Promise.all(
+    GATEWAY_URLS.map(async (gatewayUrl) => {
+      try {
+        // authHeader(API_KEY): this node's own INKCACHE_API_KEY, on the
+        // assumption every process in a cluster that has auth enabled
+        // shares the same one secret (see auth.ts's header comment) --
+        // there's no separate "gateway key" to configure.
+        const res = await fetch(`${gatewayUrl}/cluster/nodes`, {
+          method: op === "register" ? "POST" : "DELETE",
+          headers: { "content-type": "application/json", ...authHeader(API_KEY) },
+          body: JSON.stringify({ url: SELF_URL }),
+        });
+        // 409 (already registered) on a register call is expected on a
+        // restart racing the gateway's own stale-entry cleanup -- not
+        // worth warning about the way a genuine failure is.
+        if (!res.ok && !(op === "register" && res.status === 409)) {
+          console.warn(`[inkcache] ${op} with gateway ${gatewayUrl} returned HTTP ${res.status}`);
+        } else {
+          console.log(`[inkcache] ${op}ed with gateway ${gatewayUrl} as ${SELF_URL}`);
+        }
+      } catch (err) {
+        console.warn(
+          `[inkcache] failed to ${op} with gateway ${gatewayUrl}: ${(err as Error).message}`,
+        );
+      }
+    }),
+  );
 }
 
 async function start(): Promise<void> {
