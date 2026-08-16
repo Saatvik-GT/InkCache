@@ -418,4 +418,77 @@ describe("cluster gateway (real processes)", () => {
     const res = await fetch("http://localhost:8097/get/anything");
     assert.equal(res.status, 503);
   });
+
+  it("a node registered with only one gateway is discovered by its peer gateway via gossip sync", async () => {
+    const gatewayAPort = 8120;
+    const gatewayBPort = 8121;
+    const nodePort = 8122;
+    const gatewayAUrl = `http://localhost:${gatewayAPort}`;
+    const gatewayBUrl = `http://localhost:${gatewayBPort}`;
+    const nodeUrl = `http://localhost:${nodePort}`;
+
+    // Two gateways, peers of *each other* -- symmetric, same as
+    // replicas' INKCACHE_PEER_URLS.
+    const gatewayA = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(gatewayAPort),
+        INKCACHE_CLUSTER_NODES: "",
+        INKCACHE_PEER_GATEWAYS: gatewayBUrl,
+        INKCACHE_GATEWAY_SYNC_INTERVAL: "300",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gatewayA);
+    const gatewayB = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(gatewayBPort),
+        INKCACHE_CLUSTER_NODES: "",
+        INKCACHE_PEER_GATEWAYS: gatewayAUrl,
+        INKCACHE_GATEWAY_SYNC_INTERVAL: "300",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gatewayB);
+    await Promise.all([waitForHealth(gatewayAUrl), waitForHealth(gatewayBUrl)]);
+
+    // The node only knows about gateway A -- never told about B at all.
+    const node = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(nodePort),
+        INKCACHE_NODE_ID: "gossip-discovered",
+        INKCACHE_GATEWAY_URL: gatewayAUrl,
+        INKCACHE_SELF_URL: nodeUrl,
+      },
+      stdio: "ignore",
+    });
+    procs.push(node);
+    await waitForHealth(nodeUrl);
+
+    await waitUntilGatewayLists(gatewayAUrl, nodeUrl, true, "node never registered with gateway A");
+
+    // Gateway B never heard from the node directly -- only gossip from
+    // gateway A can make it aware of the node.
+    await waitUntilGatewayLists(
+      gatewayBUrl,
+      nodeUrl,
+      true,
+      "gateway B never learned about the node via gossip sync with gateway A",
+    );
+
+    // And it's not just aware of it -- gateway B can actually route
+    // real traffic to a node it only ever learned about secondhand.
+    const write = await fetch(`${gatewayBUrl}/set`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: "via-gossip", value: "reached-through-b" }),
+    });
+    assert.equal(write.status, 200);
+    const readBack = await fetch(`${gatewayAUrl}/get/via-gossip`);
+    assert.equal(readBack.status, 200);
+    const body = (await readBack.json()) as { value: string };
+    assert.equal(body.value, "reached-through-b");
+  });
 });
