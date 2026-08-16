@@ -268,10 +268,12 @@ shape as `/metrics` itself, plus `at` (epoch ms).
 | Status | When                                    | Body                                                                      |
 | ------ | --------------------------------------- | ------------------------------------------------------------------------- |
 | 400    | malformed JSON body                     | `{ "error": "malformed JSON body" }`                                      |
+| 401    | missing/invalid API key (if configured) | `{ "error": "missing or invalid API key" }`                               |
 | 413    | request body over 64kb                  | `{ "error": "request body too large (max 64kb)" }`                        |
 | 404    | `GET /get/:key` on a missing key        | `{ "error": "miss", "key": "..." }`                                       |
 | 404    | unknown route                           | `{ "error": "not found", "path": "..." }`                                 |
 | 409    | a write sent directly to a replica node | `{ "error": "this node is a read-only replica -- write to the primary" }` |
+| 429    | rate limit exceeded (if configured)     | `{ "error": "rate limit exceeded" }`, with a `Retry-After` header         |
 | 500    | genuinely unexpected server error       | `{ "error": "internal server error" }`                                    |
 
 None of these fall through to Express's default HTML error page — every
@@ -296,27 +298,84 @@ headers middleware runs before `cors()` in the stack specifically so
 that's true, since `cors()` answers a preflight itself without ever
 reaching later middleware.
 
+## Authentication & rate limiting
+
+Both opt-in, both unset (disabled) by default — the same "off unless
+you turn it on" discipline as every other feature in this layer.
+
+**`INKCACHE_API_KEY`** — a single shared secret across the whole
+cluster (every cache node, replica, and gateway set the _same_ value;
+there's no per-node or per-client key). Present it as either header on
+every request:
+
+```bash
+curl http://localhost:8080/get/user:1 -H "X-API-Key: <key>"
+curl http://localhost:8080/get/user:1 -H "Authorization: Bearer <key>"
+```
+
+**401** `{ "error": "missing or invalid API key" }` for a missing or
+wrong key. Compared with a constant-time comparison
+(`node:crypto`'s `timingSafeEqual`), not `===`, so response timing
+doesn't leak how much of a guessed key was correct. `GET /health` is
+**always** open regardless of this setting — a liveness probe (Docker's
+`HEALTHCHECK`, the cluster gateway's own health-check.ts, any
+orchestrator) isn't a data-access boundary, and requiring credentials
+for it would break exactly the tooling that needs to reach it
+unconditionally.
+
+When set, every internal caller in this codebase attaches it
+automatically so a cluster keeps working end-to-end once the key is
+configured everywhere: a primary forwarding to its replicas
+(`POST /internal/replicate`), a replica pulling its startup snapshot
+(`GET /snapshot`), a node self-registering with a gateway
+(`POST /cluster/nodes`), and a gateway proxying a client's request to
+the node that owns the key. **The dashboard is not wired to send an API
+key** — enabling `INKCACHE_API_KEY` breaks the dashboard against that
+node until it's updated to attach one; a known, documented gap, not a
+silent one.
+
+**`INKCACHE_RATE_LIMIT`** (requests per window) + `INKCACHE_RATE_LIMIT_WINDOW`
+(window length in seconds, default `10`) — a fixed-window limiter, keyed
+by client IP, entirely in-memory and per-process (not shared across a
+cluster's nodes — each node/gateway enforces its own limit
+independently). **429** `{ "error": "rate limit exceeded" }` with a
+`Retry-After` header (seconds) once exceeded. `GET /health` is exempt
+from this too, for the same liveness-probe reason as auth above. A
+fixed window allows a burst of up to 2x the configured limit right at a
+window boundary (one burst at the end of one window, another at the
+start of the next) — a known, deliberate trade-off for O(1)
+bookkeeping instead of a sliding log per client.
+
+| Variable                     | Default  | Notes                                                                |
+| ---------------------------- | -------- | -------------------------------------------------------------------- |
+| `INKCACHE_API_KEY`           | _(none)_ | shared secret, same value on every process in a cluster              |
+| `INKCACHE_RATE_LIMIT`        | _(none)_ | max requests per window per client IP                                |
+| `INKCACHE_RATE_LIMIT_WINDOW` | `10`     | window length in seconds (only used if `INKCACHE_RATE_LIMIT` is set) |
+
 ## Eviction policy
 
 All node configuration is via environment variables, set before starting
 the node (`npm run dev:node` / `npm run start:node`):
 
-| Variable                    | Default        | Notes                                                                                        |
-| --------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
-| `INKCACHE_PORT`             | `8080`         | HTTP port the node listens on                                                                |
-| `INKCACHE_NODE_ID`          | `node-1`       | label reported in `/health`/`/metrics`                                                       |
-| `INKCACHE_MAX_ENTRIES`      | `512`          | capacity before eviction kicks in                                                            |
-| `INKCACHE_EVICTION_POLICY`  | `access-aware` | `access-aware`, `lru`, or `lfu`                                                              |
-| `INKCACHE_EVICTION_SAMPLE`  | `5`            | candidate window size for `access-aware`                                                     |
-| `INKCACHE_MAX_KEY_LENGTH`   | `256`          | longest key `/set` will accept                                                               |
-| `INKCACHE_CORS_ORIGIN`      | _(none)_       | comma-separated extra allowed origins                                                        |
-| `INKCACHE_PERSIST_PATH`     | _(none)_       | file path to save/load the cache's contents across restarts                                  |
-| `INKCACHE_PERSIST_INTERVAL` | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                     |
-| `INKCACHE_ROLE`             | `primary`      | `primary` or `replica` — see [Replication](#replication)                                     |
-| `INKCACHE_REPLICA_URLS`     | _(none)_       | comma-separated replica base URLs (primary only)                                             |
-| `INKCACHE_PRIMARY_URL`      | _(none)_       | this node's primary's base URL (replica only)                                                |
-| `INKCACHE_GATEWAY_URL`      | _(none)_       | a cluster gateway's base URL to self-register with — see [Cluster gateway](#cluster-gateway) |
-| `INKCACHE_SELF_URL`         | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)         |
+| Variable                     | Default        | Notes                                                                                        |
+| ---------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `INKCACHE_PORT`              | `8080`         | HTTP port the node listens on                                                                |
+| `INKCACHE_NODE_ID`           | `node-1`       | label reported in `/health`/`/metrics`                                                       |
+| `INKCACHE_MAX_ENTRIES`       | `512`          | capacity before eviction kicks in                                                            |
+| `INKCACHE_EVICTION_POLICY`   | `access-aware` | `access-aware`, `lru`, or `lfu`                                                              |
+| `INKCACHE_EVICTION_SAMPLE`   | `5`            | candidate window size for `access-aware`                                                     |
+| `INKCACHE_MAX_KEY_LENGTH`    | `256`          | longest key `/set` will accept                                                               |
+| `INKCACHE_CORS_ORIGIN`       | _(none)_       | comma-separated extra allowed origins                                                        |
+| `INKCACHE_PERSIST_PATH`      | _(none)_       | file path to save/load the cache's contents across restarts                                  |
+| `INKCACHE_PERSIST_INTERVAL`  | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                     |
+| `INKCACHE_ROLE`              | `primary`      | `primary` or `replica` — see [Replication](#replication)                                     |
+| `INKCACHE_REPLICA_URLS`      | _(none)_       | comma-separated replica base URLs (primary only)                                             |
+| `INKCACHE_PRIMARY_URL`       | _(none)_       | this node's primary's base URL (replica only)                                                |
+| `INKCACHE_GATEWAY_URL`       | _(none)_       | a cluster gateway's base URL to self-register with — see [Cluster gateway](#cluster-gateway) |
+| `INKCACHE_SELF_URL`          | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)         |
+| `INKCACHE_API_KEY`           | _(none)_       | shared cluster secret — see [Authentication & rate limiting](#authentication--rate-limiting) |
+| `INKCACHE_RATE_LIMIT`        | _(none)_       | max requests per window per client IP                                                        |
+| `INKCACHE_RATE_LIMIT_WINDOW` | `10`           | rate-limit window length in seconds                                                          |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
@@ -386,12 +445,14 @@ curl -X POST http://localhost:8090/set -H "Content-Type: application/json" \
 curl http://localhost:8090/get/user:1
 ```
 
-| Variable                           | Default  | Notes                                                  |
-| ---------------------------------- | -------- | ------------------------------------------------------ |
-| `INKCACHE_GATEWAY_PORT`            | `8090`   | HTTP port the gateway listens on                       |
-| `INKCACHE_CLUSTER_NODES`           | _(none)_ | comma-separated base URLs of the nodes to route across |
-| `INKCACHE_GATEWAY_HEALTH_INTERVAL` | `2000`   | ms between health checks against every cluster node    |
-| `INKCACHE_CORS_ORIGIN`             | _(none)_ | same meaning as on a cache node                        |
+| Variable                           | Default         | Notes                                                                                                                |
+| ---------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `INKCACHE_GATEWAY_PORT`            | `8090`          | HTTP port the gateway listens on                                                                                     |
+| `INKCACHE_CLUSTER_NODES`           | _(none)_        | comma-separated base URLs of the nodes to route across                                                               |
+| `INKCACHE_GATEWAY_HEALTH_INTERVAL` | `2000`          | ms between health checks against every cluster node                                                                  |
+| `INKCACHE_CORS_ORIGIN`             | _(none)_        | same meaning as on a cache node                                                                                      |
+| `INKCACHE_API_KEY`                 | _(none)_        | same shared cluster secret as on a cache node — see [Authentication & rate limiting](#authentication--rate-limiting) |
+| `INKCACHE_RATE_LIMIT` / `_WINDOW`  | _(none)_ / `10` | same meaning as on a cache node                                                                                      |
 
 Routes:
 

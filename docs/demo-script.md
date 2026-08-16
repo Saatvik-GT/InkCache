@@ -162,7 +162,40 @@ curl -X POST http://localhost:8090/set -H "Content-Type: application/json" \
 # 200 -- traffic reroutes around the dead node automatically
 ```
 
-## 7. The dashboard
+## 7. Authentication & rate limiting
+
+```bash
+INKCACHE_PORT=8080 INKCACHE_API_KEY=demo-secret INKCACHE_RATE_LIMIT=5 npm run start:node
+```
+
+```bash
+curl -i http://localhost:8080/get/anything
+# HTTP/1.1 401 Unauthorized -- {"error":"missing or invalid API key"}
+
+curl -i http://localhost:8080/health
+# HTTP/1.1 200 OK -- /health always stays open, no key needed
+
+curl http://localhost:8080/get/anything -H "X-API-Key: demo-secret"
+# 404 miss -- correct key, request goes through normally (this is
+# request #2 against the rate limit -- the earlier 401 above counted
+# too; rate limiting runs before auth, on purpose, so even wrong-key
+# guessing gets throttled)
+
+for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{http_code} " \
+  http://localhost:8080/get/anything -H "X-API-Key: demo-secret"; done; echo
+# 404 404 404 429 429 429 -- requests #3-5 succeed (limit is 5 per
+# window, and 2 were already spent above), #6 onward is throttled
+```
+
+Talking point: this is a single shared secret for the whole cluster,
+not per-client keys — every internal call (replication forwarding, a
+replica's startup sync, the gateway's proxying, a node's
+self-registration) attaches it automatically once it's set everywhere,
+so turning auth on doesn't break the rest of the system. See
+[docs/api.md#authentication--rate-limiting](api.md#authentication--rate-limiting)
+for what it deliberately doesn't do yet (per-client keys, rotation).
+
+## 8. The dashboard
 
 ```bash
 npm run dev   # starts both the node and the Vite dashboard dev server

@@ -13,7 +13,9 @@ import {
   ROLE,
   PRIMARY_URL,
   REPLICA_URLS,
+  API_KEY,
 } from "./app.js";
+import { authHeader } from "./auth.js";
 import { parsePositiveInt } from "./env.js";
 import {
   loadSnapshot,
@@ -66,9 +68,13 @@ let persistHandle: AutoPersistHandle | undefined;
 async function announceToGateway(op: "register" | "deregister"): Promise<void> {
   if (!GATEWAY_URL || !SELF_URL) return;
   try {
+    // authHeader(API_KEY): this node's own INKCACHE_API_KEY, on the
+    // assumption every process in a cluster that has auth enabled
+    // shares the same one secret (see auth.ts's header comment) --
+    // there's no separate "gateway key" to configure.
     const res = await fetch(`${GATEWAY_URL}/cluster/nodes`, {
       method: op === "register" ? "POST" : "DELETE",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...authHeader(API_KEY) },
       body: JSON.stringify({ url: SELF_URL }),
     });
     // 409 (already registered) on a register call is expected on a
@@ -100,7 +106,7 @@ async function start(): Promise<void> {
   // arrives. Runs before listen() so nothing is exposed mid-sync. Bounded
   // retries inside syncFromPrimary() -- see its own comment for why.
   if (ROLE === "replica" && PRIMARY_URL) {
-    const loaded = await syncFromPrimary(store, PRIMARY_URL);
+    const loaded = await syncFromPrimary(store, PRIMARY_URL, undefined, undefined, API_KEY);
     console.log(`[inkcache] synced ${loaded} key(s) from primary ${PRIMARY_URL}`);
   }
 

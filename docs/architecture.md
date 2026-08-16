@@ -132,10 +132,18 @@ is the honest starting line, not a finished first draft of it.
   front.** `INKCACHE_GATEWAY_URL` is set at node startup; there's no
   service-discovery layer (DNS-SD, Consul, etc.) a node could use to
   find a gateway it doesn't already have the address of.
-- **No authentication anywhere.** Every route on every process type is
-  unauthenticated — documented, deliberate, and explained in
-  [docs/security-notes.md](security-notes.md); this is a local/demo
-  system, not something to expose on the open internet as-is.
+- **Authentication is opt-in, not on by default.** `INKCACHE_API_KEY`
+  (one shared secret across the whole cluster) and `INKCACHE_RATE_LIMIT`
+  gate every route except `GET /health` when set — see
+  [docs/api.md#authentication--rate-limiting](api.md#authentication--rate-limiting).
+  Unset (the default), a node or gateway behaves exactly as it did
+  before either feature existed. There's no per-client key, no
+  expiry/rotation, no scopes — a real gap for anything beyond "one
+  trusted operator controls every process in the cluster," which is
+  this project's actual scope. Rate limiting is per-process and
+  in-memory, not shared across a cluster's nodes. **The dashboard is
+  not wired to send an API key** — enabling `INKCACHE_API_KEY` breaks
+  it against that node until it's updated.
 
 ## Persistence format ("database schema")
 

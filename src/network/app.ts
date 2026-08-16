@@ -27,8 +27,10 @@ import cors from "cors";
 import { AccessPredictor } from "../core/access-predictor.js";
 import { CacheStore, type EvictionPolicy } from "../core/cache.js";
 import { MetricsCollector } from "../core/metrics.js";
+import { createAuthMiddleware } from "./auth.js";
 import { resolveCorsOrigins } from "./cors.js";
 import { parsePositiveInt, resolveEvictionPolicy } from "./env.js";
+import { createRateLimiter } from "./rate-limit.js";
 import {
   applyReplicationOp,
   forwardToReplicas,
@@ -73,6 +75,25 @@ export const ROLE: "primary" | "replica" =
   process.env.INKCACHE_ROLE === "replica" ? "replica" : "primary";
 export const REPLICA_URLS = resolveReplicaUrls(process.env.INKCACHE_REPLICA_URLS);
 export const PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
+
+// Shared-secret auth + per-process rate limiting, both opt-in (unset by
+// default, matching every other env-var-gated feature in this layer).
+// API_KEY is exported so replication.ts/server.ts's own outgoing
+// requests (forwarding to a replica, self-registering with a gateway)
+// can attach it -- a shared key across the cluster only works if every
+// internal caller presents it too, not just external clients.
+export const API_KEY = process.env.INKCACHE_API_KEY;
+const RATE_LIMIT_ENV = process.env.INKCACHE_RATE_LIMIT;
+// Deliberately not parsePositiveInt(undefined, ...) with a default --
+// that would silently enable rate limiting for a value nobody set. Only
+// parse (and fall back to a sane default on garbage input) once the
+// feature is actually opted into.
+const RATE_LIMIT =
+  RATE_LIMIT_ENV !== undefined
+    ? parsePositiveInt(RATE_LIMIT_ENV, 100, "INKCACHE_RATE_LIMIT")
+    : undefined;
+const RATE_LIMIT_WINDOW_MS =
+  parsePositiveInt(process.env.INKCACHE_RATE_LIMIT_WINDOW, 10, "INKCACHE_RATE_LIMIT_WINDOW") * 1000;
 
 export const metrics = new MetricsCollector();
 export const store = new CacheStore({
@@ -123,6 +144,15 @@ app.use(
     origin: CORS_ORIGINS,
   }),
 );
+
+// Rate limiting before auth: an unauthenticated client hammering this
+// node with wrong keys should get throttled too, not just rejected --
+// otherwise the auth check itself becomes an unbounded-cost operation
+// an attacker can hit as fast as the network allows.
+if (RATE_LIMIT !== undefined) {
+  app.use(createRateLimiter({ limit: RATE_LIMIT, windowMs: RATE_LIMIT_WINDOW_MS }));
+}
+app.use(createAuthMiddleware(API_KEY));
 
 app.use(express.json({ limit: "64kb" }));
 // Malformed JSON and oversized bodies both throw inside express.json();
@@ -208,7 +238,7 @@ app.post("/set", (req, res) => {
   const { key, value, ttl } = validated;
   const { latencyUs } = timed(() => store.set(key, value, { ttl }));
   metrics.record("set", latencyUs);
-  forwardToReplicas(REPLICA_URLS, { op: "set", key, value, ttl });
+  forwardToReplicas(REPLICA_URLS, { op: "set", key, value, ttl }, API_KEY);
   return res.json({ ok: true, key, ttl: ttl ?? null });
 });
 
@@ -245,7 +275,7 @@ app.delete("/delete/:key", (req, res) => {
   const key = req.params.key;
   const { result: deleted, latencyUs } = timed(() => store.delete(key));
   metrics.record("delete", latencyUs);
-  forwardToReplicas(REPLICA_URLS, { op: "delete", key });
+  forwardToReplicas(REPLICA_URLS, { op: "delete", key }, API_KEY);
   return res.json({ ok: true, key, deleted });
 });
 
@@ -259,7 +289,7 @@ app.post("/invalidate", (req, res) => {
     return res.status(400).json({ error: `prefix must be at most ${MAX_KEY_LENGTH} characters` });
   }
   const dropped = store.deleteByPrefix(prefix);
-  forwardToReplicas(REPLICA_URLS, { op: "invalidate", prefix });
+  forwardToReplicas(REPLICA_URLS, { op: "invalidate", prefix }, API_KEY);
   return res.json({ ok: true, prefix, dropped });
 });
 
@@ -303,7 +333,7 @@ app.post("/flush", (_req, res) => {
   if (rejectIfReplica(res)) return;
   const dropped = store.size;
   store.clear();
-  forwardToReplicas(REPLICA_URLS, { op: "flush" });
+  forwardToReplicas(REPLICA_URLS, { op: "flush" }, API_KEY);
   res.json({ ok: true, dropped });
 });
 

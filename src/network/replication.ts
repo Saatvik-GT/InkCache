@@ -8,6 +8,7 @@
  */
 
 import type { CacheStore } from "../core/cache.js";
+import { authHeader } from "./auth.js";
 
 export type ReplicationOp =
   | { op: "set"; key: string; value: string; ttl?: number }
@@ -36,11 +37,15 @@ export function resolveReplicaUrls(envValue: string | undefined): string[] {
  * snapshot pull (a restart), which is an acceptable staleness window for
  * best-effort replication, not a strongly-consistent log.
  */
-export function forwardToReplicas(replicaUrls: readonly string[], op: ReplicationOp): void {
+export function forwardToReplicas(
+  replicaUrls: readonly string[],
+  op: ReplicationOp,
+  apiKey?: string,
+): void {
   for (const url of replicaUrls) {
     fetch(`${url}/internal/replicate`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...authHeader(apiKey) },
       body: JSON.stringify(op),
     }).catch((err: unknown) => {
       console.warn(`[inkcache] failed to replicate ${op.op} to ${url}: ${(err as Error).message}`);
@@ -85,10 +90,11 @@ export async function syncFromPrimary(
   primaryUrl: string,
   maxAttempts = 5,
   retryDelayMs = 1000,
+  apiKey?: string,
 ): Promise<number> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await fetch(`${primaryUrl}/snapshot`);
+      const res = await fetch(`${primaryUrl}/snapshot`, { headers: authHeader(apiKey) });
       if (!res.ok) throw new Error(`primary returned HTTP ${res.status}`);
       const body = (await res.json()) as {
         keys: Array<{ key: string; value: string; ttl: number | null }>;

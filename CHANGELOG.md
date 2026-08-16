@@ -255,6 +255,57 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   that purpose instead. Stated directly in the README rather than left
   as a silently-dropped roadmap item.
 
+### Authentication & rate limiting
+
+- Opt-in shared-secret auth (`INKCACHE_API_KEY`, unset/disabled by
+  default): one secret across the whole cluster, checked via
+  `X-API-Key` or `Authorization: Bearer` with a constant-time
+  comparison (`node:crypto`'s `timingSafeEqual`, not `===`, so response
+  timing doesn't leak how much of a guessed key matched). `GET /health`
+  stays open regardless -- a liveness probe isn't a data-access
+  boundary. New `src/network/auth.ts`, a factory
+  (`createAuthMiddleware(apiKey)`) rather than a module-level singleton
+  reading `process.env` itself, matching how `app.ts` already resolves
+  its own env vars and passes values into pure helpers.
+- Opt-in per-process, in-memory, fixed-window rate limiting
+  (`INKCACHE_RATE_LIMIT` + `INKCACHE_RATE_LIMIT_WINDOW`, default 10s):
+  new `src/network/rate-limit.ts`, keyed by client IP, bounded memory
+  (oldest-tracked client evicted first, same simple strategy
+  `access-predictor.ts` and `metrics.ts`'s ring buffer already use).
+  **429** with a `Retry-After` header once exceeded; `/health` exempt
+  for the same liveness-probe reason as auth. Registered _before_ auth
+  in the middleware chain on purpose -- an unauthenticated client
+  guessing keys should get throttled too, not just rejected.
+- Every internal caller in the codebase attaches the shared key
+  automatically once configured, so a cluster keeps working end-to-end
+  rather than the feature only protecting the outermost hop:
+  `forwardToReplicas()`/`syncFromPrimary()` in `replication.ts`, the
+  gateway's own request proxying in `gateway.ts`, and a node's
+  self-registration (`announceToGateway()`) in `server.ts`. This
+  required passing an optional `apiKey` parameter through
+  `forwardToReplicas()`/`syncFromPrimary()`'s signatures (backward
+  compatible -- existing callers that omit it are unaffected, since an
+  absent key means `authHeader()` contributes no header at all).
+- Verified with a real end-to-end test suite (4 tests) spawning actual
+  node/replica/gateway processes with `INKCACHE_API_KEY`/
+  `INKCACHE_RATE_LIMIT` set: unauthenticated and wrong-key requests
+  rejected, both accepted header forms work, a replicated write
+  actually lands on the replica (proving the forwarded auth header
+  works, not just the primary's own check), the gateway both enforces
+  its own auth _and_ correctly re-authenticates itself to the node it
+  proxies to, and real HTTP 429s once the configured limit is
+  exceeded. Plus 17 unit tests (`auth.test.ts`, `rate-limit.test.ts`)
+  covering both header forms, wrong-length keys, non-Bearer schemes,
+  per-client independence, and bounded-memory eviction for the rate
+  limiter via direct middleware calls (supertest can't fabricate
+  distinct client IPs).
+- Documented, real limitations, not silently left implicit: one shared
+  secret for the whole cluster, not per-client keys -- no expiry,
+  rotation, or scopes. Rate limiting is per-process, not shared across
+  a cluster's nodes. **The dashboard is not wired to send an API key**
+  -- enabling `INKCACHE_API_KEY` breaks it against that node until it's
+  updated to attach one.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor
