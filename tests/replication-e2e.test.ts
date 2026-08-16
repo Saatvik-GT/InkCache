@@ -322,4 +322,109 @@ describe("primary-replica replication (real processes)", () => {
       await Promise.all([waitForExit(autoReplica)]);
     }
   });
+
+  it("exactly one of three replicas wins the election when their shared primary dies (no split-brain)", async () => {
+    const primaryPort = 8116;
+    const replicaPorts = [8117, 8118, 8119] as const;
+    const primaryUrl = `http://localhost:${primaryPort}`;
+    const replicaUrls = replicaPorts.map((p) => `http://localhost:${p}`);
+
+    const electionPrimary = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(primaryPort),
+        INKCACHE_NODE_ID: "election-primary",
+      },
+      stdio: "ignore",
+    });
+    await waitForHealth(primaryUrl);
+
+    const electionReplicas: ChildProcess[] = [];
+    for (const port of replicaPorts) {
+      const selfUrl = `http://localhost:${port}`;
+      // Symmetric peer list: every replica's peers are the *other* two,
+      // not including itself -- exactly the "operator configures every
+      // replica with every other replica" model docs/api.md describes.
+      const peers = replicaUrls.filter((u) => u !== selfUrl).join(",");
+      electionReplicas.push(
+        spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+          env: {
+            ...process.env,
+            INKCACHE_PORT: String(port),
+            INKCACHE_NODE_ID: `election-replica-${port}`,
+            INKCACHE_ROLE: "replica",
+            INKCACHE_PRIMARY_URL: primaryUrl,
+            INKCACHE_SELF_URL: selfUrl,
+            INKCACHE_PEER_URLS: peers,
+            INKCACHE_PRIMARY_MONITOR_INTERVAL: "200",
+            INKCACHE_AUTO_PROMOTE: "true",
+            INKCACHE_AUTO_PROMOTE_THRESHOLD: "3",
+          },
+          stdio: "ignore",
+        }),
+      );
+    }
+    await Promise.all(replicaUrls.map((url) => waitForHealth(url)));
+
+    try {
+      electionPrimary.kill();
+      await waitForExit(electionPrimary);
+
+      // Poll until the cluster settles: exactly one node reports
+      // role:"primary", the other two report role:"replica" pointing
+      // at it. Real election timing (network round trips across 3 real
+      // processes, not mocked), so give it real margin.
+      let winners: string[] = [];
+      await waitUntil(async () => {
+        const healths = await Promise.all(
+          replicaUrls.map(async (url) => {
+            const res = await fetch(`${url}/health`);
+            return (await res.json()) as { role: string };
+          }),
+        );
+        winners = replicaUrls.filter((_, i) => healths[i]!.role === "primary");
+        return winners.length === 1;
+      }, 8000);
+
+      assert.equal(winners.length, 1, "expected exactly one replica to win the election");
+      const [winnerUrl] = winners;
+      const losers = replicaUrls.filter((u) => u !== winnerUrl);
+
+      // Both losers agree on who won -- their own /health reports the
+      // winner's URL as their new primary, not each other or the dead
+      // original primary.
+      for (const loserUrl of losers) {
+        const health = (await (await fetch(`${loserUrl}/health`)).json()) as {
+          role: string;
+          primaryHealthy?: boolean;
+        };
+        assert.equal(health.role, "replica");
+      }
+
+      // The winner genuinely serves as primary now.
+      const write = await fetch(`${winnerUrl}/set`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: "post-election", value: "consistent" }),
+      });
+      assert.equal(write.status, 200, "the elected primary did not accept a direct write");
+
+      // Neither loser thinks *it* won -- both still reject direct writes.
+      for (const loserUrl of losers) {
+        const rejected = await fetch(`${loserUrl}/set`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ key: "should-not-land", value: "x" }),
+        });
+        assert.equal(
+          rejected.status,
+          409,
+          `${loserUrl} accepted a write despite losing the election`,
+        );
+      }
+    } finally {
+      for (const p of electionReplicas) p.kill();
+      await Promise.all(electionReplicas.map((p) => waitForExit(p)));
+    }
+  });
 });
