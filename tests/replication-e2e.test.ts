@@ -189,4 +189,64 @@ describe("primary-replica replication (real processes)", () => {
     const doublePromote = await fetch(`${REPLICA_URL}/promote`, { method: "POST" });
     assert.equal(doublePromote.status, 409);
   });
+
+  it("a replica's /health reports its primary's real liveness (primary monitor)", async () => {
+    const monitorPrimaryPort = 8112;
+    const monitorReplicaPort = 8113;
+    const monitorPrimaryUrl = `http://localhost:${monitorPrimaryPort}`;
+    const monitorReplicaUrl = `http://localhost:${monitorReplicaPort}`;
+
+    const monitorPrimary = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(monitorPrimaryPort),
+        INKCACHE_NODE_ID: "monitor-primary",
+      },
+      stdio: "ignore",
+    });
+    await waitForHealth(monitorPrimaryUrl);
+
+    const monitorReplica = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(monitorReplicaPort),
+        INKCACHE_NODE_ID: "monitor-replica",
+        INKCACHE_ROLE: "replica",
+        INKCACHE_PRIMARY_URL: monitorPrimaryUrl,
+        // Fast interval so this test doesn't have to wait the 2s
+        // production default to observe a real detection.
+        INKCACHE_PRIMARY_MONITOR_INTERVAL: "300",
+      },
+      stdio: "ignore",
+    });
+    await waitForHealth(monitorReplicaUrl);
+
+    try {
+      const before = (await (await fetch(`${monitorReplicaUrl}/health`)).json()) as {
+        primaryHealthy: boolean;
+        primaryConsecutiveFailures: number;
+      };
+      assert.equal(before.primaryHealthy, true);
+      assert.equal(before.primaryConsecutiveFailures, 0);
+
+      monitorPrimary.kill();
+      await waitForExit(monitorPrimary);
+
+      await waitUntil(async () => {
+        const res = await fetch(`${monitorReplicaUrl}/health`);
+        const body = (await res.json()) as { primaryHealthy: boolean };
+        return body.primaryHealthy === false;
+      });
+
+      const after = (await (await fetch(`${monitorReplicaUrl}/health`)).json()) as {
+        primaryHealthy: boolean;
+        primaryConsecutiveFailures: number;
+      };
+      assert.equal(after.primaryHealthy, false);
+      assert.ok(after.primaryConsecutiveFailures >= 1);
+    } finally {
+      monitorReplica.kill();
+      await Promise.all([waitForExit(monitorReplica)]);
+    }
+  });
 });

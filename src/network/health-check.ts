@@ -48,7 +48,10 @@ export interface HealthCheckHandle {
   removeNode(url: string): void;
 }
 
-async function pingHealthy(url: string, timeoutMs: number): Promise<boolean> {
+/** Exported for reuse by primary-monitor.ts (a replica checking its own
+    primary's liveness) -- same fetch-with-timeout shape, no reason to
+    duplicate it a second time. */
+export async function pingHealthy(url: string, timeoutMs: number): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

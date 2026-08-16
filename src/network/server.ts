@@ -14,6 +14,7 @@ import {
   PRIMARY_URL,
   REPLICA_URLS,
   API_KEY,
+  setPrimaryMonitorHandle,
 } from "./app.js";
 import { authHeader } from "./auth.js";
 import { parsePositiveInt } from "./env.js";
@@ -23,6 +24,7 @@ import {
   startAutoPersist,
   type AutoPersistHandle,
 } from "./persistence.js";
+import { startPrimaryMonitor, type PrimaryMonitorHandle } from "./primary-monitor.js";
 // resolveReplicaUrls does exactly the URL-list parsing this file also
 // needs for INKCACHE_GATEWAY_URL (comma-separated, trimmed, trailing
 // slash stripped, blanks dropped) -- reused under a clearer local name
@@ -76,8 +78,21 @@ const PERSIST_INTERVAL_MS =
 const GATEWAY_URLS = resolveUrlList(process.env.INKCACHE_GATEWAY_URL);
 const SELF_URL = process.env.INKCACHE_SELF_URL;
 
+// Primary liveness monitoring (automatic primary promotion, part 2 of
+// N): a replica polls its own primary's /health on this interval so it
+// has a live, continuously-updated view of whether its primary is
+// still reachable, surfaced via GET /health's primaryHealthy /
+// primaryConsecutiveFailures fields. This module only observes for
+// now -- nothing here promotes anything yet.
+const PRIMARY_MONITOR_INTERVAL_MS = parsePositiveInt(
+  process.env.INKCACHE_PRIMARY_MONITOR_INTERVAL,
+  2000,
+  "INKCACHE_PRIMARY_MONITOR_INTERVAL",
+);
+
 let server: ReturnType<typeof app.listen> | undefined;
 let persistHandle: AutoPersistHandle | undefined;
+let primaryMonitorHandle: PrimaryMonitorHandle | undefined;
 
 /** Best-effort registration/deregistration with every configured
     gateway, independently -- one gateway being unreachable must not
@@ -132,6 +147,9 @@ async function start(): Promise<void> {
   if (ROLE === "replica" && PRIMARY_URL) {
     const loaded = await syncFromPrimary(store, PRIMARY_URL, undefined, undefined, API_KEY);
     console.log(`[inkcache] synced ${loaded} key(s) from primary ${PRIMARY_URL}`);
+
+    primaryMonitorHandle = startPrimaryMonitor(PRIMARY_URL, PRIMARY_MONITOR_INTERVAL_MS);
+    setPrimaryMonitorHandle(primaryMonitorHandle);
   }
 
   store.startSweeper();
@@ -155,6 +173,7 @@ async function shutdown(signal: string): Promise<void> {
   await announceToGateway("deregister");
   store.stopSweeper();
   metrics.stopHistory();
+  primaryMonitorHandle?.stop();
   persistHandle?.stop();
   if (PERSIST_PATH) {
     // Best-effort final save so whatever changed since the last periodic

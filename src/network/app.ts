@@ -32,6 +32,7 @@ import { createAuthMiddleware } from "./auth.js";
 import { resolveCorsOrigins } from "./cors.js";
 import { parsePositiveInt, resolveEvictionPolicy } from "./env.js";
 import { createRateLimiter } from "./rate-limit.js";
+import type { PrimaryMonitorHandle } from "./primary-monitor.js";
 import {
   applyReplicationOp,
   forwardToReplicas,
@@ -81,6 +82,14 @@ export let ROLE: "primary" | "replica" =
   process.env.INKCACHE_ROLE === "replica" ? "replica" : "primary";
 export let REPLICA_URLS = resolveReplicaUrls(process.env.INKCACHE_REPLICA_URLS);
 export let PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
+
+// Set by server.ts once it starts monitoring this replica's primary --
+// same external-hook pattern gateway.ts uses for setHealthHandle(), so
+// this module stays free of background timers on import.
+let primaryMonitorHandle: PrimaryMonitorHandle | undefined;
+export function setPrimaryMonitorHandle(handle: PrimaryMonitorHandle): void {
+  primaryMonitorHandle = handle;
+}
 
 // Shared-secret auth + per-process rate limiting, both opt-in (unset by
 // default, matching every other env-var-gated feature in this layer).
@@ -423,6 +432,12 @@ app.get("/health", (_req, res) => {
     uptimeSec: metrics.uptimeSec,
     keys: store.size,
     timestamp: new Date().toISOString(),
+    ...(ROLE === "replica" && primaryMonitorHandle
+      ? {
+          primaryHealthy: primaryMonitorHandle.isPrimaryHealthy(),
+          primaryConsecutiveFailures: primaryMonitorHandle.consecutiveFailures(),
+        }
+      : {}),
   });
 });
 
