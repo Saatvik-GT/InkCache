@@ -452,14 +452,16 @@ curl -X POST http://localhost:8090/set -H "Content-Type: application/json" \
 curl http://localhost:8090/get/user:1
 ```
 
-| Variable                           | Default         | Notes                                                                                                                |
-| ---------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `INKCACHE_GATEWAY_PORT`            | `8090`          | HTTP port the gateway listens on                                                                                     |
-| `INKCACHE_CLUSTER_NODES`           | _(none)_        | comma-separated base URLs of the nodes to route across                                                               |
-| `INKCACHE_GATEWAY_HEALTH_INTERVAL` | `2000`          | ms between health checks against every cluster node                                                                  |
-| `INKCACHE_CORS_ORIGIN`             | _(none)_        | same meaning as on a cache node                                                                                      |
-| `INKCACHE_API_KEY`                 | _(none)_        | same shared cluster secret as on a cache node — see [Authentication & rate limiting](#authentication--rate-limiting) |
-| `INKCACHE_RATE_LIMIT` / `_WINDOW`  | _(none)_ / `10` | same meaning as on a cache node                                                                                      |
+| Variable                           | Default         | Notes                                                                                                                                       |
+| ---------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INKCACHE_GATEWAY_PORT`            | `8090`          | HTTP port the gateway listens on                                                                                                            |
+| `INKCACHE_CLUSTER_NODES`           | _(none)_        | comma-separated base URLs of the nodes to route across                                                                                      |
+| `INKCACHE_GATEWAY_HEALTH_INTERVAL` | `2000`          | ms between health checks against every cluster node                                                                                         |
+| `INKCACHE_CORS_ORIGIN`             | _(none)_        | same meaning as on a cache node                                                                                                             |
+| `INKCACHE_API_KEY`                 | _(none)_        | same shared cluster secret as on a cache node — see [Authentication & rate limiting](#authentication--rate-limiting)                        |
+| `INKCACHE_RATE_LIMIT` / `_WINDOW`  | _(none)_ / `10` | same meaning as on a cache node                                                                                                             |
+| `INKCACHE_PEER_GATEWAYS`           | _(none)_        | comma-separated peer gateway base URLs to gossip known nodes with — see [Gateway-to-gateway coordination](#gateway-to-gateway-coordination) |
+| `INKCACHE_GATEWAY_SYNC_INTERVAL`   | `5000`          | ms between gossip ticks (only used if `INKCACHE_PEER_GATEWAYS` is set)                                                                      |
 
 Routes:
 
@@ -472,6 +474,7 @@ Routes:
 | GET    | `/cluster/nodes`      | Every currently-known node and its current health         |
 | POST   | `/cluster/nodes`      | Registers a new node at runtime — `{ "url": "..." }`      |
 | DELETE | `/cluster/nodes`      | Deregisters a node — `{ "url": "..." }`, no-op if unknown |
+| POST   | `/cluster/sync`       | Internal — gateway-to-gateway gossip, see below           |
 | GET    | `/health`             | The gateway's own health (not proxied)                    |
 
 **503** `{ "error": "no cluster nodes configured" }` from any routed
@@ -547,12 +550,57 @@ stateless (it derives its whole view of the cluster from health checks
 and registrations, nothing shared between gateway processes), so two
 gateways behind a client-side failover or a plain TCP load balancer
 only needed every node to tell _both_ about itself — which this does.
-There's still no coordination _between_ gateways themselves; this is
-deliberately a self-registration model, not a gossip protocol or a
-service-mesh-style control plane — a node has to know every gateway's
-address up front, and a gateway restart forgets every
-dynamically-registered node (it starts fresh from
-`INKCACHE_CLUSTER_NODES` again, same as always).
+This is a self-registration model, not a service-mesh-style control
+plane — a node still has to know every gateway's address up front, and
+a gateway restart forgets every dynamically-registered node (it starts
+fresh from `INKCACHE_CLUSTER_NODES` again, same as always).
+
+### Gateway-to-gateway coordination
+
+Multi-gateway self-registration above closes the "every node has to
+know every gateway" half of running more than one gateway. This closes
+the other half: two gateways that **don't** share a full registration
+list can still converge on the same known-node set, via
+`INKCACHE_PEER_GATEWAYS` (comma-separated peer gateway base URLs).
+Every `INKCACHE_GATEWAY_SYNC_INTERVAL` ms (default 5000), each gateway
+pushes its own known node list to `POST <peer>/cluster/sync` and merges
+whatever list the peer responds with back in — a single round trip
+exchanges knowledge in both directions, so a node that only ever
+registered with gateway A shows up on gateway B (and starts receiving
+traffic routed through B) within one sync interval, with no direct
+relationship to B at all.
+
+```bash
+# two gateways, peers of each other
+INKCACHE_PEER_GATEWAYS=http://localhost:8091 npm run start:gateway
+INKCACHE_GATEWAY_PORT=8091 INKCACHE_PEER_GATEWAYS=http://localhost:8090 npm run start:gateway
+
+# a node that only ever talks to the first gateway
+INKCACHE_PORT=8080 INKCACHE_GATEWAY_URL=http://localhost:8090 \
+  INKCACHE_SELF_URL=http://localhost:8080 npm run start:node
+
+# within one sync interval, the *second* gateway can route to it too --
+# it was never told about the node directly
+curl -X POST http://localhost:8091/set -H "Content-Type: application/json" \
+  -d '{"key":"user:1","value":"reached-through-gossip"}'
+```
+
+Deliberately exchanges only _which node URLs exist_, never health
+opinions — each gateway keeps independently verifying liveness via its
+own health checker rather than trusting a peer's possibly-stale view,
+which would let one gateway's bad network path make every gateway
+wrongly believe a node is down. A node learned via gossip is added
+assumed-healthy (same reasoning as a directly-registered node) and
+verified on this gateway's own next health check.
+
+**What this still isn't:** gateways don't discover _each other_ — a
+gateway's peer list is fixed at its own startup from
+`INKCACHE_PEER_GATEWAYS`, same as a node's gateway list. There's no
+shared state or leader between gateways; each maintains and verifies
+its own view independently, so two gateways can briefly disagree about
+a node's health if their checks happen to land at different moments —
+they just both eventually converge on the same known-node _set_, not
+necessarily the same health snapshot at every instant.
 
 ## Replication
 

@@ -466,6 +466,68 @@ across a restart, no adaptive backoff on a lost election, tuned for
 seconds-scale failure detection rather than a much larger or
 higher-churn cluster.
 
+### Split-brain fix caught during the above (real bug, not a hypothetical)
+
+`POST /election/request-vote` is deliberately not gated by `ROLE` -- a
+primary can be asked to vote -- but granting a vote for a newer term
+never demoted it. Caught intermittently across repeated full-suite
+runs of the 3-replica election test: node A wins term 5 and becomes
+primary; node B's local election clock hadn't synced past term 4 yet,
+independently campaigns, reaches term 6 before hearing about A's win,
+and asks A for a vote; A granted it (6 is newer than anything A had
+seen) but kept acting as primary the whole time, since nothing about
+_voting_ triggered a role change; B goes on to win term 6 too -- two
+live primaries simultaneously. Fixed: granting a vote for a term
+strictly newer than this node's previous term now demotes it to a
+replica immediately, even before it knows who the new leader is
+(mirrors real Raft's "convert to follower on any higher term observed"
+rule). Added a dedicated regression test and re-verified the
+3-replica e2e test 5 consecutive times plus the full suite twice,
+all clean -- it had reproduced intermittently before the fix.
+
+### Gateway-to-gateway coordination (closing the last open gap)
+
+- New `src/network/gateway-sync.ts`: `startGatewaySync()` periodically
+  pushes this gateway's known node list to every peer in
+  `INKCACHE_PEER_GATEWAYS` and merges whatever list the peer responds
+  with back in -- a single round trip exchanges knowledge in both
+  directions. Deliberately exchanges only _which node URLs exist_,
+  never health opinions -- each gateway keeps independently verifying
+  liveness itself, so one gateway's bad network path can't make every
+  gateway wrongly believe a node is down. 5 unit tests against real
+  local HTTP peer doubles.
+- New `POST /cluster/sync` on `gateway.ts`: receives a peer's pushed
+  node list, merges unknown URLs in via the same `addNode()` path
+  `POST /cluster/nodes` uses, responds with this gateway's own known
+  list. Deliberately no 409 for an already-known node (unlike
+  `POST /cluster/nodes`) -- repeated gossip of the same node every tick
+  is normal steady-state operation, not a conflict. 6 new API tests.
+- Wired into `gateway-server.ts` via `INKCACHE_PEER_GATEWAYS` (new,
+  reuses `cluster.ts`'s URL-list parsing) and
+  `INKCACHE_GATEWAY_SYNC_INTERVAL` (default 5000ms). Left unset, no
+  gossip runs at all -- a gateway behaves exactly as it did before this
+  existed.
+- Verified with a real end-to-end test: two independent gateway
+  processes configured as each other's peers, a node that registers
+  with **only** gateway A and is never told gateway B exists. Confirms
+  gateway B learns about the node purely through gossip and can
+  actually route real traffic to it -- not just list it. Run
+  repeatedly to check for gossip-timing flakiness, all clean.
+- `docs/api.md` gets a new "Gateway-to-gateway coordination" section
+  and `docs/architecture.md`'s "Known limitations" entry for this is
+  replaced with an accurate description of what's real now versus what
+  remains (gateways still don't discover _each other_, and there's no
+  shared state/leader between them, so two can briefly disagree about
+  a node's _health_ even once they agree it _exists_).
+
+This closes the second and last of the two gaps identified as
+genuinely open at the end of the previous session. What remains in
+`docs/architecture.md`'s "Known limitations" after this: no
+election-state persistence across a restart, no adaptive backoff on a
+lost election, and auth's lack of per-client keys/expiry/rotation --
+none of them silent, all of them stated plainly rather than glossed
+over.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor

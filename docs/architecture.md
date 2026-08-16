@@ -56,13 +56,19 @@ over plain HTTP — no message queue, no shared memory, no RPC framework:
   talks to one cache node's REST API. Not a process in the same sense
   as the two above; it's a client, same as any `curl` call.
 
-Nothing here is a distributed consensus system. There's no leader
-election, no quorum, no Raft/Paxos log. Every cross-process
-relationship — replica-to-primary, gateway-to-node — is a fixed,
-explicitly-configured pointer (an env var), not something nodes
-discover about each other through gossip. That's a real, load-bearing
-design constraint, not an oversight: it keeps every piece independently
-understandable and testable, at the cost of self-healing.
+This isn't a full distributed consensus system, but it isn't pure
+fixed-pointer configuration either, not anymore: replicas run a real
+Raft-style leader election (`src/core/election.ts` — terms, majority
+votes, at most one winner per term, no replicated log) to pick a new
+primary safely, and gateways gossip their known-node lists with their
+peers (`src/network/gateway-sync.ts`). What's still fixed and
+explicitly configured rather than discovered: a node's primary
+(`INKCACHE_PRIMARY_URL`), a replica's election peers
+(`INKCACHE_PEER_URLS`), and every process's gateway addresses
+(`INKCACHE_GATEWAY_URL`/`INKCACHE_PEER_GATEWAYS`) — nothing finds any
+of those on its own via service discovery. See
+[Known limitations](#known-limitations-not-roadmap-items--actual-current-constraints)
+below for exactly where the real boundary sits.
 
 ## Data flow: a single `GET`
 
@@ -134,24 +140,25 @@ is the honest starting line, not a finished first draft of it.
   this is tuned for the seconds-scale failure-detection cadence it
   runs at, not a high-churn or much larger cluster. See
   [docs/api.md#automatic-primary-promotion](api.md#automatic-primary-promotion).
-- **Running multiple gateways is supported, but not coordinated.**
-  `INKCACHE_GATEWAY_URL` accepts a comma-separated list, and every node
-  registers with (and deregisters from) each one independently — so two
-  gateways behind a client-side failover or a plain TCP load balancer
-  actually work end-to-end now (verified with a real test: two
-  independent gateway processes, a node registering with both, real
-  traffic routed correctly through either). What's still missing is any
-  coordination _between_ gateways themselves — there's no shared state,
-  no leader, nothing preventing two gateways from briefly disagreeing
-  about a node's health if one's check happens to land differently than
-  the other's at the same instant. Each gateway's view is independently
-  correct, not synchronized.
-- **Node discovery requires each node to know every gateway's address
-  up front.** `INKCACHE_GATEWAY_URL` is set at node startup (as one or
-  more comma-separated URLs); there's no service-discovery layer
-  (DNS-SD, Consul, etc.) a node could use to find a gateway it doesn't
-  already have the address of, and no way for a _gateway_ to discover
-  other gateways to fan a registration out to on its own.
+- **Running and coordinating multiple gateways is now supported.**
+  `INKCACHE_GATEWAY_URL` accepts a comma-separated list, so a node can
+  register with several gateways at once; `INKCACHE_PEER_GATEWAYS` lets
+  gateways gossip their known-node lists with each other
+  (`src/network/gateway-sync.ts`) so a node registered with only _one_
+  gateway still becomes routable through its peers within one sync
+  interval. Verified with real tests: two independent gateway
+  processes, a node registering with both directly (multi-registration)
+  and, separately, a node that only ever talked to one gateway becoming
+  reachable through its peer purely via gossip, with real traffic
+  actually routed through the gateway that never saw a direct
+  registration. What's still real and out of scope: gateways don't
+  discover _each other_ (each one's peer list is fixed at its own
+  startup, same as a node's gateway list — no service-discovery layer
+  like DNS-SD or Consul), and there's no shared state or leader between
+  gateways, so two can briefly disagree about a node's _health_ (not
+  its existence) if their independent checks land at different moments
+  — gossip converges the known-node set, not a synchronized health
+  snapshot.
 - **Authentication is opt-in, not on by default.** `INKCACHE_API_KEY`
   (one shared secret across the whole cluster) and `INKCACHE_RATE_LIMIT`
   gate every route except `GET /health` when set — see
