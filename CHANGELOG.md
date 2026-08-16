@@ -111,6 +111,40 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   live op forwarding for set/delete, the replica's write rejection, and
   both nodes' reported `role`.
 
+### Sharding & cluster gateway
+
+- Consistent hashing ring (roadmap Sprint 4, part 1): `src/core/hashring.ts`'s
+  `HashRing` maps a key to one of a set of node ids via MD5 into a
+  sorted ring (150 virtual points per node by default), so adding or
+  removing a node only remaps the keys that were on that node instead
+  of reshuffling the whole keyspace the way `hash(key) % nodeCount`
+  would. Pure data structure, no I/O -- tested for the properties that
+  matter (even distribution within a real bound, and every remapped key
+  on add/remove traced back to the node that actually changed).
+- Cluster router (part 2): `src/network/cluster.ts`'s `ClusterRouter`
+  wraps `HashRing` so callers work in terms of real InkCache node base
+  URLs (`nodeFor(key)`, `addNode`/`removeNode`) instead of ring node-ids.
+- Cluster gateway (part 3): a new standalone process
+  (`npm run start:gateway` / `dev:gateway`, `src/network/gateway.ts` +
+  `gateway-server.ts`) that proxies `/set`, `/get/:key`, `/delete/:key`
+  to whichever node `INKCACHE_CLUSTER_NODES` says owns the key, plus
+  `/cluster/nodes` and `/cluster/route/:key` for introspection. Holds no
+  cache state of its own -- pure routing, relaying the target node's
+  response back verbatim, **502** if that node is unreachable and
+  **503** if no nodes are configured at all. See
+  [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway).
+- Verified with a real end-to-end test that spawns three actual cache
+  node processes plus a real gateway process pointed at all three:
+  writes and reads routed correctly, load genuinely spread across every
+  node (not just node 1), and each key's actual location cross-checked
+  against a `ClusterRouter` built independently in the test process
+  (proving the hashing is deterministic across process boundaries, not
+  just within one). Also manually verified live against three real
+  running nodes with curl.
+- Node discovery and automatic failure handling (detecting a node
+  join/leave at runtime, rather than only at gateway startup) are still
+  open -- the rest of Sprint 4.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor

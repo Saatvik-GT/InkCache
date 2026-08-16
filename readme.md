@@ -59,8 +59,9 @@ InkCache addresses this by combining:
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 - A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency, plus `npm run benchmark:external` comparing InkCache against real Redis and Memcached containers over each backend's own native protocol
 - Single-primary replication (`INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`): a primary forwards every write to its replicas over HTTP, and a replica pulls a full snapshot from its primary once at startup — see [docs/api.md#replication](docs/api.md#replication)
+- Consistent hashing + a cluster gateway (`npm run start:gateway`, `INKCACHE_CLUSTER_NODES`): shards keys across a fixed set of nodes so a client can talk to one address instead of knowing which node owns which key — see [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway)
 
-**Not yet implemented (roadmap):** consistent hashing, node discovery, and automatic failover — today's replication is a fixed, manually-configured primary and replica set, not a self-healing cluster. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** dynamic node discovery and automatic failover — today's replication is a fixed, manually-configured primary/replica set, and the cluster gateway's node list is fixed at its own startup too, so neither one is a self-healing cluster yet. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -141,7 +142,13 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
       `INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`, see
       [docs/api.md#replication](docs/api.md#replication). Single fixed
       primary, best-effort/asynchronous, not consensus-based.
-- [ ] Sprint 4: Consistent hashing, node discovery, failure handling
+- [x] Sprint 4 (partial): Consistent hashing (`src/core/hashring.ts`) and
+      a cluster gateway that shards keys across a fixed node set via
+      `INKCACHE_CLUSTER_NODES` (`npm run start:gateway`, see
+      [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway)).
+      Dynamic node discovery and automatic failure handling — detecting
+      a node join/leave at runtime rather than only at gateway
+      startup — are still open.
 - [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
 
 ### Quarter III — Production & Leadership
@@ -317,8 +324,8 @@ InkCache/
 ├── package.json          # node scripts: dev, dev:node, test, format
 ├── .github/workflows/    # CI: typecheck, format check, test, dashboard lint+build, Docker smoke test
 ├── src/
-│   ├── core/             # Cache engine: CacheStore (TTL + eviction), MetricsCollector
-│   ├── network/          # app.ts (Express app) + server.ts (listen/shutdown)
+│   ├── core/             # Cache engine: CacheStore (TTL + eviction), MetricsCollector, HashRing
+│   ├── network/          # app.ts/server.ts (a cache node) + gateway.ts/gateway-server.ts (cluster router) + replication.ts
 │   └── dashboard/        # React + Vite + Tailwind dashboard
 │       ├── vercel.json   # SPA rewrites for static hosting
 │       └── src/pages/    # Home.tsx (/) and Dashboard.tsx (/dashboard)

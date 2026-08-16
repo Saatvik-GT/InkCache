@@ -310,6 +310,60 @@ cold key even when something more recently touched (but still barely-read)
 sits ahead of it in recency order, at the cost of an O(n) scan per eviction
 instead of the other two policies' bounded scans.
 
+## Cluster gateway
+
+A separate process (roadmap Sprint 4) that shards keys across a fixed set
+of InkCache nodes via consistent hashing, so a client can talk to one
+address instead of knowing which node owns which key. The gateway holds
+no cache state of its own — it's pure routing, proxying every request to
+the real node and relaying that node's response back verbatim.
+
+```bash
+# three cache nodes
+INKCACHE_PORT=8080 npm run start:node &
+INKCACHE_PORT=8081 npm run start:node &
+INKCACHE_PORT=8082 npm run start:node &
+
+# gateway in front of all three
+INKCACHE_CLUSTER_NODES=http://localhost:8080,http://localhost:8081,http://localhost:8082 \
+  npm run start:gateway
+
+curl -X POST http://localhost:8090/set -H "Content-Type: application/json" \
+  -d '{"key":"user:1","value":"Saatvik"}'
+curl http://localhost:8090/get/user:1
+```
+
+| Variable                 | Default  | Notes                                                  |
+| ------------------------ | -------- | ------------------------------------------------------ |
+| `INKCACHE_GATEWAY_PORT`  | `8090`   | HTTP port the gateway listens on                       |
+| `INKCACHE_CLUSTER_NODES` | _(none)_ | comma-separated base URLs of the nodes to route across |
+| `INKCACHE_CORS_ORIGIN`   | _(none)_ | same meaning as on a cache node                        |
+
+Routes:
+
+| Method | Endpoint              | Behaviour                                                |
+| ------ | --------------------- | -------------------------------------------------------- |
+| POST   | `/set`                | Proxies to the node `key` hashes to                      |
+| GET    | `/get/:key`           | Proxies to the node `key` hashes to                      |
+| DELETE | `/delete/:key`        | Proxies to the node `key` hashes to                      |
+| GET    | `/cluster/route/:key` | Which node owns `key`, without performing the read/write |
+| GET    | `/cluster/nodes`      | The gateway's current node list                          |
+| GET    | `/health`             | The gateway's own health (not proxied)                   |
+
+**503** `{ "error": "no cluster nodes configured" }` from any routed
+endpoint if `INKCACHE_CLUSTER_NODES` is unset or empty. **502**
+`{ "error": "node <url> unreachable: <reason>" }` if the node a key
+hashes to doesn't answer.
+
+Consistent hashing (`src/core/hashring.ts`, MD5 into a sorted ring with
+150 virtual points per node) means adding or removing a node from
+`INKCACHE_CLUSTER_NODES` only remaps the keys that were on that node,
+not the whole keyspace — unlike `hash(key) % nodeCount`, where every key
+remaps the moment the node count changes. The gateway builds its ring
+once at startup from `INKCACHE_CLUSTER_NODES`; it does not currently
+detect a node joining or leaving at runtime (no health checking or
+automatic failover yet — that's the rest of Sprint 4).
+
 ## Replication
 
 A single-primary, best-effort replication model — one primary node, zero
