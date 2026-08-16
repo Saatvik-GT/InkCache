@@ -14,10 +14,14 @@ import {
   PRIMARY_URL,
   REPLICA_URLS,
   API_KEY,
+  SELF_URL,
+  electionState,
   setPrimaryMonitorHandle,
+  setOnLeaderElected,
   promoteToPrimary,
 } from "./app.js";
 import { authHeader } from "./auth.js";
+import { announceLeader, runElection } from "./election-client.js";
 import { parsePositiveInt } from "./env.js";
 import {
   loadSnapshot,
@@ -27,11 +31,11 @@ import {
 } from "./persistence.js";
 import { startPrimaryMonitor, type PrimaryMonitorHandle } from "./primary-monitor.js";
 // resolveReplicaUrls does exactly the URL-list parsing this file also
-// needs for INKCACHE_GATEWAY_URL (comma-separated, trimmed, trailing
-// slash stripped, blanks dropped) -- reused under a clearer local name
-// rather than duplicating the same five lines a third time in this
-// codebase (cors.ts and cluster.ts each already have their own near-
-// identical version for their own env var).
+// needs for INKCACHE_GATEWAY_URL/INKCACHE_PEER_URLS (comma-separated,
+// trimmed, trailing slash stripped, blanks dropped) -- reused under a
+// clearer local name rather than duplicating the same five lines a
+// third/fourth time in this codebase (cors.ts and cluster.ts each
+// already have their own near-identical version for their own env var).
 import { resolveReplicaUrls as resolveUrlList, syncFromPrimary } from "./replication.js";
 
 // PORT only matters here (app.ts never binds a port), but MAX_ENTRIES and
@@ -77,7 +81,10 @@ const PERSIST_INTERVAL_MS =
 // coordination, just every node independently fanning out to all of
 // them.
 const GATEWAY_URLS = resolveUrlList(process.env.INKCACHE_GATEWAY_URL);
-const SELF_URL = process.env.INKCACHE_SELF_URL;
+// SELF_URL is imported from app.js rather than re-read here -- it's
+// also this node's candidate/voter identity in leader elections (see
+// app.ts's own comment on SELF_URL/electionState), so there's exactly
+// one definition of "what this node calls itself" instead of two.
 
 // Primary liveness monitoring (automatic primary promotion, part 2 of
 // N): a replica polls its own primary's /health on this interval so it
@@ -90,24 +97,34 @@ const PRIMARY_MONITOR_INTERVAL_MS = parsePositiveInt(
   "INKCACHE_PRIMARY_MONITOR_INTERVAL",
 );
 
-// Automatic self-promotion (part 3 of N), opt-in and off by default.
-// Deliberately NOT the default behavior of every replica: with two or
-// more replicas independently watching the same primary, each
-// self-promoting after its own threshold would risk two nodes both
-// becoming "the" primary at once -- a real split-brain, since this
-// project has no leader election to guarantee at most one winner. Only
-// turn this on for a single-primary-single-replica topology; see
-// docs/api.md#automatic-primary-promotion for the full reasoning. A
-// loud startup warning fires below when this node has no way to verify
-// that constraint (it can't -- there's no registry of sibling
-// replicas), so enabling it anywhere else is a deliberate, visible risk
-// rather than a silent one.
+// Automatic self-promotion (parts 3-4 of N), opt-in and off by
+// default. Safe for *any* number of replicas now, not just one: rather
+// than unconditionally self-promoting after enough failed primary
+// checks, a replica campaigns for a real majority vote from its peers
+// (src/core/election.ts + election-client.ts) before promoting. Two
+// replicas racing to promote at once can't both win -- any two
+// majorities of the same peer set must overlap, and the overlapping
+// voter(s) can only have granted one of them a vote in a given term
+// (see election.ts's own header for the full argument). This is what
+// actually closes the multi-replica split-brain gap a single
+// threshold check could never safely close on its own.
+//
+// INKCACHE_PEER_URLS is this replica's sibling replicas -- the voters
+// in its election, separate from INKCACHE_PRIMARY_URL (who it
+// replicates *from*). There's no discovery mechanism for this list;
+// an operator configures it explicitly on every replica, symmetric
+// (each replica lists every other replica, not including itself).
+// Leaving it unset degenerates safely to the original single-replica
+// behavior -- a "majority" of zero peers plus itself is just itself,
+// so it wins immediately, same as before this existed.
 const AUTO_PROMOTE = process.env.INKCACHE_AUTO_PROMOTE === "true";
 const AUTO_PROMOTE_THRESHOLD = parsePositiveInt(
   process.env.INKCACHE_AUTO_PROMOTE_THRESHOLD,
   3,
   "INKCACHE_AUTO_PROMOTE_THRESHOLD",
 );
+const PEER_URLS = resolveUrlList(process.env.INKCACHE_PEER_URLS);
+const CANDIDATE_ID = SELF_URL ?? NODE_ID;
 
 let server: ReturnType<typeof app.listen> | undefined;
 let persistHandle: AutoPersistHandle | undefined;
@@ -150,6 +167,83 @@ async function announceToGateway(op: "register" | "deregister"): Promise<void> {
   );
 }
 
+// Guards against two overlapping election attempts from this node --
+// the primary-monitor can call onFailure again before a prior election
+// round has finished (a slow peer, a generous timeout). Not a
+// correctness requirement (ElectionState itself is safe against
+// concurrent-looking calls), just avoids firing redundant campaigns.
+let electionInFlight = false;
+
+/** Runs one election attempt and acts on the result: promotes and
+    announces on a win, just logs and lets a later failure retry on a
+    loss. Shared by the threshold-crossing trigger below regardless of
+    whether PEER_URLS is empty (degenerates to "wins immediately,
+    unopposed") or populated (a real multi-replica vote). */
+async function campaignForPrimary(consecutiveFailures: number): Promise<void> {
+  if (electionInFlight) return;
+  electionInFlight = true;
+  try {
+    const result = await runElection(
+      PEER_URLS,
+      CANDIDATE_ID,
+      () => electionState.startElection(),
+      API_KEY,
+    );
+    if (result.won && promoteToPrimary(PEER_URLS)) {
+      console.warn(
+        `[inkcache] won election for term ${result.term} (${result.votes}/${result.totalNodes} ` +
+          `votes) after ${consecutiveFailures} consecutive primary failures -- promoted to primary`,
+      );
+      announceLeader(PEER_URLS, result.term, CANDIDATE_ID, API_KEY);
+      primaryMonitorHandle?.stop();
+    } else {
+      console.warn(
+        `[inkcache] lost election for term ${result.term} (${result.votes}/${result.totalNodes} ` +
+          "votes) -- staying a replica, will retry on a later failure",
+      );
+    }
+  } finally {
+    electionInFlight = false;
+  }
+}
+
+/** (Re)points this replica's primary-liveness monitoring at `primaryUrl`
+    -- called both at startup and whenever this node adopts a new
+    leader mid-run (see setOnLeaderElected below). Stops any existing
+    monitor first so a leader change never leaves two monitors running
+    against two different (one stale) primaries. */
+function attachPrimaryMonitor(primaryUrl: string): void {
+  primaryMonitorHandle?.stop();
+  primaryMonitorHandle = startPrimaryMonitor(
+    primaryUrl,
+    PRIMARY_MONITOR_INTERVAL_MS,
+    undefined,
+    AUTO_PROMOTE
+      ? (consecutiveFailures) => {
+          if (consecutiveFailures < AUTO_PROMOTE_THRESHOLD) return;
+          void campaignForPrimary(consecutiveFailures);
+        }
+      : undefined,
+  );
+  setPrimaryMonitorHandle(primaryMonitorHandle);
+}
+
+// Reacts to a new leader being announced (POST /election/leader
+// accepted it) by re-pointing this node's own monitoring at the new
+// primary and pulling a fresh snapshot from it -- the new primary may
+// have progressed differently than the one this node was previously
+// following (e.g. if this node itself just lost an election to it).
+setOnLeaderElected((primaryUrl) => {
+  attachPrimaryMonitor(primaryUrl);
+  syncFromPrimary(store, primaryUrl, undefined, undefined, API_KEY)
+    .then((loaded) =>
+      console.log(`[inkcache] re-synced ${loaded} key(s) from new primary ${primaryUrl}`),
+    )
+    .catch((err: unknown) =>
+      console.warn(`[inkcache] re-sync from new primary failed: ${(err as Error).message}`),
+    );
+});
+
 async function start(): Promise<void> {
   if (PERSIST_PATH) {
     const loaded = await loadSnapshot(store, PERSIST_PATH);
@@ -169,37 +263,21 @@ async function start(): Promise<void> {
 
     if (AUTO_PROMOTE) {
       console.warn(
-        "[inkcache] INKCACHE_AUTO_PROMOTE is enabled -- this node will self-promote to " +
-          `primary after ${AUTO_PROMOTE_THRESHOLD} consecutive failed checks against its ` +
-          "primary. Safe ONLY if this is the sole replica of that primary: with multiple " +
-          "replicas watching the same primary, this risks two nodes both promoting at once " +
-          "(split-brain) -- there is no leader election here to prevent it. See " +
-          "docs/api.md#automatic-primary-promotion.",
+        "[inkcache] INKCACHE_AUTO_PROMOTE is enabled -- this node will campaign for " +
+          `election after ${AUTO_PROMOTE_THRESHOLD} consecutive failed checks against its ` +
+          "primary." +
+          (PEER_URLS.length > 0
+            ? ` Configured with ${PEER_URLS.length} peer(s) -- a real majority vote decides ` +
+              "the winner, safe for this multi-replica topology."
+            : " No INKCACHE_PEER_URLS configured -- it will win any election unopposed " +
+              "(the original single-replica behavior). If other replicas of this same " +
+              "primary exist but aren't listed here, this is NOT safe: configure " +
+              "INKCACHE_PEER_URLS symmetrically on every replica. See " +
+              "docs/api.md#automatic-primary-promotion."),
       );
     }
 
-    primaryMonitorHandle = startPrimaryMonitor(
-      PRIMARY_URL,
-      PRIMARY_MONITOR_INTERVAL_MS,
-      undefined,
-      AUTO_PROMOTE
-        ? (consecutiveFailures) => {
-            if (consecutiveFailures < AUTO_PROMOTE_THRESHOLD) return;
-            // promoteToPrimary() itself is idempotent (a no-op once
-            // ROLE is already "primary"), but stopping the monitor
-            // immediately also stops it from logging further failures
-            // against a primary this node no longer follows.
-            if (promoteToPrimary()) {
-              console.warn(
-                `[inkcache] auto-promoted to primary after ${consecutiveFailures} ` +
-                  "consecutive failed checks against the primary",
-              );
-              primaryMonitorHandle?.stop();
-            }
-          }
-        : undefined,
-    );
-    setPrimaryMonitorHandle(primaryMonitorHandle);
+    attachPrimaryMonitor(PRIMARY_URL);
   }
 
   store.startSweeper();
