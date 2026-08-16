@@ -115,22 +115,25 @@ is the honest starting line, not a finished first draft of it.
 
 ## Known limitations (not roadmap items — actual current constraints)
 
-- **Automatic replica promotion exists, but is scoped to a single
-  replica.** A replica can now self-promote (`INKCACHE_AUTO_PROMOTE=true`)
-  after its own primary fails `INKCACHE_AUTO_PROMOTE_THRESHOLD`
-  consecutive liveness checks (verified live: kill a real primary
-  process, watch a real replica detect it and start accepting writes
-  with no operator action) — or be promoted manually via one API call
-  (`POST /promote`) instead of a restart. What's still real and
-  unsolved: with **two or more** replicas watching the same primary,
-  enabling automatic promotion on more than one risks split-brain (both
-  self-promoting at once) — there's no leader election, no quorum,
-  nothing that guarantees at most one winner, and no registry of
-  sibling replicas a node could even check. See
-  [docs/api.md#automatic-primary-promotion](api.md#automatic-primary-promotion)
-  for the full reasoning and the loud startup warning this constraint
-  gets. A genuinely safe multi-replica story needs real leader
-  election, not a bigger threshold.
+- **Automatic replica promotion is now safe for any number of
+  replicas**, not just one. A replica campaigns for a real majority
+  vote from `INKCACHE_PEER_URLS` (its siblings) before self-promoting
+  (`src/core/election.ts` + `election-client.ts`) — a Raft-style
+  term/vote mechanism, not a full Raft implementation (no replicated
+  log through this path; data replication is the existing separate
+  push model). The safety argument: any two majorities of the same
+  fixed peer set must share at least one voter, and that voter can only
+  grant one candidate a "yes" per term, so two replicas can never both
+  win the same election. Verified with a real 3-replica end-to-end
+  test: kill an actual shared primary, confirm exactly one of three
+  real replica processes wins and the other two correctly adopt it,
+  neither accepting a direct write. What's still real and out of
+  scope: no election-state persistence across a restart (safe, since a
+  restarted node just adopts whatever higher term it next observes,
+  but starts back at term 0), no adaptive/backoff retry timing, and
+  this is tuned for the seconds-scale failure-detection cadence it
+  runs at, not a high-churn or much larger cluster. See
+  [docs/api.md#automatic-primary-promotion](api.md#automatic-primary-promotion).
 - **Running multiple gateways is supported, but not coordinated.**
   `INKCACHE_GATEWAY_URL` accepts a comma-separated list, and every node
   registers with (and deregisters from) each one independently — so two

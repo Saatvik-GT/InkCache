@@ -360,28 +360,29 @@ bookkeeping instead of a sliding log per client.
 All node configuration is via environment variables, set before starting
 the node (`npm run dev:node` / `npm run start:node`):
 
-| Variable                            | Default        | Notes                                                                                                                                              |
-| ----------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `INKCACHE_PORT`                     | `8080`         | HTTP port the node listens on                                                                                                                      |
-| `INKCACHE_NODE_ID`                  | `node-1`       | label reported in `/health`/`/metrics`                                                                                                             |
-| `INKCACHE_MAX_ENTRIES`              | `512`          | capacity before eviction kicks in                                                                                                                  |
-| `INKCACHE_EVICTION_POLICY`          | `access-aware` | `access-aware`, `lru`, or `lfu`                                                                                                                    |
-| `INKCACHE_EVICTION_SAMPLE`          | `5`            | candidate window size for `access-aware`                                                                                                           |
-| `INKCACHE_MAX_KEY_LENGTH`           | `256`          | longest key `/set` will accept                                                                                                                     |
-| `INKCACHE_CORS_ORIGIN`              | _(none)_       | comma-separated extra allowed origins                                                                                                              |
-| `INKCACHE_PERSIST_PATH`             | _(none)_       | file path to save/load the cache's contents across restarts                                                                                        |
-| `INKCACHE_PERSIST_INTERVAL`         | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                                                                           |
-| `INKCACHE_ROLE`                     | `primary`      | `primary` or `replica` — see [Replication](#replication)                                                                                           |
-| `INKCACHE_REPLICA_URLS`             | _(none)_       | comma-separated replica base URLs (primary only)                                                                                                   |
-| `INKCACHE_PRIMARY_URL`              | _(none)_       | this node's primary's base URL (replica only)                                                                                                      |
-| `INKCACHE_PRIMARY_MONITOR_INTERVAL` | `2000`         | ms between a replica's health checks against its own primary (replica only)                                                                        |
-| `INKCACHE_AUTO_PROMOTE`             | `false`        | self-promote after repeated primary failures — **single-replica topologies only**, see [Automatic primary promotion](#automatic-primary-promotion) |
-| `INKCACHE_AUTO_PROMOTE_THRESHOLD`   | `3`            | consecutive failed primary checks before self-promoting (only used if `INKCACHE_AUTO_PROMOTE=true`)                                                |
-| `INKCACHE_GATEWAY_URL`              | _(none)_       | one or more comma-separated cluster gateway base URLs to self-register with — see [Cluster gateway](#cluster-gateway)                              |
-| `INKCACHE_SELF_URL`                 | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)                                                               |
-| `INKCACHE_API_KEY`                  | _(none)_       | shared cluster secret — see [Authentication & rate limiting](#authentication--rate-limiting)                                                       |
-| `INKCACHE_RATE_LIMIT`               | _(none)_       | max requests per window per client IP                                                                                                              |
-| `INKCACHE_RATE_LIMIT_WINDOW`        | `10`           | rate-limit window length in seconds                                                                                                                |
+| Variable                            | Default        | Notes                                                                                                                                                                             |
+| ----------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INKCACHE_PORT`                     | `8080`         | HTTP port the node listens on                                                                                                                                                     |
+| `INKCACHE_NODE_ID`                  | `node-1`       | label reported in `/health`/`/metrics`                                                                                                                                            |
+| `INKCACHE_MAX_ENTRIES`              | `512`          | capacity before eviction kicks in                                                                                                                                                 |
+| `INKCACHE_EVICTION_POLICY`          | `access-aware` | `access-aware`, `lru`, or `lfu`                                                                                                                                                   |
+| `INKCACHE_EVICTION_SAMPLE`          | `5`            | candidate window size for `access-aware`                                                                                                                                          |
+| `INKCACHE_MAX_KEY_LENGTH`           | `256`          | longest key `/set` will accept                                                                                                                                                    |
+| `INKCACHE_CORS_ORIGIN`              | _(none)_       | comma-separated extra allowed origins                                                                                                                                             |
+| `INKCACHE_PERSIST_PATH`             | _(none)_       | file path to save/load the cache's contents across restarts                                                                                                                       |
+| `INKCACHE_PERSIST_INTERVAL`         | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                                                                                                          |
+| `INKCACHE_ROLE`                     | `primary`      | `primary` or `replica` — see [Replication](#replication)                                                                                                                          |
+| `INKCACHE_REPLICA_URLS`             | _(none)_       | comma-separated replica base URLs (primary only)                                                                                                                                  |
+| `INKCACHE_PRIMARY_URL`              | _(none)_       | this node's primary's base URL (replica only)                                                                                                                                     |
+| `INKCACHE_PRIMARY_MONITOR_INTERVAL` | `2000`         | ms between a replica's health checks against its own primary (replica only)                                                                                                       |
+| `INKCACHE_AUTO_PROMOTE`             | `false`        | self-promote after repeated primary failures — **single-replica topologies only**, see [Automatic primary promotion](#automatic-primary-promotion)                                |
+| `INKCACHE_AUTO_PROMOTE_THRESHOLD`   | `3`            | consecutive failed primary checks before campaigning (only used if `INKCACHE_AUTO_PROMOTE=true`)                                                                                  |
+| `INKCACHE_PEER_URLS`                | _(none)_       | comma-separated sibling replica URLs (this replica's election voters) — configure symmetrically on every replica, see [Automatic primary promotion](#automatic-primary-promotion) |
+| `INKCACHE_GATEWAY_URL`              | _(none)_       | one or more comma-separated cluster gateway base URLs to self-register with — see [Cluster gateway](#cluster-gateway)                                                             |
+| `INKCACHE_SELF_URL`                 | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)                                                                                              |
+| `INKCACHE_API_KEY`                  | _(none)_       | shared cluster secret — see [Authentication & rate limiting](#authentication--rate-limiting)                                                                                      |
+| `INKCACHE_RATE_LIMIT`               | _(none)_       | max requests per window per client IP                                                                                                                                             |
+| `INKCACHE_RATE_LIMIT_WINDOW`        | `10`           | rate-limit window length in seconds                                                                                                                                               |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
@@ -625,14 +626,20 @@ anyone) and sets its `REPLICA_URLS` from `replicaUrls` if given. Does
 state. In particular, **sibling replicas that were following the old
 primary are not told to follow this one**; either an operator updates
 their `INKCACHE_PRIMARY_URL` by hand, or automatic promotion (below)
-handles it for the specific case it's scoped to.
+handles it for the general case.
+
+`POST /election/request-vote` and `POST /election/leader` are internal
+endpoints, not part of the public API surface above — they exist only
+for replicas to run leader elections against each other. See
+[Automatic primary promotion](#automatic-primary-promotion) below for
+what they do.
 
 ### Automatic primary promotion
 
-Built in two pieces, kept independent on purpose: liveness monitoring
-(sensing) and self-promotion (deciding/acting) are separate modules
-with separate tests, so the policy layer (when to actually promote) can
-be reasoned about without also re-verifying the network-polling layer.
+Built in three pieces, kept independent on purpose: liveness monitoring
+(sensing), leader election (deciding who's allowed to act), and
+self-promotion (acting) are separate modules with separate tests, so
+each layer can be reasoned about without also re-verifying the others.
 
 **Liveness monitoring:** a replica polls its own primary's
 `GET /health` every `INKCACHE_PRIMARY_MONITOR_INTERVAL` ms (default
@@ -643,38 +650,70 @@ is surfaced on the replica's own `GET /health` as `primaryHealthy` and
 `primaryConsecutiveFailures` (a _streak_, reset to 0 the instant a
 check succeeds — not a lifetime failure count).
 
-**Automatic self-promotion** (`INKCACHE_AUTO_PROMOTE=true`, off by
-default): once `primaryConsecutiveFailures` reaches
-`INKCACHE_AUTO_PROMOTE_THRESHOLD` (default `3`), the replica calls its
-own internal promotion logic directly (the same state change
-`POST /promote` triggers, not an HTTP call to itself) and logs loudly
-that it did. The monitor stops itself immediately afterward — there's
-no more primary to watch once this node _is_ the primary, and
-`primaryHealthy`/`primaryConsecutiveFailures` stop appearing on
-`GET /health` the moment `role` flips.
+**Leader election:** once `primaryConsecutiveFailures` reaches
+`INKCACHE_AUTO_PROMOTE_THRESHOLD` (default `3`, requires
+`INKCACHE_AUTO_PROMOTE=true`), the replica campaigns rather than
+promoting unconditionally — it advances a term, votes for itself, and
+requests a vote from every URL in `INKCACHE_PEER_URLS` (its sibling
+replicas, comma-separated, configured symmetrically on every replica:
+each one lists every _other_ replica, not itself). Only on winning a
+real majority does it promote and announce the win to its peers
+(`POST /election/leader`), who adopt it as their new primary and
+re-sync from it. **This is genuinely safe for any number of
+replicas**, not just one: two replicas racing to promote at once
+cannot both win, because any two majorities of the same fixed peer set
+must share at least one voter (pigeonhole), and that shared voter can
+only have granted a "yes" to one of them in a given term (see
+`src/core/election.ts`'s header for the full argument, and
+`tests/election.test.ts` for a test that simulates several candidates
+racing for the same votes and asserts no voter ever double-grants).
+Leaving `INKCACHE_PEER_URLS` unset degenerates safely to a "majority of
+zero peers plus itself" — it still wins immediately, unopposed, same
+as the original single-replica-only behavior.
 
-**Read this before enabling it.** `INKCACHE_AUTO_PROMOTE` is safe
-**only** for a single-primary, single-replica topology. With two or
-more replicas independently watching the same primary, each deciding
-on its own to self-promote after its own threshold, nothing stops
-**both** from promoting at once — a real split-brain, two nodes both
-accepting writes as "the" primary with no way to reconcile them
-afterward. Real leader election (a quorum, a term/epoch, something
-that guarantees at most one winner) is what actually prevents that, and
-this project doesn't have one — there's no registry of sibling
-replicas a node could check to even know how many others exist. A
-replica started with `INKCACHE_AUTO_PROMOTE=true` logs a loud warning
-at startup stating this constraint explicitly, since the code has no
-way to verify it's actually being followed.
+**Self-promotion:** the winning candidate calls its own internal
+promotion logic directly (the same state change `POST /promote`
+triggers) and stops its own monitor immediately — there's no more
+primary to watch once this node _is_ the primary, and
+`primaryHealthy`/`primaryConsecutiveFailures` stop appearing on
+`GET /health` the moment `role` flips. A **losing** candidate just logs
+and keeps its existing monitor running, ready to campaign again on a
+later failure.
 
 ```bash
 # terminal 1 — primary
 INKCACHE_PORT=8080 npm run start:node
 
-# terminal 2 — its one and only replica, auto-promoting after 3 failed checks
+# terminals 2-4 — three replicas, symmetric peers, auto-promoting after
+# 3 failed checks against the primary
 INKCACHE_PORT=8081 INKCACHE_ROLE=replica INKCACHE_PRIMARY_URL=http://localhost:8080 \
+  INKCACHE_SELF_URL=http://localhost:8081 \
+  INKCACHE_PEER_URLS=http://localhost:8082,http://localhost:8083 \
   INKCACHE_AUTO_PROMOTE=true INKCACHE_AUTO_PROMOTE_THRESHOLD=3 npm run start:node
 
-# kill terminal 1 -- terminal 2 self-promotes within ~3 monitor intervals
-# and starts accepting direct writes without any operator action
+INKCACHE_PORT=8082 INKCACHE_ROLE=replica INKCACHE_PRIMARY_URL=http://localhost:8080 \
+  INKCACHE_SELF_URL=http://localhost:8082 \
+  INKCACHE_PEER_URLS=http://localhost:8081,http://localhost:8083 \
+  INKCACHE_AUTO_PROMOTE=true INKCACHE_AUTO_PROMOTE_THRESHOLD=3 npm run start:node
+
+INKCACHE_PORT=8083 INKCACHE_ROLE=replica INKCACHE_PRIMARY_URL=http://localhost:8080 \
+  INKCACHE_SELF_URL=http://localhost:8083 \
+  INKCACHE_PEER_URLS=http://localhost:8081,http://localhost:8082 \
+  INKCACHE_AUTO_PROMOTE=true INKCACHE_AUTO_PROMOTE_THRESHOLD=3 npm run start:node
+
+# kill terminal 1 -- exactly one of the three replicas wins the
+# election and starts accepting direct writes; the other two adopt it
+# as their new primary and keep rejecting direct writes with 409
 ```
+
+**What this still isn't:** a full Raft implementation. There's no
+replicated log through this mechanism (data replication is the
+existing, separate `forwardToReplicas()`/`syncFromPrimary()` push
+model) and no persistence of election state across a restart (a
+restarted node starts at term 0 again — safe, since `observeTerm()`
+adopts whatever higher term it next hears from a peer, but worth
+knowing). Election round-trip timeouts are fixed, not adaptive, and a
+lost election doesn't back off with jitter before retrying — acceptable
+for the failure-detection cadence this runs at (seconds, not the
+sub-second timing a production consensus system would tune for), not
+something to assume scales to a much larger or higher-churn cluster.

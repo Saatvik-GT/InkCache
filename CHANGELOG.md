@@ -400,6 +400,72 @@ own:
   writes -- not a simulated failure). Plus 10 unit tests across the
   monitor and the app-level 409 path.
 
+### Leader election (closing the multi-replica split-brain gap)
+
+Shipped in five small commits -- pure safety logic, network wiring,
+the candidate client, the server-side policy wiring, and a real
+multi-node test, in that order:
+
+- **`src/core/election.ts`**: `ElectionState` is Raft's RequestVote
+  subset -- term numbers and a per-term vote lock, deliberately not a
+  full Raft implementation (no replicated log through this mechanism;
+  data replication is the existing, separate push model). The safety
+  argument, stated directly rather than just asserted: any two
+  majorities of the same fixed peer set must share at least one voter
+  (pigeonhole), and that voter can only grant a "yes" to one candidate
+  per term, so two candidates can never both collect a majority in the
+  same term. Tested for that property directly, not just individual
+  method behavior -- a randomized-order simulation of several
+  candidates racing for the same 7-voter pool's votes in one term,
+  asserting no single voter ever double-grants and at most one
+  candidate could structurally reach a majority.
+- **`POST /election/request-vote`** / **`POST /election/leader`** on
+  `app.ts`: a candidate's vote request and a winner's announcement.
+  The leader-announcement route demotes this node to a replica if it
+  thought it was a primary (a stale-primary-returning-after-a-partition
+  case), points `PRIMARY_URL` at the new leader, and invokes an
+  `onLeaderElected` hook server.ts uses to re-sync and re-point its own
+  monitoring -- same external-hook pattern already used for
+  `setPrimaryMonitorHandle`/`setHealthHandle` elsewhere in this
+  codebase. 12 new API tests, including the two that mutate the shared
+  test-file singleton's `ROLE` and restore it via `POST /promote` in a
+  `finally` block so later tests aren't affected.
+- **`src/network/election-client.ts`**: `runElection()` requests votes
+  from every peer in parallel (an unreachable peer counts as a
+  non-vote, not an aborted election) and reports whether a majority was
+  won; `announceLeader()` posts the win to every peer, fire-and-forget.
+  8 unit tests against real local HTTP peer doubles.
+- **`server.ts` wiring**: replaced the old single-replica-only "N
+  failures -> just promote" trigger with `campaignForPrimary()` -- a
+  real election via `INKCACHE_PEER_URLS` (this replica's siblings,
+  configured symmetrically), only promoting on an actual majority win.
+  Left unset, `INKCACHE_PEER_URLS` degenerates safely to the original
+  single-replica behavior (a majority of zero peers plus itself is
+  just itself). Also extracted `attachPrimaryMonitor()` so startup and
+  a mid-run leader-change share identical monitor-restart logic, and
+  removed a duplicate `SELF_URL` definition in favor of importing
+  `app.ts`'s. Existing single-replica e2e coverage kept passing
+  unchanged through the new machinery, confirming the degenerate case
+  works identically.
+- **Real 3-replica end-to-end test**: one primary, three replicas with
+  symmetric peer lists, all auto-promoting. Kills the actual primary
+  process and asserts the property this whole feature exists for:
+  exactly one of the three reports `role:"primary"`, the other two
+  remain replicas rejecting direct writes with 409 (neither thinks it
+  won), and the winner genuinely serves writes. Run 3 times
+  consecutively before committing to check for election-timing
+  flakiness across real process/network timing -- clean every time.
+
+`docs/api.md`, `docs/architecture.md`, and this README's own "Not yet
+implemented" line updated to state plainly that multi-replica
+automatic promotion is now genuinely safe, not still a known gap --
+the "Known limitations" section that used to describe this constraint
+is replaced with an accurate description of what it does and its real
+(much smaller) remaining boundaries: no election-state persistence
+across a restart, no adaptive backoff on a lost election, tuned for
+seconds-scale failure detection rather than a much larger or
+higher-churn cluster.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor
