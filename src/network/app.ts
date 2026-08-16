@@ -16,6 +16,8 @@
  *   POST   /flush
  *   GET    /predict/:key
  *   POST   /promote
+ *   POST   /election/request-vote
+ *   POST   /election/leader
  *   GET    /version
  *
  * Builds the Express app without binding a port, so it can be started by
@@ -27,6 +29,7 @@ import express from "express";
 import cors from "cors";
 import { AccessPredictor } from "../core/access-predictor.js";
 import { CacheStore, type EvictionPolicy } from "../core/cache.js";
+import { ElectionState } from "../core/election.js";
 import { MetricsCollector } from "../core/metrics.js";
 import { createAuthMiddleware } from "./auth.js";
 import { resolveCorsOrigins } from "./cors.js";
@@ -89,6 +92,30 @@ export let PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
 let primaryMonitorHandle: PrimaryMonitorHandle | undefined;
 export function setPrimaryMonitorHandle(handle: PrimaryMonitorHandle): void {
   primaryMonitorHandle = handle;
+}
+
+// This node's own externally-reachable base URL -- also used for
+// gateway self-registration (see server.ts). Doubles as this node's
+// candidate/voter identity in leader elections: SELF_URL is already
+// the thing peers need to reach this node at, so it's the natural
+// choice rather than inventing a separate node-id scheme.
+export const SELF_URL = process.env.INKCACHE_SELF_URL;
+
+// Leader-election state (multi-replica-safe automatic promotion, part
+// 2 of N) -- see src/core/election.ts for the term/vote safety
+// argument. Falls back to NODE_ID as a candidate identity when
+// SELF_URL isn't set; that fallback only matters for a node that will
+// never actually campaign or be voted for (no INKCACHE_PEER_URLS
+// configured), since a real election needs SELF_URL to be a reachable
+// address other nodes can act on.
+export const electionState = new ElectionState(SELF_URL ?? NODE_ID);
+
+// Set by server.ts when it wants to react to a new leader being
+// announced (restart its primary-monitor pointed at the new primary).
+// Same external-hook pattern as setPrimaryMonitorHandle above.
+let onLeaderElected: ((primaryUrl: string) => void) | undefined;
+export function setOnLeaderElected(handler: (primaryUrl: string) => void): void {
+  onLeaderElected = handler;
 }
 
 // Shared-secret auth + per-process rate limiting, both opt-in (unset by
@@ -410,6 +437,57 @@ app.post("/promote", (req, res) => {
     return res.status(409).json({ error: "this node is already a primary" });
   }
   return res.json({ ok: true, role: ROLE, replicaCount: REPLICA_URLS.length });
+});
+
+/** A candidate replica's RequestVote call, per src/core/election.ts.
+    **400** if `term`/`candidateId` are missing or malformed -- anything
+    else is delegated straight to ElectionState.requestVote(), which
+    can never throw. Not gated by ROLE: a node that's currently a
+    primary can still be asked to vote (e.g. it's about to be demoted
+    by a higher term from a genuine new election after a partition),
+    so this doesn't check ROLE at all -- the term comparison alone
+    decides. */
+app.post("/election/request-vote", (req, res) => {
+  const { term, candidateId } = (req.body ?? {}) as { term?: unknown; candidateId?: unknown };
+  if (typeof term !== "number" || !Number.isInteger(term) || term < 0) {
+    return res.status(400).json({ error: "term must be a non-negative integer" });
+  }
+  if (typeof candidateId !== "string" || candidateId.length === 0) {
+    return res.status(400).json({ error: "candidateId must be a non-empty string" });
+  }
+  const result = electionState.requestVote(term, candidateId);
+  return res.json(result);
+});
+
+/** A winning candidate's announcement that it's the new primary for
+    `term`. **400** on a malformed body. **409**
+    `{ "error": "stale term", "term": <current> }` if `term` is behind
+    what this node has already seen -- an announcement from a candidate
+    that lost a subsequent, newer election, arriving late. Otherwise:
+    adopts the new term, demotes this node to a replica if it thought
+    it was a primary (the old-primary-returning-after-a-partition case
+    -- a genuine winning election with a higher term always overrides
+    a stale primary), points PRIMARY_URL at the new leader, and invokes
+    the onLeaderElected hook (server.ts uses it to restart its
+    primary-monitor against the new address) if one is registered. */
+app.post("/election/leader", (req, res) => {
+  const { term, primaryUrl } = (req.body ?? {}) as { term?: unknown; primaryUrl?: unknown };
+  if (typeof term !== "number" || !Number.isInteger(term) || term < 0) {
+    return res.status(400).json({ error: "term must be a non-negative integer" });
+  }
+  if (typeof primaryUrl !== "string" || primaryUrl.length === 0) {
+    return res.status(400).json({ error: "primaryUrl must be a non-empty string" });
+  }
+  if (term < electionState.term) {
+    return res.status(409).json({ error: "stale term", term: electionState.term });
+  }
+  electionState.observeTerm(term, primaryUrl);
+  ROLE = "replica";
+  PRIMARY_URL = primaryUrl;
+  REPLICA_URLS = [];
+  console.log(`[inkcache] ${NODE_ID} adopted new primary ${primaryUrl} for term ${term}`);
+  onLeaderElected?.(primaryUrl);
+  return res.json({ ok: true, term: electionState.term });
 });
 
 app.get("/metrics", (_req, res) => {

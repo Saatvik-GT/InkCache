@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { app, store, metrics } from "../src/network/app.js";
+import { app, store, metrics, electionState } from "../src/network/app.js";
 
 describe("REST API", () => {
   beforeEach(() => {
@@ -373,6 +373,82 @@ describe("REST API", () => {
     // tests/replication-e2e.test.ts's real spawned-process coverage.
     const res = await request(app).post("/promote").expect(409);
     assert.match(res.body.error, /already a primary/);
+  });
+
+  it("POST /election/request-vote grants a vote for a term/candidate it hasn't seen", async () => {
+    const res = await request(app)
+      .post("/election/request-vote")
+      .send({ term: electionState.term + 1, candidateId: "candidate-x" })
+      .expect(200);
+    assert.equal(res.body.voteGranted, true);
+  });
+
+  it("POST /election/request-vote refuses a second candidate in the same term", async () => {
+    const term = electionState.term + 100; // a fresh term this test owns
+    await request(app)
+      .post("/election/request-vote")
+      .send({ term, candidateId: "first" })
+      .expect(200);
+    const res = await request(app)
+      .post("/election/request-vote")
+      .send({ term, candidateId: "second" })
+      .expect(200);
+    assert.equal(res.body.voteGranted, false);
+  });
+
+  it("POST /election/request-vote rejects a malformed body", async () => {
+    await request(app).post("/election/request-vote").send({}).expect(400);
+    await request(app)
+      .post("/election/request-vote")
+      .send({ term: "not-a-number", candidateId: "x" })
+      .expect(400);
+    await request(app)
+      .post("/election/request-vote")
+      .send({ term: 1, candidateId: 42 })
+      .expect(400);
+  });
+
+  it("POST /election/leader adopts a newer term and points PRIMARY_URL at the announced leader", async () => {
+    const term = electionState.term + 200;
+    try {
+      const res = await request(app)
+        .post("/election/leader")
+        .send({ term, primaryUrl: "http://new-leader:8080" })
+        .expect(200);
+      assert.equal(res.body.ok, true);
+      assert.equal(electionState.term, term);
+    } finally {
+      // /election/leader demotes this node to a replica as a side
+      // effect -- restore ROLE via the same public API (POST /promote)
+      // so later tests in this shared-singleton file don't inherit a
+      // replica that rejects every write.
+      await request(app).post("/promote");
+    }
+  });
+
+  it("POST /election/leader rejects a stale term with 409", async () => {
+    const term = electionState.term + 300;
+    try {
+      await request(app)
+        .post("/election/leader")
+        .send({ term, primaryUrl: "http://leader-1:8080" })
+        .expect(200);
+      const stale = await request(app)
+        .post("/election/leader")
+        .send({ term: term - 1, primaryUrl: "http://stale-leader:8080" })
+        .expect(409);
+      assert.match(stale.body.error, /stale term/);
+    } finally {
+      await request(app).post("/promote");
+    }
+  });
+
+  it("POST /election/leader rejects a malformed body", async () => {
+    await request(app).post("/election/leader").send({}).expect(400);
+    await request(app)
+      .post("/election/leader")
+      .send({ term: electionState.term + 1, primaryUrl: 42 })
+      .expect(400);
   });
 
   it("reports health and version", async () => {
