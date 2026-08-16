@@ -176,7 +176,14 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
       real containers over each backend's own protocol — a
       throughput/latency comparison, not an eviction one; see the file
       header for why the two aren't equivalent to compare)
-- [ ] Sprint 7: Deployment, final documentation, demo preparation
+- [x] Sprint 7: Deployment (Dockerfile, multi-stage build, CI build +
+      smoke test, docker-compose), final documentation
+      ([docs/architecture.md](docs/architecture.md) — real component
+      diagram, data flow, and honestly-labeled current limitations, now
+      that the distributed layer it was gated on actually exists), and
+      demo preparation ([docs/demo-script.md](docs/demo-script.md) — a
+      runnable, section-by-section walkthrough of every feature above,
+      spot-verified live rather than written speculatively)
 
 > Full milestone tracking is maintained via GitHub Issues and Milestones.
 
@@ -364,13 +371,18 @@ Planned additions per roadmap: `src/intelligence/` (the adaptive layer).
 
 - Installation and usage — see [Getting Started](#getting-started) and [Usage](#usage) above
 - [API Documentation](docs/api.md)
+- [Architecture](docs/architecture.md) — component diagram, data flow, the heuristic-vs-ML line, and honest current limitations
+- [Live Demo Script](docs/demo-script.md) — a runnable walkthrough of every feature
 - [Change Log](CHANGELOG.md)
 - [Contributing Guide](CONTRIBUTING.md)
 
-Not written yet (roadmap-gated — no point documenting a schema or
-architecture that doesn't exist until the distributed layer does):
-a dedicated user guide, architecture diagram, database schema, and
-testing report.
+No separate database schema doc or testing report: InkCache isn't a
+database (its one on-disk artifact, the persistence snapshot, is
+documented in [docs/architecture.md's Persistence format section](docs/architecture.md#persistence-format-database-schema)),
+and a static testing-report document would drift out of date the
+moment it was written — the CI badge at the top of this README and the
+live test count in docs/architecture.md's Testing section are the
+actual current source of truth instead.
 
 ## Contributing
 

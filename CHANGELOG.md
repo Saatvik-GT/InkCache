@@ -229,6 +229,32 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   from real HTTP traffic, records misses too, `?top=` handling) and
   live-verified against an actual running node with curl.
 
+### Final documentation & demo prep
+
+- Roadmap Sprint 7's remaining pieces, now that the distributed layer
+  they were explicitly gated on actually exists: new
+  `docs/architecture.md` (a real process/component diagram matching
+  what's actually built -- not the root README's original aspirational
+  pitch diagram, which stays clearly marked as aspirational rather than
+  being overwritten as if it were now real; data flow for a `GET` and a
+  write through the gateway/replication path; an explicit
+  heuristic-vs-machine-learning line for the two statistical features;
+  a "known limitations" section stating plainly what's _not_ handled
+  yet -- no automatic replica promotion, the gateway is a single point
+  of failure, node discovery needs a known gateway address up front, no
+  auth anywhere) and `docs/demo-script.md` (a runnable, section-by-
+  section walkthrough of every real feature, with expected output for
+  each step -- the eviction-policy section was spot-verified live
+  against a real running node while writing this, rather than written
+  speculatively).
+- No separate database-schema doc or testing-report doc: InkCache isn't
+  a database (its only on-disk artifact, the persistence snapshot, is
+  documented inline in `docs/architecture.md` instead), and a static
+  testing-report document would drift out of date immediately -- the
+  README's CI badge and `docs/architecture.md`'s live test count serve
+  that purpose instead. Stated directly in the README rather than left
+  as a silently-dropped roadmap item.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor
