@@ -585,8 +585,45 @@ INKCACHE_PORT=8081 INKCACHE_ROLE=replica INKCACHE_PRIMARY_URL=http://localhost:8
 ```
 
 `POST /internal/replicate` is not part of the public API surface above —
-it exists only for a primary to push ops to its replicas, applies
+it exists only for a primary to push ops to its replicas, and applies
 directly to the store (skipping `/set`'s own validation, since the
-primary already validated the op once), and has no authentication, same
-as every other route on this demo node (see
-[docs/security-notes.md](security-notes.md)).
+primary already validated the op once). Subject to the same
+[`INKCACHE_API_KEY`](#authentication--rate-limiting) auth as every other
+route when it's configured — `forwardToReplicas()` attaches it
+automatically.
+
+## POST /promote
+
+Manually promotes a replica to a primary, at runtime, with no restart —
+turns "stop the process, change `INKCACHE_ROLE`, start it again" into
+one API call. **409** `{ "error": "this node is already a primary" }`
+if called on a node that's already a primary.
+
+```bash
+curl -X POST http://localhost:8081/promote
+# or, telling the freshly-promoted primary about its own replicas:
+curl -X POST http://localhost:8081/promote \
+  -H "Content-Type: application/json" \
+  -d '{"replicaUrls":["http://localhost:8082"]}'
+```
+
+| Field         | Type            | Required | Notes                                                                     |
+| ------------- | --------------- | -------- | ------------------------------------------------------------------------- |
+| `replicaUrls` | array of string | no       | this node's own replicas to start forwarding writes to (defaults to none) |
+
+**200** `{ "ok": true, "role": "primary", "replicaCount": 1 }`
+
+Clears this node's own `PRIMARY_URL` (it no longer replicates from
+anyone) and sets its `REPLICA_URLS` from `replicaUrls` if given. Does
+**not** reach out to any other node — it only flips this node's own
+state. In particular, **sibling replicas that were following the old
+primary are not told to follow this one**; either an operator updates
+their `INKCACHE_PRIMARY_URL` by hand, or automatic promotion (below)
+handles it for the specific case it's scoped to.
+
+### Automatic primary promotion
+
+_Not yet built as of this section being written — the manual
+`POST /promote` above is the current state; automatic promotion is
+next. This note will be replaced with real documentation once it
+lands, not left inaccurate._

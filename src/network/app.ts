@@ -15,6 +15,7 @@
  *   POST   /restore      { keys: [{ key, value, ttl? }] }
  *   POST   /flush
  *   GET    /predict/:key
+ *   POST   /promote
  *   GET    /version
  *
  * Builds the Express app without binding a port, so it can be started by
@@ -71,10 +72,15 @@ const CORS_ORIGINS = resolveCorsOrigins(process.env.INKCACHE_CORS_ORIGIN);
 // direct client writes (its state comes only from /internal/replicate and
 // its one-time startup snapshot pull in server.ts) so it can't silently
 // drift from its primary.
-export const ROLE: "primary" | "replica" =
+//
+// `let`, not `const`: POST /promote below flips a replica to a primary
+// at runtime. ES module bindings are live, so every other module that
+// imports ROLE/REPLICA_URLS/PRIMARY_URL (server.ts, replication.ts's
+// callers) sees the update immediately -- no getter function needed.
+export let ROLE: "primary" | "replica" =
   process.env.INKCACHE_ROLE === "replica" ? "replica" : "primary";
-export const REPLICA_URLS = resolveReplicaUrls(process.env.INKCACHE_REPLICA_URLS);
-export const PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
+export let REPLICA_URLS = resolveReplicaUrls(process.env.INKCACHE_REPLICA_URLS);
+export let PRIMARY_URL = process.env.INKCACHE_PRIMARY_URL;
 
 // Shared-secret auth + per-process rate limiting, both opt-in (unset by
 // default, matching every other env-var-gated feature in this layer).
@@ -342,8 +348,8 @@ app.post("/flush", (_req, res) => {
     table -- applies directly to the store, bypassing /set's validation
     (the primary already validated the op once) and the rejectIfReplica()
     guard above (this is exactly how a replica's state is allowed to
-    change). No auth: same trust model as the rest of this demo node,
-    which has no auth on any route -- see docs/security-notes.md. */
+    change). Subject to the same auth middleware as every other route
+    when INKCACHE_API_KEY is set -- forwardToReplicas() attaches it. */
 app.post("/internal/replicate", (req, res) => {
   const op = req.body as ReplicationOp | undefined;
   if (!op || typeof op !== "object" || typeof op.op !== "string") {
@@ -351,6 +357,40 @@ app.post("/internal/replicate", (req, res) => {
   }
   applyReplicationOp(store, op);
   return res.json({ ok: true });
+});
+
+/** Manually promotes a replica to a primary -- turns "restart with new
+    env vars" into one API call. **409** if this node is already a
+    primary. Clears PRIMARY_URL (this node no longer replicates from
+    anyone) and sets REPLICA_URLS from the optional `replicaUrls` body
+    field (defaults to none) so the newly-promoted primary can start
+    forwarding writes immediately if it's told who its own replicas
+    are. Does **not** reach out to any other node -- it only flips this
+    node's own state. In particular, sibling replicas that were
+    following the *old* primary are not told to follow this one; an
+    operator (or the automatic promotion described in
+    docs/api.md#automatic-primary-promotion) still has to repoint them
+    via their own INKCACHE_PRIMARY_URL. */
+app.post("/promote", (req, res) => {
+  if (ROLE === "primary") {
+    return res.status(409).json({ error: "this node is already a primary" });
+  }
+  const { replicaUrls } = (req.body ?? {}) as { replicaUrls?: unknown };
+  let newReplicaUrls: string[] = [];
+  if (replicaUrls !== undefined) {
+    if (!Array.isArray(replicaUrls) || !replicaUrls.every((u) => typeof u === "string")) {
+      return res.status(400).json({ error: "replicaUrls must be an array of strings" });
+    }
+    newReplicaUrls = replicaUrls;
+  }
+  ROLE = "primary";
+  PRIMARY_URL = undefined;
+  REPLICA_URLS = newReplicaUrls;
+  console.log(
+    `[inkcache] ${NODE_ID} promoted to primary` +
+      (newReplicaUrls.length > 0 ? ` with ${newReplicaUrls.length} replica(s)` : ""),
+  );
+  return res.json({ ok: true, role: ROLE, replicaCount: REPLICA_URLS.length });
 });
 
 app.get("/metrics", (_req, res) => {

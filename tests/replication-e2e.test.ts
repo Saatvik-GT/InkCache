@@ -162,5 +162,31 @@ describe("primary-replica replication (real processes)", () => {
     const replicaHealth = (await (await fetch(`${REPLICA_URL}/health`)).json()) as { role: string };
     assert.equal(primaryHealth.role, "primary");
     assert.equal(replicaHealth.role, "replica");
+
+    // Manual promotion: POST /promote flips the replica to a primary
+    // without a restart, and it immediately starts accepting the
+    // writes it was rejecting a moment ago.
+    const promoteRes = await fetch(`${REPLICA_URL}/promote`, { method: "POST" });
+    assert.equal(promoteRes.status, 200);
+    const promoteBody = (await promoteRes.json()) as { ok: boolean; role: string };
+    assert.equal(promoteBody.role, "primary");
+
+    const afterPromotion = await fetch(`${REPLICA_URL}/set`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: "post-promotion", value: "accepted" }),
+    });
+    assert.equal(
+      afterPromotion.status,
+      200,
+      "the newly-promoted node still rejected a direct write",
+    );
+
+    const rolesAfter = (await (await fetch(`${REPLICA_URL}/health`)).json()) as { role: string };
+    assert.equal(rolesAfter.role, "primary");
+
+    // Promoting an already-primary node is rejected, not silently accepted.
+    const doublePromote = await fetch(`${REPLICA_URL}/promote`, { method: "POST" });
+    assert.equal(doublePromote.status, 409);
   });
 });

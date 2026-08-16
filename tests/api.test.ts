@@ -363,6 +363,18 @@ describe("REST API", () => {
     }
   });
 
+  it("POST /promote rejects an already-primary node with 409", async () => {
+    // This test file's app is a default (unconfigured) node -- ROLE is
+    // "primary" since INKCACHE_ROLE was never set for this process, so
+    // this exercises the "already primary" branch directly. The actual
+    // replica -> primary transition needs ROLE to have started as
+    // "replica" (read from process.env once at module load), which
+    // this in-process app can't do -- see
+    // tests/replication-e2e.test.ts's real spawned-process coverage.
+    const res = await request(app).post("/promote").expect(409);
+    assert.match(res.body.error, /already a primary/);
+  });
+
   it("reports health and version", async () => {
     const health = await request(app).get("/health").expect(200);
     assert.equal(health.body.status, "ok");
