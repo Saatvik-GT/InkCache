@@ -12,6 +12,12 @@
  * Reuses health-check.ts's pingHealthy() -- same fetch-with-timeout
  * shape the gateway already uses to check cache nodes, just aimed at a
  * single URL instead of a set.
+ *
+ * The optional `onFailure` callback is the seam automatic promotion
+ * (part 3) hooks into: it fires after every failed check with the
+ * current streak length, and server.ts is what decides whether/when
+ * that streak means "promote now" -- this module still never mutates
+ * ROLE, or even knows promotion exists.
  */
 
 import { pingHealthy } from "./health-check.js";
@@ -40,6 +46,7 @@ export function startPrimaryMonitor(
   primaryUrl: string,
   intervalMs = 2000,
   timeoutMs = 1000,
+  onFailure?: (consecutiveFailures: number) => void,
 ): PrimaryMonitorHandle {
   let healthy = true;
   let failures = 0;
@@ -58,6 +65,7 @@ export function startPrimaryMonitor(
       console.warn(
         `[inkcache] primary ${primaryUrl} failed its health check (${failures} in a row)`,
       );
+      onFailure?.(failures);
     }
   }
 

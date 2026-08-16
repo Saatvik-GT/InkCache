@@ -348,6 +348,58 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   clean full-suite runs after the change, where it had reproduced
   within the first run before.
 
+### Automatic primary promotion
+
+Shipped in three small commits, sensing split from deciding split from
+acting, so each could be understood, tested, and reasoned about on its
+own:
+
+- **Part 1 — manual promotion:** `POST /promote` flips a replica to a
+  primary at runtime -- one API call instead of a restart with
+  different env vars. `ROLE`/`REPLICA_URLS`/`PRIMARY_URL` in `app.ts`
+  changed from `const` to `let` (ES module bindings are live, so every
+  importer sees the update immediately). **409** if already a primary;
+  accepts an optional `replicaUrls` body field so the freshly-promoted
+  primary can start forwarding writes immediately if told who its own
+  replicas are. Does not reach out to any other node -- sibling
+  replicas following the old primary are not automatically repointed.
+  Also fixed two stale comments caught along the way that still
+  claimed "no authentication on any route", no longer true since
+  `INKCACHE_API_KEY` shipped.
+- **Part 2 — primary liveness monitoring:** new
+  `src/network/primary-monitor.ts` -- a replica polls its own primary's
+  `GET /health` on `INKCACHE_PRIMARY_MONITOR_INTERVAL` (default 2s),
+  independently of the gateway's own health checking, reusing
+  `health-check.ts`'s `pingHealthy()` (now exported). Tracks a
+  consecutive-failure streak, surfaced on the replica's own
+  `GET /health` as `primaryHealthy`/`primaryConsecutiveFailures`.
+  Deliberately observation-only -- nothing in this module mutates
+  `ROLE`.
+- **Part 3 — automatic self-promotion:** `INKCACHE_AUTO_PROMOTE=true`
+  (off by default) + `INKCACHE_AUTO_PROMOTE_THRESHOLD` (default `3`)
+  wires the two together -- once the consecutive-failure streak hits
+  the threshold, the replica calls `promoteToPrimary()` directly (the
+  same state change `POST /promote` triggers, extracted into its own
+  exported function so both call sites share it) and stops its own
+  monitor immediately after. **Explicitly and loudly scoped to a
+  single-replica topology**: a startup warning fires whenever
+  `INKCACHE_AUTO_PROMOTE` is set, stating plainly that with two or more
+  replicas watching the same primary, enabling this on more than one
+  risks split-brain (both self-promoting at once) -- this project has
+  no leader election/quorum to guarantee at most one winner, and no
+  registry of sibling replicas a node could even check to verify the
+  constraint itself. This is a real, stated limitation, not a silently
+  swept-under-the-rug one.
+- Verified with real end-to-end tests throughout, not mocked: manual
+  promotion (flip a real replica, confirm it immediately accepts a
+  direct write, confirm double-promotion is rejected), primary
+  monitoring (kill a real primary process, confirm the replica's own
+  `/health` detects it independently of the gateway), and automatic
+  promotion (kill a real primary, confirm a real replica self-promotes
+  within a few monitor intervals and genuinely starts accepting
+  writes -- not a simulated failure). Plus 10 unit tests across the
+  monitor and the app-level 409 path.
+
 ### Dashboard
 
 - Went through four visual directions before settling: a CRT/phosphor

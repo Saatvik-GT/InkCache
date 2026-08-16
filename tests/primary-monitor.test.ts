@@ -94,4 +94,36 @@ describe("startPrimaryMonitor()", () => {
     assert.equal(handle.isPrimaryHealthy(), true);
     assert.equal(handle.consecutiveFailures(), 0);
   });
+
+  it("calls onFailure with the running streak after every failed check, and not at all while healthy", async () => {
+    const primary = await startToggleableServer();
+    servers.push(primary.server);
+    const streaks: number[] = [];
+    primary.setHealthy(false);
+    const handle = startPrimaryMonitor(primary.url, 30, 200, (n) => streaks.push(n));
+    try {
+      await waitUntil(() => streaks.length >= 3);
+      assert.deepEqual(streaks.slice(0, 3), [1, 2, 3]);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it("does not call onFailure once the primary recovers", async () => {
+    const primary = await startToggleableServer();
+    servers.push(primary.server);
+    const streaks: number[] = [];
+    primary.setHealthy(false);
+    const handle = startPrimaryMonitor(primary.url, 30, 200, (n) => streaks.push(n));
+    try {
+      await waitUntil(() => streaks.length >= 2);
+      const countAtRecovery = streaks.length;
+      primary.setHealthy(true);
+      await waitUntil(() => handle.isPrimaryHealthy());
+      await new Promise((r) => setTimeout(r, 100));
+      assert.equal(streaks.length, countAtRecovery);
+    } finally {
+      handle.stop();
+    }
+  });
 });

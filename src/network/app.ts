@@ -368,22 +368,36 @@ app.post("/internal/replicate", (req, res) => {
   return res.json({ ok: true });
 });
 
+/** Flips this node from a replica to a primary -- the actual state
+    change behind both POST /promote (manual, below) and server.ts's
+    automatic self-promotion (single-replica topology only; see
+    docs/api.md#automatic-primary-promotion for why it's restricted to
+    that case). Clears PRIMARY_URL (this node no longer replicates from
+    anyone) and sets REPLICA_URLS to `replicaUrls` (defaults to none)
+    so the newly-promoted primary can start forwarding writes
+    immediately if it's told who its own replicas are. Does **not**
+    reach out to any other node -- it only flips this node's own state;
+    sibling replicas that were following the old primary are not told
+    to follow this one. A no-op returning false if this node is already
+    a primary, so callers (both the route and the automatic trigger)
+    can tell a real promotion from a redundant one. */
+export function promoteToPrimary(replicaUrls: string[] = []): boolean {
+  if (ROLE === "primary") return false;
+  ROLE = "primary";
+  PRIMARY_URL = undefined;
+  REPLICA_URLS = replicaUrls;
+  console.log(
+    `[inkcache] ${NODE_ID} promoted to primary` +
+      (replicaUrls.length > 0 ? ` with ${replicaUrls.length} replica(s)` : ""),
+  );
+  return true;
+}
+
 /** Manually promotes a replica to a primary -- turns "restart with new
     env vars" into one API call. **409** if this node is already a
-    primary. Clears PRIMARY_URL (this node no longer replicates from
-    anyone) and sets REPLICA_URLS from the optional `replicaUrls` body
-    field (defaults to none) so the newly-promoted primary can start
-    forwarding writes immediately if it's told who its own replicas
-    are. Does **not** reach out to any other node -- it only flips this
-    node's own state. In particular, sibling replicas that were
-    following the *old* primary are not told to follow this one; an
-    operator (or the automatic promotion described in
-    docs/api.md#automatic-primary-promotion) still has to repoint them
-    via their own INKCACHE_PRIMARY_URL. */
+    primary. See promoteToPrimary() above for what the promotion itself
+    does and doesn't do. */
 app.post("/promote", (req, res) => {
-  if (ROLE === "primary") {
-    return res.status(409).json({ error: "this node is already a primary" });
-  }
   const { replicaUrls } = (req.body ?? {}) as { replicaUrls?: unknown };
   let newReplicaUrls: string[] = [];
   if (replicaUrls !== undefined) {
@@ -392,13 +406,9 @@ app.post("/promote", (req, res) => {
     }
     newReplicaUrls = replicaUrls;
   }
-  ROLE = "primary";
-  PRIMARY_URL = undefined;
-  REPLICA_URLS = newReplicaUrls;
-  console.log(
-    `[inkcache] ${NODE_ID} promoted to primary` +
-      (newReplicaUrls.length > 0 ? ` with ${newReplicaUrls.length} replica(s)` : ""),
-  );
+  if (!promoteToPrimary(newReplicaUrls)) {
+    return res.status(409).json({ error: "this node is already a primary" });
+  }
   return res.json({ ok: true, role: ROLE, replicaCount: REPLICA_URLS.length });
 });
 

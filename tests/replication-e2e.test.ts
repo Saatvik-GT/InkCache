@@ -249,4 +249,77 @@ describe("primary-replica replication (real processes)", () => {
       await Promise.all([waitForExit(monitorReplica)]);
     }
   });
+
+  it("a replica with INKCACHE_AUTO_PROMOTE self-promotes after its primary genuinely dies", async () => {
+    const autoPrimaryPort = 8114;
+    const autoReplicaPort = 8115;
+    const autoPrimaryUrl = `http://localhost:${autoPrimaryPort}`;
+    const autoReplicaUrl = `http://localhost:${autoReplicaPort}`;
+
+    const autoPrimary = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(autoPrimaryPort),
+        INKCACHE_NODE_ID: "auto-primary",
+      },
+      stdio: "ignore",
+    });
+    await waitForHealth(autoPrimaryUrl);
+
+    const autoReplica = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(autoReplicaPort),
+        INKCACHE_NODE_ID: "auto-replica",
+        INKCACHE_ROLE: "replica",
+        INKCACHE_PRIMARY_URL: autoPrimaryUrl,
+        INKCACHE_PRIMARY_MONITOR_INTERVAL: "200",
+        INKCACHE_AUTO_PROMOTE: "true",
+        INKCACHE_AUTO_PROMOTE_THRESHOLD: "3",
+      },
+      stdio: "ignore",
+    });
+    await waitForHealth(autoReplicaUrl);
+
+    try {
+      // Still a replica, still rejecting direct writes, before the primary dies.
+      const beforeKill = await fetch(`${autoReplicaUrl}/set`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: "too-early", value: "x" }),
+      });
+      assert.equal(beforeKill.status, 409);
+
+      autoPrimary.kill();
+      await waitForExit(autoPrimary);
+
+      // 3 failures at a 200ms interval is ~600ms minimum; give it real
+      // margin since this is genuine process scheduling, not mocked time.
+      await waitUntil(async () => {
+        const res = await fetch(`${autoReplicaUrl}/health`);
+        const body = (await res.json()) as { role: string };
+        return body.role === "primary";
+      }, 5000);
+
+      const health = (await (await fetch(`${autoReplicaUrl}/health`)).json()) as {
+        role: string;
+        primaryHealthy?: boolean;
+      };
+      assert.equal(health.role, "primary");
+      // The monitor stops itself on promotion -- no more primaryHealthy
+      // field once this node isn't a replica anymore.
+      assert.equal(health.primaryHealthy, undefined);
+
+      // And it now genuinely accepts writes as a real primary.
+      const afterPromotion = await fetch(`${autoReplicaUrl}/set`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: "after-auto-promotion", value: "accepted" }),
+      });
+      assert.equal(afterPromotion.status, 200);
+    } finally {
+      autoReplica.kill();
+      await Promise.all([waitForExit(autoReplica)]);
+    }
+  });
 });

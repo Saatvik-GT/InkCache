@@ -15,6 +15,7 @@ import {
   REPLICA_URLS,
   API_KEY,
   setPrimaryMonitorHandle,
+  promoteToPrimary,
 } from "./app.js";
 import { authHeader } from "./auth.js";
 import { parsePositiveInt } from "./env.js";
@@ -82,12 +83,30 @@ const SELF_URL = process.env.INKCACHE_SELF_URL;
 // N): a replica polls its own primary's /health on this interval so it
 // has a live, continuously-updated view of whether its primary is
 // still reachable, surfaced via GET /health's primaryHealthy /
-// primaryConsecutiveFailures fields. This module only observes for
-// now -- nothing here promotes anything yet.
+// primaryConsecutiveFailures fields.
 const PRIMARY_MONITOR_INTERVAL_MS = parsePositiveInt(
   process.env.INKCACHE_PRIMARY_MONITOR_INTERVAL,
   2000,
   "INKCACHE_PRIMARY_MONITOR_INTERVAL",
+);
+
+// Automatic self-promotion (part 3 of N), opt-in and off by default.
+// Deliberately NOT the default behavior of every replica: with two or
+// more replicas independently watching the same primary, each
+// self-promoting after its own threshold would risk two nodes both
+// becoming "the" primary at once -- a real split-brain, since this
+// project has no leader election to guarantee at most one winner. Only
+// turn this on for a single-primary-single-replica topology; see
+// docs/api.md#automatic-primary-promotion for the full reasoning. A
+// loud startup warning fires below when this node has no way to verify
+// that constraint (it can't -- there's no registry of sibling
+// replicas), so enabling it anywhere else is a deliberate, visible risk
+// rather than a silent one.
+const AUTO_PROMOTE = process.env.INKCACHE_AUTO_PROMOTE === "true";
+const AUTO_PROMOTE_THRESHOLD = parsePositiveInt(
+  process.env.INKCACHE_AUTO_PROMOTE_THRESHOLD,
+  3,
+  "INKCACHE_AUTO_PROMOTE_THRESHOLD",
 );
 
 let server: ReturnType<typeof app.listen> | undefined;
@@ -148,7 +167,38 @@ async function start(): Promise<void> {
     const loaded = await syncFromPrimary(store, PRIMARY_URL, undefined, undefined, API_KEY);
     console.log(`[inkcache] synced ${loaded} key(s) from primary ${PRIMARY_URL}`);
 
-    primaryMonitorHandle = startPrimaryMonitor(PRIMARY_URL, PRIMARY_MONITOR_INTERVAL_MS);
+    if (AUTO_PROMOTE) {
+      console.warn(
+        "[inkcache] INKCACHE_AUTO_PROMOTE is enabled -- this node will self-promote to " +
+          `primary after ${AUTO_PROMOTE_THRESHOLD} consecutive failed checks against its ` +
+          "primary. Safe ONLY if this is the sole replica of that primary: with multiple " +
+          "replicas watching the same primary, this risks two nodes both promoting at once " +
+          "(split-brain) -- there is no leader election here to prevent it. See " +
+          "docs/api.md#automatic-primary-promotion.",
+      );
+    }
+
+    primaryMonitorHandle = startPrimaryMonitor(
+      PRIMARY_URL,
+      PRIMARY_MONITOR_INTERVAL_MS,
+      undefined,
+      AUTO_PROMOTE
+        ? (consecutiveFailures) => {
+            if (consecutiveFailures < AUTO_PROMOTE_THRESHOLD) return;
+            // promoteToPrimary() itself is idempotent (a no-op once
+            // ROLE is already "primary"), but stopping the monitor
+            // immediately also stops it from logging further failures
+            // against a primary this node no longer follows.
+            if (promoteToPrimary()) {
+              console.warn(
+                `[inkcache] auto-promoted to primary after ${consecutiveFailures} ` +
+                  "consecutive failed checks against the primary",
+              );
+              primaryMonitorHandle?.stop();
+            }
+          }
+        : undefined,
+    );
     setPrimaryMonitorHandle(primaryMonitorHandle);
   }
 
