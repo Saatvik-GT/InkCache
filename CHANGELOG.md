@@ -160,9 +160,39 @@ history. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   unit tests against a toggleable local HTTP server covering the
   up/down/up cycle, `stop()` actually halting further checks, and the
   "every node starts assumed healthy" initial state.
-- Node **discovery** -- detecting a node joining the cluster that
-  wasn't in `INKCACHE_CLUSTER_NODES` at gateway startup -- is still
-  open; only already-configured nodes are health-checked.
+- Node discovery (roadmap Sprint 4's final piece): `INKCACHE_CLUSTER_NODES`
+  is now only the gateway's _initial_ set, not a ceiling. `POST
+/cluster/nodes` (`{ "url": "..." }`) registers a node at runtime --
+  **409** if already registered, **400** on a missing/non-string
+  `url` -- adding it to both the hashing ring and the health checker
+  immediately; `DELETE /cluster/nodes` deregisters one (a no-op if
+  unknown, same tolerance `/delete/:key` already has). `health-check.ts`'s
+  handle grew `addNode()`/`removeNode()` so the checker's monitored set
+  is mutable, not fixed at construction. `gateway-server.ts` now always
+  starts health checking, even with zero initial nodes, so there's a
+  live handle for a first node to register against.
+- `server.ts` can self-register with a gateway instead of an operator
+  curling it by hand: `INKCACHE_GATEWAY_URL` + `INKCACHE_SELF_URL`
+  (the node's own externally-reachable base URL -- deliberately not
+  inferred from `INKCACHE_PORT`, which would be wrong the instant the
+  node and gateway aren't on the same host) register the node on
+  startup and deregister it on a graceful shutdown, best-effort.
+- Verified with a real test that starts a gateway with **zero**
+  configured nodes, starts a node with self-registration env vars set,
+  confirms the gateway picks it up and can actually route real traffic
+  to it, then sends it a real HTTP DELETE to deregister. The
+  SIGTERM-triggered half of deregistration hits the same
+  Windows-can't-deliver-a-real-signal limitation already documented for
+  the Docker graceful-shutdown smoke test (confirmed again here by
+  direct reproduction: a SIGTERM to a plain node on this dev machine
+  kills it without its own "received SIGTERM" log line ever printing)
+  -- that specific assertion is skipped on `win32` and holds on a real
+  POSIX target (CI), same as the Docker case. Also fixed a real bug
+  caught by this work: `GET /cluster/nodes`'s fallback path (no health
+  checker running) was reading the static `INKCACHE_CLUSTER_NODES`
+  env-var snapshot instead of the router's live node list, so a
+  dynamically-registered node silently didn't show up in that response
+  shape.
 
 ### Dashboard
 

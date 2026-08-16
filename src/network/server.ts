@@ -43,8 +43,48 @@ const PERSIST_PATH = process.env.INKCACHE_PERSIST_PATH;
 const PERSIST_INTERVAL_MS =
   parsePositiveInt(process.env.INKCACHE_PERSIST_INTERVAL, 60, "INKCACHE_PERSIST_INTERVAL") * 1000;
 
+// Opt-in node discovery (roadmap Sprint 4's last piece): if both are
+// set, this node announces itself to a cluster gateway on startup and
+// deregisters on a graceful shutdown, instead of an operator having to
+// curl POST /cluster/nodes by hand every time a node joins. Requires an
+// explicit externally-reachable INKCACHE_SELF_URL rather than guessing
+// one from INKCACHE_PORT -- "localhost:PORT" would be wrong the moment
+// this node and the gateway aren't on the same host (Docker, a real
+// multi-machine cluster), and guessing wrong silently registers a URL
+// nothing can actually reach.
+const GATEWAY_URL = process.env.INKCACHE_GATEWAY_URL;
+const SELF_URL = process.env.INKCACHE_SELF_URL;
+
 let server: ReturnType<typeof app.listen> | undefined;
 let persistHandle: AutoPersistHandle | undefined;
+
+/** Best-effort registration/deregistration with a cluster gateway --
+    never throws. A node that can't reach its gateway should still come
+    up and serve direct traffic (or be picked up by a later health-check
+    retry loop an operator sets up), not refuse to start over a
+    discovery announcement failing. */
+async function announceToGateway(op: "register" | "deregister"): Promise<void> {
+  if (!GATEWAY_URL || !SELF_URL) return;
+  try {
+    const res = await fetch(`${GATEWAY_URL}/cluster/nodes`, {
+      method: op === "register" ? "POST" : "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: SELF_URL }),
+    });
+    // 409 (already registered) on a register call is expected on a
+    // restart racing the gateway's own stale-entry cleanup -- not worth
+    // warning about the way a genuine failure is.
+    if (!res.ok && !(op === "register" && res.status === 409)) {
+      console.warn(`[inkcache] ${op} with gateway ${GATEWAY_URL} returned HTTP ${res.status}`);
+    } else {
+      console.log(`[inkcache] ${op}ed with gateway ${GATEWAY_URL} as ${SELF_URL}`);
+    }
+  } catch (err) {
+    console.warn(
+      `[inkcache] failed to ${op} with gateway ${GATEWAY_URL}: ${(err as Error).message}`,
+    );
+  }
+}
 
 async function start(): Promise<void> {
   if (PERSIST_PATH) {
@@ -74,12 +114,15 @@ async function start(): Promise<void> {
         `${ROLE === "primary" && REPLICA_URLS.length > 0 ? `, replicas=${REPLICA_URLS.length}` : ""})`,
     );
   });
+
+  await announceToGateway("register");
 }
 
 void start();
 
 async function shutdown(signal: string): Promise<void> {
   console.log(`[inkcache] received ${signal}, shutting down`);
+  await announceToGateway("deregister");
   store.stopSweeper();
   metrics.stopHistory();
   persistHandle?.stop();

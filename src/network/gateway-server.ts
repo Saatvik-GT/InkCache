@@ -22,11 +22,16 @@ const HEALTH_CHECK_INTERVAL_MS = parsePositiveInt(
   "INKCACHE_GATEWAY_HEALTH_INTERVAL",
 );
 
-let healthCheckHandle: HealthCheckHandle | undefined;
-if (CLUSTER_NODES.length > 0) {
-  healthCheckHandle = startHealthChecks(router, CLUSTER_NODES, HEALTH_CHECK_INTERVAL_MS);
-  setHealthHandle(healthCheckHandle);
-}
+// Always started, even with zero initial nodes -- POST /cluster/nodes
+// (node discovery) needs a live handle to register newly-announced
+// nodes against from the moment the gateway is up, not only once
+// INKCACHE_CLUSTER_NODES happens to be non-empty.
+const healthCheckHandle: HealthCheckHandle = startHealthChecks(
+  router,
+  CLUSTER_NODES,
+  HEALTH_CHECK_INTERVAL_MS,
+);
+setHealthHandle(healthCheckHandle);
 
 const server = app.listen(PORT, () => {
   console.log(
@@ -34,14 +39,14 @@ const server = app.listen(PORT, () => {
   );
   if (CLUSTER_NODES.length === 0) {
     console.warn(
-      "[inkcache-gateway] INKCACHE_CLUSTER_NODES is unset -- every request will get a 503 until it's configured",
+      "[inkcache-gateway] INKCACHE_CLUSTER_NODES is unset -- every request will get a 503 until a node registers itself via POST /cluster/nodes",
     );
   }
 });
 
 async function shutdown(signal: string): Promise<void> {
   console.log(`[inkcache-gateway] received ${signal}, shutting down`);
-  healthCheckHandle?.stop();
+  healthCheckHandle.stop();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 5000).unref();
 }

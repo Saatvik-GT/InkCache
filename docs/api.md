@@ -250,20 +250,22 @@ reaching later middleware.
 All node configuration is via environment variables, set before starting
 the node (`npm run dev:node` / `npm run start:node`):
 
-| Variable                    | Default        | Notes                                                                    |
-| --------------------------- | -------------- | ------------------------------------------------------------------------ |
-| `INKCACHE_PORT`             | `8080`         | HTTP port the node listens on                                            |
-| `INKCACHE_NODE_ID`          | `node-1`       | label reported in `/health`/`/metrics`                                   |
-| `INKCACHE_MAX_ENTRIES`      | `512`          | capacity before eviction kicks in                                        |
-| `INKCACHE_EVICTION_POLICY`  | `access-aware` | `access-aware`, `lru`, or `lfu`                                          |
-| `INKCACHE_EVICTION_SAMPLE`  | `5`            | candidate window size for `access-aware`                                 |
-| `INKCACHE_MAX_KEY_LENGTH`   | `256`          | longest key `/set` will accept                                           |
-| `INKCACHE_CORS_ORIGIN`      | _(none)_       | comma-separated extra allowed origins                                    |
-| `INKCACHE_PERSIST_PATH`     | _(none)_       | file path to save/load the cache's contents across restarts              |
-| `INKCACHE_PERSIST_INTERVAL` | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set) |
-| `INKCACHE_ROLE`             | `primary`      | `primary` or `replica` — see [Replication](#replication)                 |
-| `INKCACHE_REPLICA_URLS`     | _(none)_       | comma-separated replica base URLs (primary only)                         |
-| `INKCACHE_PRIMARY_URL`      | _(none)_       | this node's primary's base URL (replica only)                            |
+| Variable                    | Default        | Notes                                                                                        |
+| --------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `INKCACHE_PORT`             | `8080`         | HTTP port the node listens on                                                                |
+| `INKCACHE_NODE_ID`          | `node-1`       | label reported in `/health`/`/metrics`                                                       |
+| `INKCACHE_MAX_ENTRIES`      | `512`          | capacity before eviction kicks in                                                            |
+| `INKCACHE_EVICTION_POLICY`  | `access-aware` | `access-aware`, `lru`, or `lfu`                                                              |
+| `INKCACHE_EVICTION_SAMPLE`  | `5`            | candidate window size for `access-aware`                                                     |
+| `INKCACHE_MAX_KEY_LENGTH`   | `256`          | longest key `/set` will accept                                                               |
+| `INKCACHE_CORS_ORIGIN`      | _(none)_       | comma-separated extra allowed origins                                                        |
+| `INKCACHE_PERSIST_PATH`     | _(none)_       | file path to save/load the cache's contents across restarts                                  |
+| `INKCACHE_PERSIST_INTERVAL` | `60`           | seconds between auto-saves (only used if `INKCACHE_PERSIST_PATH` is set)                     |
+| `INKCACHE_ROLE`             | `primary`      | `primary` or `replica` — see [Replication](#replication)                                     |
+| `INKCACHE_REPLICA_URLS`     | _(none)_       | comma-separated replica base URLs (primary only)                                             |
+| `INKCACHE_PRIMARY_URL`      | _(none)_       | this node's primary's base URL (replica only)                                                |
+| `INKCACHE_GATEWAY_URL`      | _(none)_       | a cluster gateway's base URL to self-register with — see [Cluster gateway](#cluster-gateway) |
+| `INKCACHE_SELF_URL`         | _(none)_       | this node's own externally-reachable base URL (required with `INKCACHE_GATEWAY_URL`)         |
 
 `INKCACHE_CORS_ORIGIN` is only needed when the dashboard is hosted
 separately from this node (see `VITE_API_BASE` in
@@ -342,14 +344,16 @@ curl http://localhost:8090/get/user:1
 
 Routes:
 
-| Method | Endpoint              | Behaviour                                                |
-| ------ | --------------------- | -------------------------------------------------------- |
-| POST   | `/set`                | Proxies to the node `key` hashes to                      |
-| GET    | `/get/:key`           | Proxies to the node `key` hashes to                      |
-| DELETE | `/delete/:key`        | Proxies to the node `key` hashes to                      |
-| GET    | `/cluster/route/:key` | Which node owns `key`, without performing the read/write |
-| GET    | `/cluster/nodes`      | Every configured node and its current health             |
-| GET    | `/health`             | The gateway's own health (not proxied)                   |
+| Method | Endpoint              | Behaviour                                                 |
+| ------ | --------------------- | --------------------------------------------------------- |
+| POST   | `/set`                | Proxies to the node `key` hashes to                       |
+| GET    | `/get/:key`           | Proxies to the node `key` hashes to                       |
+| DELETE | `/delete/:key`        | Proxies to the node `key` hashes to                       |
+| GET    | `/cluster/route/:key` | Which node owns `key`, without performing the read/write  |
+| GET    | `/cluster/nodes`      | Every currently-known node and its current health         |
+| POST   | `/cluster/nodes`      | Registers a new node at runtime — `{ "url": "..." }`      |
+| DELETE | `/cluster/nodes`      | Deregisters a node — `{ "url": "..." }`, no-op if unknown |
+| GET    | `/health`             | The gateway's own health (not proxied)                    |
 
 **503** `{ "error": "no cluster nodes configured" }` from any routed
 endpoint if `INKCACHE_CLUSTER_NODES` is unset or empty (or every
@@ -377,19 +381,48 @@ unlike `hash(key) % nodeCount`, where every key remaps the moment the
 node count changes.
 
 **Failure handling** (roadmap Sprint 4, part 4): the gateway actively
-polls every node in `INKCACHE_CLUSTER_NODES`'s own `/health` on
-`INKCACHE_GATEWAY_HEALTH_INTERVAL` (default 2s, 1s request timeout per
-check). A node that fails a check is immediately pulled out of the
-hashing ring — new requests for keys that used to route to it land on
-the next node clockwise instead of 502ing against a dead node — and put
-back the moment it starts answering again. This is deliberately simple
-and not flap-damped: one failed check removes a node, one successful
-check restores it, with no failure-count threshold or backoff. What's
-still missing from Sprint 4: dynamic **node discovery** — the gateway's
-node _list_ itself (as opposed to which of those nodes is currently
-healthy) is still fixed at `INKCACHE_CLUSTER_NODES`'s value from
-gateway startup; scaling the cluster in or out means restarting the
-gateway with a new list, not something it notices on its own.
+polls every known node's `/health` on `INKCACHE_GATEWAY_HEALTH_INTERVAL`
+(default 2s, 1s request timeout per check). A node that fails a check is
+immediately pulled out of the hashing ring — new requests for keys that
+used to route to it land on the next node clockwise instead of 502ing
+against a dead node — and put back the moment it starts answering again.
+This is deliberately simple and not flap-damped: one failed check
+removes a node, one successful check restores it, with no
+failure-count threshold or backoff.
+
+**Node discovery** (roadmap Sprint 4, final piece): `INKCACHE_CLUSTER_NODES`
+is only the gateway's _initial_ node set, not a ceiling — `POST /cluster/nodes`
+adds a node at runtime (**409** if it's already registered, **400** if
+`url` is missing/not a string) and `DELETE /cluster/nodes` removes one
+(a no-op, not an error, if it's already unknown). A newly-registered
+node is added to both the hashing ring and the health checker
+immediately, so it starts receiving traffic and being monitored on the
+very next tick rather than requiring a gateway restart.
+
+A cache node can announce itself automatically instead of an operator
+curling the gateway by hand: set `INKCACHE_GATEWAY_URL` (the gateway's
+base URL) and `INKCACHE_SELF_URL` (this node's own externally-reachable
+base URL — not inferred from `INKCACHE_PORT`, since `localhost:PORT`
+would be wrong the moment the node and gateway aren't on the same host)
+on the cache node itself. It registers on startup and deregisters on a
+graceful `SIGINT`/`SIGTERM` shutdown, best-effort (a node that can't
+reach its gateway still starts and serves direct traffic rather than
+refusing to come up):
+
+```bash
+# gateway with zero nodes configured -- nothing to route to yet
+npm run start:gateway
+
+# a node discovers itself into the running gateway
+INKCACHE_PORT=8080 INKCACHE_GATEWAY_URL=http://localhost:8090 \
+  INKCACHE_SELF_URL=http://localhost:8080 npm run start:node
+```
+
+This is deliberately a self-registration model, not a gossip protocol
+or a service-mesh-style control plane — a node has to know its
+gateway's address up front, and a gateway restart forgets every
+dynamically-registered node (it starts fresh from
+`INKCACHE_CLUSTER_NODES` again, same as always).
 
 ## Replication
 

@@ -59,9 +59,9 @@ InkCache addresses this by combining:
 - Unit + API tests (`npm test`) and a GitHub Actions CI workflow running them on every push/PR
 - A benchmark suite (`npm run benchmark`) comparing all three eviction policies under real HTTP load against a deliberately undersized cache, reporting hit rate and evictions alongside raw throughput/latency, plus `npm run benchmark:external` comparing InkCache against real Redis and Memcached containers over each backend's own native protocol
 - Single-primary replication (`INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`): a primary forwards every write to its replicas over HTTP, and a replica pulls a full snapshot from its primary once at startup — see [docs/api.md#replication](docs/api.md#replication)
-- Consistent hashing + a cluster gateway (`npm run start:gateway`, `INKCACHE_CLUSTER_NODES`): shards keys across a set of nodes so a client can talk to one address instead of knowing which node owns which key, with active health checking that pulls a dead node out of rotation (and back in once it recovers) — see [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway)
+- Consistent hashing + a cluster gateway (`npm run start:gateway`, `INKCACHE_CLUSTER_NODES`): shards keys across a set of nodes so a client can talk to one address instead of knowing which node owns which key, with active health checking that pulls a dead node out of rotation (and back in once it recovers), and node discovery via self-registration (`INKCACHE_GATEWAY_URL` + `INKCACHE_SELF_URL` on a cache node) — see [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway)
 
-**Not yet implemented (roadmap):** dynamic node discovery — the gateway's node _list_ is still fixed at its own startup (it detects an already-configured node going up/down, but not a new node joining), and replication's primary/replica set is still a fixed, manually-configured pair with no automatic promotion if the primary itself goes down. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
+**Not yet implemented (roadmap):** replication has no automatic promotion if the primary itself goes down — it's still a fixed, manually-configured primary/replica pair, not a self-healing one. The "adaptive intelligence layer" in the architecture diagram below is still aspirational as a learned/trained model — what exists today is the access-aware eviction heuristic above, which is real engineering (bounded-window frequency scoring) but not machine learning. Nothing in the dashboard is mocked — every number comes from the running node.
 
 ## Key Features
 
@@ -142,17 +142,18 @@ Development follows CUSoC's bi-weekly sprint cadence across three quarters.
       `INKCACHE_ROLE=replica` + `INKCACHE_PRIMARY_URL`, see
       [docs/api.md#replication](docs/api.md#replication). Single fixed
       primary, best-effort/asynchronous, not consensus-based.
-- [x] Sprint 4 (partial): Consistent hashing (`src/core/hashring.ts`), a
-      cluster gateway that shards keys across a node set via
-      `INKCACHE_CLUSTER_NODES` (`npm run start:gateway`), and failure
-      handling — the gateway actively health-checks every node and pulls
-      a dead one out of the hashing ring (and back in once it recovers),
-      verified with a real test that kills and revives an actual node
-      process. See [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway).
-      Dynamic node **discovery** is still open: the gateway's node
-      _list_ is fixed at its own startup — scaling the cluster in or out
-      means restarting it with a new `INKCACHE_CLUSTER_NODES`, not
-      something it notices on its own.
+- [x] Sprint 4: Consistent hashing (`src/core/hashring.ts`), a cluster
+      gateway that shards keys across a node set (`npm run start:gateway`),
+      failure handling (active health checks pull a dead node out of the
+      hashing ring and back in once it recovers), and node discovery — a
+      node can self-register with a running gateway at startup
+      (`INKCACHE_GATEWAY_URL` + `INKCACHE_SELF_URL`) and deregisters on a
+      graceful shutdown, instead of the gateway's node set being fixed at
+      its own startup. See
+      [docs/api.md#cluster-gateway](docs/api.md#cluster-gateway). Not a
+      gossip protocol or a service mesh — a node has to know its
+      gateway's address up front, and the gateway forgets
+      dynamically-registered nodes across its own restart.
 - [x] Sprint 5 (partial): Access-pattern-aware eviction — bounded-window frequency scoring on top of recency (`INKCACHE_EVICTION_POLICY=access-aware`, see [docs/api.md](docs/api.md#eviction-policy)). Predictive prefetching and a trained/learned model are still open.
 
 ### Quarter III — Production & Leadership

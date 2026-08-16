@@ -117,4 +117,63 @@ describe("startHealthChecks()", () => {
       handle.stop();
     }
   });
+
+  it("starts with zero nodes and can pick up ones registered later (node discovery)", async () => {
+    const a = await startToggleableServer();
+    servers.push(a.server);
+
+    const router = new ClusterRouter();
+    const handle = startHealthChecks(router, [], 30, 200);
+    try {
+      assert.equal(router.size, 0);
+      handle.addNode(a.url);
+      assert.equal(router.size, 1);
+      assert.deepEqual(handle.status(), [{ url: a.url, healthy: true }]);
+
+      // The newly-added node is monitored on the next tick just like an
+      // initial one -- going down still gets detected.
+      a.setHealthy(false);
+      await waitUntil(() => router.size === 0);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it("addNode() on an already-known node is a no-op", () => {
+    const router = new ClusterRouter(["http://a"]);
+    const handle = startHealthChecks(router, ["http://a"], 60_000, 1000);
+    try {
+      handle.addNode("http://a");
+      assert.equal(router.size, 1);
+      assert.equal(handle.status().length, 1);
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it("removeNode() stops monitoring and removes from the router immediately", () => {
+    const router = new ClusterRouter(["http://a", "http://b"]);
+    const handle = startHealthChecks(router, ["http://a", "http://b"], 60_000, 1000);
+    try {
+      handle.removeNode("http://a");
+      assert.deepEqual(router.nodes, ["http://b"]);
+      assert.deepEqual(
+        handle.status().map((n) => n.url),
+        ["http://b"],
+      );
+    } finally {
+      handle.stop();
+    }
+  });
+
+  it("removeNode() on an unknown node is a no-op", () => {
+    const router = new ClusterRouter(["http://a"]);
+    const handle = startHealthChecks(router, ["http://a"], 60_000, 1000);
+    try {
+      handle.removeNode("http://nonexistent");
+      assert.equal(router.size, 1);
+    } finally {
+      handle.stop();
+    }
+  });
 });

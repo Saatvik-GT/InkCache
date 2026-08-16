@@ -114,14 +114,63 @@ app.get("/cluster/route/:key", (req, res) => {
   res.json({ key: req.params.key, node: nodeUrl });
 });
 
-/** Every *configured* node (INKCACHE_CLUSTER_NODES), each with its
-    current health -- not just the ones currently in the router. Without
-    a running health checker (setHealthHandle() never called), every
-    configured node is reported healthy, since nothing has ever marked
-    one otherwise. */
+/** Every currently-*known* node -- which starts as INKCACHE_CLUSTER_NODES
+    but grows/shrinks at runtime via POST/DELETE below -- each with its
+    current health. Without a running health checker (setHealthHandle()
+    never called), falls back to the router's own live node list (not
+    the static INKCACHE_CLUSTER_NODES constant, which only ever reflects
+    startup and would silently hide anything registered afterward);
+    every node in that fallback is reported healthy, since nothing has
+    ever marked one otherwise. */
 app.get("/cluster/nodes", (_req, res) => {
-  const status = healthHandle?.status() ?? CLUSTER_NODES.map((url) => ({ url, healthy: true }));
-  res.json({ nodes: status, healthyCount: router.size, count: CLUSTER_NODES.length });
+  const status = healthHandle?.status() ?? router.nodes.map((url) => ({ url, healthy: true }));
+  res.json({ nodes: status, healthyCount: router.size, count: status.length });
+});
+
+/** Registers a new node with the cluster at runtime (roadmap Sprint 4's
+    remaining piece: node discovery) -- INKCACHE_CLUSTER_NODES is only
+    the *initial* set a gateway starts with, not a hard ceiling. A node
+    can announce itself here directly (curl/an operator) or via
+    server.ts's own INKCACHE_GATEWAY_URL self-registration on startup.
+    The node is added to both the router and the health checker (if
+    running) immediately, so it starts receiving traffic and being
+    monitored right away rather than waiting for the next full restart. */
+app.post("/cluster/nodes", (req, res) => {
+  const { url } = (req.body ?? {}) as { url?: unknown };
+  if (typeof url !== "string" || url.length === 0) {
+    return res.status(400).json({ error: "url must be a non-empty string" });
+  }
+  const normalized = url.trim().replace(/\/$/, "");
+  const alreadyKnown = (healthHandle?.status().map((n) => n.url) ?? router.nodes).includes(
+    normalized,
+  );
+  if (alreadyKnown) {
+    return res.status(409).json({ error: `node ${normalized} is already registered` });
+  }
+  if (healthHandle) {
+    healthHandle.addNode(normalized);
+  } else {
+    router.addNode(normalized);
+  }
+  return res.json({ ok: true, url: normalized, count: router.size });
+});
+
+/** Deregisters a node -- e.g. a node announcing its own graceful
+    shutdown (see server.ts), or an operator manually decommissioning
+    one. Removing a node that isn't known is a no-op, not an error, same
+    tolerance /delete/:key already has for a key that never existed. */
+app.delete("/cluster/nodes", (req, res) => {
+  const { url } = (req.body ?? {}) as { url?: unknown };
+  if (typeof url !== "string" || url.length === 0) {
+    return res.status(400).json({ error: "url must be a non-empty string" });
+  }
+  const normalized = url.trim().replace(/\/$/, "");
+  if (healthHandle) {
+    healthHandle.removeNode(normalized);
+  } else {
+    router.removeNode(normalized);
+  }
+  return res.json({ ok: true, url: normalized, count: router.size });
 });
 
 app.get("/health", (_req, res) => {

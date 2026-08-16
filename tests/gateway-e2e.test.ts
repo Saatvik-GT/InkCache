@@ -42,6 +42,28 @@ function waitForExit(proc: ChildProcess, timeoutMs = 5000): Promise<void> {
   });
 }
 
+/** Polls a gateway's /cluster/nodes until it does (or doesn't) list
+    `nodeUrl` -- registration/deregistration both happen asynchronously
+    (an HTTP round trip from the node to the gateway), so this can't be
+    asserted the instant the triggering action returns. */
+async function waitUntilGatewayLists(
+  gatewayUrl: string,
+  nodeUrl: string,
+  shouldBeListed: boolean,
+  failureMessage: string,
+  timeoutMs = 5000,
+): Promise<void> {
+  const start = Date.now();
+  for (;;) {
+    const res = await fetch(`${gatewayUrl}/cluster/nodes`);
+    const body = (await res.json()) as { nodes: Array<{ url: string }> };
+    const isListed = body.nodes.some((n) => n.url === nodeUrl);
+    if (isListed === shouldBeListed) return;
+    if (Date.now() - start > timeoutMs) throw new Error(failureMessage);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 describe("cluster gateway (real processes)", () => {
   const procs: ChildProcess[] = [];
 
@@ -239,6 +261,84 @@ describe("cluster gateway (real processes)", () => {
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.ok(sawRecovered, "gateway never marked the revived node healthy again");
+  });
+
+  it("a node discovers itself into a running gateway and deregisters on graceful shutdown", async () => {
+    const gatewayPort = 8101;
+    const gatewayUrl = `http://localhost:${gatewayPort}`;
+    const nodePort = 8102;
+    const nodeUrl = `http://localhost:${nodePort}`;
+
+    // Gateway starts with *zero* configured nodes -- proves discovery
+    // works from a cold cluster, not just adding to an existing one.
+    const gateway = spawn(process.execPath, ["--import", "tsx", "src/network/gateway-server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_GATEWAY_PORT: String(gatewayPort),
+        INKCACHE_CLUSTER_NODES: "",
+      },
+      stdio: "ignore",
+    });
+    procs.push(gateway);
+    await waitForHealth(gatewayUrl);
+
+    const node = spawn(process.execPath, ["--import", "tsx", "src/network/server.ts"], {
+      env: {
+        ...process.env,
+        INKCACHE_PORT: String(nodePort),
+        INKCACHE_NODE_ID: "self-registering",
+        INKCACHE_GATEWAY_URL: gatewayUrl,
+        INKCACHE_SELF_URL: nodeUrl,
+      },
+      stdio: "ignore",
+    });
+    procs.push(node);
+    await waitForHealth(nodeUrl);
+
+    await waitUntilGatewayLists(
+      gatewayUrl,
+      nodeUrl,
+      true,
+      "node never self-registered with the gateway",
+    );
+
+    // The self-registered node actually serves real traffic once discovered.
+    await fetch(`${gatewayUrl}/set`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: "discovered-key", value: "hello" }),
+    });
+    const getRes = await fetch(`${gatewayUrl}/get/discovered-key`);
+    assert.equal(getRes.status, 200);
+
+    node.kill("SIGTERM");
+    await waitForExit(node);
+
+    // Windows cannot deliver a real, catchable SIGTERM to a child
+    // process -- ChildProcess.kill()'s own docs say non-SIGKILL signals
+    // are ignored there and the process is just forcefully terminated,
+    // same limitation already documented in .github/workflows/ci.yml
+    // for the Docker graceful-shutdown smoke test (verified there via a
+    // real `docker stop` instead, which *does* deliver a real signal).
+    // Confirmed by direct reproduction: sending SIGTERM to a plain
+    // server.ts process on this machine kills it without its "received
+    // SIGTERM" log line ever printing. shutdown()'s registration logic
+    // itself is unit-tested (tests/gateway.test.ts's DELETE
+    // /cluster/nodes coverage) and the surrounding shutdown() function
+    // is the same one already proven to run correctly under a real
+    // POSIX SIGTERM in CI (persistence's final-save-on-shutdown, same
+    // handler). On a real POSIX target this assertion holds; on Windows
+    // it can't be verified locally, so it's skipped rather than
+    // asserted-and-ignored.
+    if (process.platform === "win32") {
+      return;
+    }
+    await waitUntilGatewayLists(
+      gatewayUrl,
+      nodeUrl,
+      false,
+      "node never deregistered from the gateway on graceful shutdown",
+    );
   });
 
   it("returns 503 from the gateway when no cluster nodes are configured", async () => {
